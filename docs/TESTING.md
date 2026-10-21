@@ -1,39 +1,63 @@
 # Testing
 
-## Tools
+## Three levels
 
-- **Vitest** — unit and integration tests in `tests/unit` and `tests/integration`.
-- **Playwright** — end-to-end browser tests in `tests/e2e`, run against a production build on port 3100, on a desktop and a mobile viewport.
+| Command            | What it tests                                                                                         | Needs                                                     |
+| ------------------ | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `npm test`         | Unit tests: pure rules (permissions, money, validation, redirects)                                    | Nothing                                                   |
+| `npm run test:db`  | Integration tests: services against a real Postgres built from `prisma/migrations`                    | Local Postgres, `TEST_DATABASE_URL`                       |
+| `npm run test:e2e` | Browser tests: production build, real database, sign-in through a **test stand-in** for Supabase Auth | Local Postgres, `E2E_DATABASE_URL`, Playwright's Chromium |
 
-## Commands (PowerShell)
+`npm run check` = typecheck + lint + unit tests. Run it before every commit.
 
-```powershell
-npm run check        # typecheck + lint + unit tests — run before every commit
-npm test             # unit/integration tests once
-npm run test:watch   # rerun tests as files change
-npx playwright install chromium   # one time, downloads the test browser
-npm run test:e2e     # builds the app, starts it, runs browser tests
-npx playwright show-report        # open the last e2e HTML report
-```
+The test databases are **wiped on every run**. A safety check refuses any database whose name doesn't contain `test`, or that matches `DATABASE_URL`/`DIRECT_URL` in `.env.local`.
 
-If you already have Chromium installed and cannot download Playwright's browser, point tests at it:
+## Installing PostgreSQL on Windows (for test:db and test:e2e)
 
 ```powershell
-$env:PW_CHROMIUM_PATH = "C:\path\to\chrome.exe"; npm run test:e2e
+winget install PostgreSQL.PostgreSQL.17
 ```
 
-## Current coverage (Phase 1)
+During setup, choose a password for the `postgres` user (the template assumes `postgres`; change the URLs if you pick another). Then create the two test databases:
 
-| File                              | Checks                                                                                                                                    |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `tests/unit/money.test.ts`        | Float errors avoided, half-up rounding, line amounts, percentages, summing, invalid input, KES formatting                                 |
-| `tests/unit/env.test.ts`          | Safe defaults, empty strings, Meta settings required together, provider allow-list, owner number format, status never leaks secret values |
-| `tests/unit/company.test.ts`      | VeeJam details, validation of edits, Kenyan phone formats                                                                                 |
-| `tests/unit/health-route.test.ts` | Health endpoint response, no caching, no config exposure                                                                                  |
-| `tests/e2e/foundation.spec.ts`    | Status page content, unbuilt modules are not links, health + security headers (desktop and mobile)                                        |
+```powershell
+$env:PGPASSWORD = "postgres"
+& "C:\Program Files\PostgreSQL\17\bin\createdb.exe" -U postgres veejam_test
+& "C:\Program Files\PostgreSQL\17\bin\createdb.exe" -U postgres veejam_e2e_test
+Remove-Item Env:PGPASSWORD
+```
+
+Copy `TEST_DATABASE_URL` and `E2E_DATABASE_URL` from `.env.example` into `.env.local`.
+
+## What the browser tests do and don't prove
+
+The browser tests sign in through `tests/e2e/support/mock-supabase-auth.mjs`, a **test-only** stand-in for Supabase Auth that implements the endpoints this app calls. Passing tests prove the app's own sign-in, session, role and deactivation logic. They do **not** prove the connection to your real Supabase project. Check that by hand after setup:
+
+1. Sign in as the owner. You should see Setup status.
+2. Add a staff user, then sign in as them in a private window.
+3. Deactivate them. Their next click should return them to sign-in with "This account has been deactivated".
+
+## Current coverage (Phase 2)
+
+| File                                  | Checks                                                                                                                                                                                      |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit/money.test.ts`                  | Decimal-safe arithmetic, rounding, KES formatting                                                                                                                                           |
+| `unit/env.test.ts`                    | Configuration validation; status never leaks secret values                                                                                                                                  |
+| `unit/company.test.ts`                | Company profile validation                                                                                                                                                                  |
+| `unit/health-route.test.ts`           | Health endpoint                                                                                                                                                                             |
+| `unit/permissions.test.ts`            | Role → permission matrix; rules for managing users                                                                                                                                          |
+| `unit/session.test.ts`                | Session states (anonymous, no access, deactivated, user); public paths; redirect safety after sign-in                                                                                       |
+| `unit/audit.test.ts`                  | Secrets redacted from audit records; change diffs                                                                                                                                           |
+| `unit/settings-schema.test.ts`        | KRA PIN, currency, payment terms; legacy CSV parsing                                                                                                                                        |
+| `integration/schema.test.ts`          | Migrations match the Prisma schema column by column; enums; RLS on every table; audit log append-only; single settings row                                                                  |
+| `integration/settings.test.ts`        | Update + audit of changed fields only; edit conflicts; role restrictions; server validation; seed is re-runnable                                                                            |
+| `integration/users.test.ts`           | Granting access; role changes; admin vs owner limits; never zero owners (including two owners acting at the same moment); deactivation; adding staff with rollback; passwords never audited |
+| `integration/legacy-staging.test.ts`  | Rows stored unchanged with spreadsheet row numbers; re-staging is a no-op; bad files rejected                                                                                               |
+| `e2e/smoke.spec.ts` (desktop + phone) | Health and security headers; sign-in redirect and return; company details from the database; HTTP-only session cookie                                                                       |
+| `e2e/auth.spec.ts`                    | Wrong password; account without access; open-redirect blocked; sales role limits                                                                                                            |
+| `e2e/settings.spec.ts`                | Save and reload; server-side field errors; two people editing at once                                                                                                                       |
+| `e2e/users.spec.ts`                   | Add user → sign in → change password → role change → deactivate (signed out on next click) → reactivate                                                                                     |
 
 ## Required tests by later phases
 
-Invoice, discount and tax calculations · unit/pack/carton conversions · stock availability · concurrent sales (no overselling) · duplicate webhook delivery · unauthorised WhatsApp sender · invalid webhook signature · expired confirmation · duplicate invoice posting · partial payments · payment allocation · balanced journal entries · audit record creation · PDF access permissions.
-
-Integration tests that touch the database (Phase 2+) run against a separate test database, never production.
+Invoice, discount and tax calculations · unit/pack/carton conversions · stock availability · concurrent sales (no overselling) · duplicate webhook delivery · unauthorised WhatsApp sender · invalid webhook signature · expired confirmation · duplicate invoice posting · partial payments · payment allocation · balanced journal entries · PDF access permissions.

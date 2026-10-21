@@ -2,7 +2,7 @@
 
 Distribution, invoicing, inventory and accounting system for **VeeJam Limited**, a Wrigley products distributor in Kenya. The business owner can also query and operate the ERP over the official WhatsApp Business Cloud API.
 
-> **Status: Phase 1 of 9 complete — project foundation.** No business module is live yet. See [Build plan](#build-plan).
+> **Status: Phase 2 of 9 complete — database, sign-in and roles.** Staff can sign in; owners manage users and company settings. Business modules arrive from Phase 3. See [Build plan](#build-plan).
 
 ## Tech stack
 
@@ -42,7 +42,7 @@ cd C:\Projects\veejam-erp
 # 2. Install dependencies (exact versions from package-lock.json)
 npm ci
 
-# 3. Create your local environment file
+# 3. Create your local environment file, then fill it in (docs/DEPLOYMENT.md)
 Copy-Item .env.example .env.local
 
 # 4. Install the browser used by end-to-end tests (one time)
@@ -54,16 +54,22 @@ code .
 
 ## Everyday commands
 
-| Command             | What it does                                             |
-| ------------------- | -------------------------------------------------------- |
-| `npm run dev`       | Start the app at http://localhost:3000                   |
-| `npm run check`     | Type check + lint + unit tests (run before every commit) |
-| `npm run typecheck` | TypeScript strict checks only                            |
-| `npm run lint`      | ESLint                                                   |
-| `npm test`          | Unit and integration tests (Vitest)                      |
-| `npm run test:e2e`  | End-to-end browser tests (Playwright; builds the app)    |
-| `npm run format`    | Format all files with Prettier                           |
-| `npm run build`     | Production build                                         |
+| Command                                                   | What it does                                                           |
+| --------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `npm run dev`                                             | Start the app at http://localhost:3000                                 |
+| `npm run check`                                           | Type check + lint + unit tests (run before every commit)               |
+| `npm run typecheck`                                       | TypeScript strict checks only                                          |
+| `npm run lint`                                            | ESLint                                                                 |
+| `npm test`                                                | Unit and integration tests (Vitest)                                    |
+| `npm run test:e2e`                                        | End-to-end browser tests (Playwright; builds the app)                  |
+| `npm run format`                                          | Format all files with Prettier                                         |
+| `npm run build`                                           | Production build                                                       |
+| `npm run test:db`                                         | Database integration tests (needs local Postgres, see docs/TESTING.md) |
+| `npm run db:migrate`                                      | Apply new database migrations                                          |
+| `npm run db:status` / `db:drift`                          | Check migrations are applied and match the schema                      |
+| `npm run db:seed`                                         | Create company settings and numbering if missing (safe to repeat)      |
+| `npm run user:grant -- --email … --name "…" --role OWNER` | Give a Supabase account ERP access (first owner)                       |
+| `npm run legacy:stage`                                    | Store the old system's CSV exports for the Phase 3 import              |
 
 Health check while the app runs: http://localhost:3000/api/health
 
@@ -103,7 +109,7 @@ docs/                  Architecture, schema, workflows, security, deployment, te
 | Phase | Scope                                                   | Status |
 | ----- | ------------------------------------------------------- | ------ |
 | 1     | Foundation, tooling, docs, env template                 | Done   |
-| 2     | Supabase, Prisma schema, migrations, auth, roles, seed  | Next   |
+| 2     | Supabase, Prisma schema, migrations, auth, roles, seed  | Done   |
 | 3     | Customers, products/SKUs, imports, pricing, inventory   |        |
 | 4     | Quotations, sales orders, invoices, PDFs, stock posting |        |
 | 5     | Payments, receipts, double-entry accounting             |        |

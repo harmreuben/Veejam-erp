@@ -1,16 +1,17 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
+import Link from "next/link";
 import { CheckCircle2, CircleDashed } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DEFAULT_COMPANY_PROFILE } from "@/config/company";
 import { getConfigChecks, getServerEnv } from "@/config/env";
 import { BUILD_PHASES, CURRENT_PHASE } from "@/config/modules";
+import { requireUser, toActor } from "@/server/auth/session";
+import { getDb } from "@/server/db/client";
+import { getCompanySettings, type CompanySettingsView } from "@/server/modules/settings/service";
 
 export const metadata = { title: "Setup status" };
 
-const PROFILE_ROWS: { label: string; key: keyof typeof DEFAULT_COMPANY_PROFILE }[] = [
+const PROFILE_ROWS: { label: string; key: keyof CompanySettingsView }[] = [
   { label: "Company", key: "name" },
   { label: "Telephone", key: "telephone" },
   { label: "Email on documents", key: "documentEmail" },
@@ -21,8 +22,7 @@ const PROFILE_ROWS: { label: string; key: keyof typeof DEFAULT_COMPANY_PROFILE }
   { label: "Products", key: "productScope" },
 ];
 
-async function Integrations() {
-  await connection(); // read configuration at request time, not build time
+function Integrations() {
   const env = getServerEnv();
   const checks = getConfigChecks(env);
 
@@ -55,14 +55,16 @@ async function Integrations() {
   );
 }
 
-export default function SetupStatusPage() {
+export default async function SetupStatusPage() {
+  const user = await requireUser();
+  const company = await getCompanySettings(getDb(), toActor(user));
+
   return (
     <div className="mx-auto grid max-w-5xl gap-8 px-4 py-8 md:px-10 md:py-12">
       <header className="grid gap-2">
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Setup status</h1>
         <p className="text-muted-foreground max-w-[65ch]">
-          The foundation is in place. Business modules appear in the menu as each phase is built and tested;
-          nothing here is simulated.
+          Business modules appear in the menu as each phase is built and tested. Nothing here is simulated.
         </p>
       </header>
 
@@ -101,7 +103,10 @@ export default function SetupStatusPage() {
           <CardHeader>
             <CardTitle>Company profile</CardTitle>
             <CardDescription>
-              Starting values. From phase 2 they are stored in the database and edited on the Settings page.
+              Stored in the database.{" "}
+              <Link href="/settings/company" className="text-primary underline-offset-4 hover:underline">
+                Open company settings
+              </Link>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -109,7 +114,7 @@ export default function SetupStatusPage() {
               {PROFILE_ROWS.map(({ label, key }) => (
                 <div key={key} className="contents">
                   <dt className="text-muted-foreground">{label}</dt>
-                  <dd className="break-words">{DEFAULT_COMPANY_PROFILE[key]}</dd>
+                  <dd className="break-words">{String(company[key] ?? "—")}</dd>
                 </div>
               ))}
             </dl>
@@ -125,9 +130,7 @@ export default function SetupStatusPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Suspense fallback={<p className="text-muted-foreground text-sm">Checking configuration…</p>}>
-              <Integrations />
-            </Suspense>
+            <Integrations />
           </CardContent>
         </Card>
       </div>

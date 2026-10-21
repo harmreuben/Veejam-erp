@@ -1,3 +1,5 @@
+import type { Permission } from "@/server/auth/permissions";
+
 /**
  * The ERP modules and the phase in which each one is built.
  * Drives the sidebar. A module is only linked once its phase is complete;
@@ -13,6 +15,8 @@ export type ErpModule = {
   phase: number;
   /** Set to the route once the module is actually built. */
   href?: string;
+  /** Permission needed to see the link. */
+  permission?: Permission;
 };
 
 export const ERP_MODULES: readonly ErpModule[] = [
@@ -32,8 +36,22 @@ export const ERP_MODULES: readonly ErpModule[] = [
   { slug: "reports", name: "Reports", group: "Operate", phase: 8 },
   { slug: "whatsapp", name: "WhatsApp commands", group: "Operate", phase: 6 },
   { slug: "audit", name: "Audit log", group: "Admin", phase: 8 },
-  { slug: "settings", name: "Company settings", group: "Admin", phase: 2 },
-  { slug: "users", name: "Users & permissions", group: "Admin", phase: 2 },
+  {
+    slug: "settings",
+    name: "Company settings",
+    group: "Admin",
+    phase: 2,
+    href: "/settings/company",
+    permission: "settings.view",
+  },
+  {
+    slug: "users",
+    name: "Users & roles",
+    group: "Admin",
+    phase: 2,
+    href: "/settings/users",
+    permission: "users.view",
+  },
   { slug: "backups", name: "Backup & recovery", group: "Admin", phase: 8 },
 ];
 
@@ -51,4 +69,4 @@ export const BUILD_PHASES: readonly { phase: number; title: string }[] = [
   { phase: 9, title: "Production deployment and full workflow test" },
 ];
 
-export const CURRENT_PHASE = 1;
+export const CURRENT_PHASE = 2;

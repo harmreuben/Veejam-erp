@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Toaster } from "sonner";
 import "@fontsource-variable/public-sans";
 import "./globals.css";
 
-import { AppSidebar } from "@/components/layout/app-sidebar";
 import { DEFAULT_COMPANY_PROFILE } from "@/config/company";
 
 export const metadata: Metadata = {
@@ -18,9 +18,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en-KE" className="h-full">
-      <body className="flex min-h-full flex-col md:flex-row">
-        <AppSidebar companyName={DEFAULT_COMPANY_PROFILE.name} />
-        <main className="min-w-0 flex-1">{children}</main>
+      <body className="min-h-full">
+        {children}
+        <Toaster position="top-right" richColors closeButton />
       </body>
     </html>
   );

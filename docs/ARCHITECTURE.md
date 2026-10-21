@@ -72,9 +72,17 @@ Both the web dashboard and the WhatsApp command handler call the **same services
 
 **Concurrency.** Stock reservation and invoice posting lock the affected stock rows (`SELECT … FOR UPDATE` via Prisma interactive transactions) so two simultaneous sales cannot oversell.
 
-**Configuration.** Environment variables are validated at startup by `src/config/env.ts`. Company details start in `src/config/company.ts` and move to the `CompanySettings` table in Phase 2, editable from the Settings page.
+**Configuration.** Environment variables are validated by `src/config/env.ts`. Company details live in the `company_settings` table (seeded from `src/config/company.ts`) and are edited on Settings → Company settings.
 
-**Rendering.** Next.js 16 with Cache Components enabled. Pages that show live business data read it at request time; nothing financial is served from a build-time cache.
+**Rendering.** Cache Components are **turned off** (`next.config.ts`). Every page is per-user and shows live financial data, so every page renders on each request. Nothing financial is ever served from a build-time or shared cache. Revisit only for public, non-financial pages.
+
+**Authentication.** Supabase Auth holds the passwords; the app never stores them. On every request:
+
+1. `src/proxy.ts` refreshes the session cookie and sends signed-out visitors to `/login`. This is a first filter only.
+2. `requireUser()` (`src/server/auth/session.ts`) verifies the token with `getClaims()`, then looks up the `users` row. A Supabase account alone isn't enough: it must be linked to an **active** ERP user with a role. Deactivation therefore takes effect on the next click.
+3. Every service function receives the actor and calls `authorize(actor, permission)` before doing anything (`src/server/auth/permissions.ts`).
+
+Session cookies are HTTP-only, `SameSite=Lax`, `Secure` in production, and last 12 hours.
 
 **No Docker, no extra services.** Supabase provides Postgres and Auth; Vercel hosts the app and webhook endpoint.
 

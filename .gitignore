@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next-e2e/
 /out/
 
 # production
@@ -53,3 +54,6 @@ next-env.d.ts
 
 # legacy exports from the old system (customer data)
 /legacy-data/
+
+# generated Prisma client (rebuilt by npm install / npm run db:generate)
+/src/generated/

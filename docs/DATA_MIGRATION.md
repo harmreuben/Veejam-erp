@@ -9,11 +9,11 @@ The import is built in Phases 2–3, when the database and the import tools exis
 | File               | Rows | Covers                                                                                |
 | ------------------ | ---- | ------------------------------------------------------------------------------------- |
 | invoices           | 86   | 7 Jul – 5 Oct 2026 · totals KES 981,468.40 · paid 808,945.00 · outstanding 172,523.40 |
-| invoice-line-items | 274  | Lines for all 86 invoices                                                             |
+| invoice-line-items | 275  | Lines for all 86 invoices                                                             |
 | payments           | 99   | KES 994,682.50 · Cash 94, M-Pesa 4, Bank transfer 1                                   |
 | customers          | 44   | Names, phones, types, a few credit limits                                             |
 | products-inventory | 12   | WRG-001 … WRG-012, prices, stock, reorder levels                                      |
-| stock-movements    | 287  | 1 Jun – 5 Oct 2026, sales and reversals only                                          |
+| stock-movements    | 288  | 1 Jun – 5 Oct 2026, sales and reversals only                                          |
 | commission-records | 47   | KES 21,605 pending commission                                                         |
 | etims-queue        | 27   | Invoices waiting for KRA eTIMS submission                                             |
 | audit-log          | 15   | Invoice edits and deletions                                                           |

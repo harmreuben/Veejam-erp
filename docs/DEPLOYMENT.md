@@ -1,30 +1,82 @@
-# Deployment
+# Setup and deployment
 
-> Phase 1: plan. Production deployment happens in Phase 9; a staging deployment is used from Phase 7 for the WhatsApp webhook.
+## 1. Supabase project (Phase 2, one time)
 
-## Targets
+1. Sign in at **supabase.com** → **New project**.
+   - Name: `veejam-erp`
+   - Database password: generate a strong one and store it in a password manager. You need it for the connection strings.
+   - Region: the closest available to Kenya (for example _Frankfurt_ or another European region; check the list for anything closer).
+2. **Turn off public sign-up.** Staff accounts are created only by the owner.
+   Authentication → **Sign In / Providers** → turn off **Allow new users to sign up**. Keep **Email** enabled.
+3. **Get the database connection strings.** Click **Connect** in the top bar:
+   - **Transaction pooler** (port **6543**) → `DATABASE_URL`
+   - **Session pooler** (port **5432**) → `DIRECT_URL`
 
-- **Vercel** — hosts the Next.js app and the public HTTPS webhook URL.
-- **Supabase** — Postgres database and authentication. Choose a region close to Kenya for lower latency.
+   Replace `[YOUR-PASSWORD]` in both. Use the session pooler rather than "Direct connection", because the direct connection needs IPv6, which many Kenyan networks don't have.
 
-## Steps (to be confirmed in Phase 9)
+4. **Get the API keys.** Project Settings → **API Keys**:
+   - Project URL → `NEXT_PUBLIC_SUPABASE_URL` (looks like `https://abcdefgh.supabase.co`)
+   - **Publishable** key (`sb_publishable_…`) → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - **Secret** key (`sb_secret_…`) → `SUPABASE_SERVICE_ROLE_KEY`
+
+   Older projects show `anon` and `service_role` keys instead; they work the same way.
+
+5. Put all five values in `.env.local`. Never paste them into chat, code or Git.
+
+## 2. Create the tables and first owner (PowerShell)
+
+```powershell
+cd C:\Projects\veejam-erp
+
+npm run db:migrate     # create the tables in Supabase
+npm run db:drift       # confirm the database matches the schema (no output, exit code 0)
+npm run db:seed        # company settings and document numbering
+```
+
+Create the owner's sign-in account in Supabase:
+**Authentication → Users → Add user → Create new user**, enter the email and a password, and tick **Auto Confirm User**.
+
+Then give that account the Owner role:
+
+```powershell
+npm run user:grant -- --email owner@example.com --name "Owner Name" --role OWNER
+```
+
+Start the app and sign in:
+
+```powershell
+npm run dev            # http://localhost:3000
+```
+
+From now on, add staff in the app under **Admin → Users & roles**. That page also needs `SUPABASE_SERVICE_ROLE_KEY`.
+
+## 3. Stage the old system's data (optional now, required before Phase 3)
+
+Put the nine CSV exports in `legacy-data\`, then:
+
+```powershell
+npm run legacy:stage
+```
+
+This stores the files unchanged in the database. Running it again skips files already staged.
+
+## 4. Production on Vercel (Phase 9)
 
 1. Push the repository to GitHub (private).
-2. Vercel > Add New Project > import the repository. Framework: Next.js (auto-detected).
-3. Add environment variables from `.env.example` in Vercel > Settings > Environment Variables, separately for Preview and Production.
-4. Run database migrations against production from your PC:
+2. Vercel → **Add New Project** → import it. Framework: Next.js.
+3. Add every variable from `.env.local` under Settings → Environment Variables, except `TEST_DATABASE_URL` and `E2E_DATABASE_URL`. Set `APP_BASE_URL` to the Vercel URL.
+4. In Supabase, Authentication → **URL Configuration** → set **Site URL** to the Vercel URL.
+5. Apply migrations from your PC before each deploy that includes new ones:
 
    ```powershell
-   $env:DIRECT_URL = "<production direct connection string>"
-   npx prisma migrate deploy
-   Remove-Item Env:DIRECT_URL
+   npm run db:migrate
    ```
 
-5. Deploy, then confirm `https://<your-app>/api/health` returns `{"status":"ok"}`.
-6. Register the webhook URL in Meta (see `WHATSAPP_SETUP.md`).
+6. Deploy, then confirm `https://<your-app>/api/health` returns `{"status":"ok"}`.
 
 ## Operational checks after each deploy
 
-- Health endpoint OK.
-- Sign in works; signed-out access to pages is redirected.
-- Mock provider is **not** active in production (`WHATSAPP_PROVIDER=meta`).
+- `/api/health` is OK.
+- Signing in works, and signed-out visits redirect to `/login`.
+- `npm run db:status` reports the database is up to date.
+- The mock WhatsApp provider is **not** active in production (`WHATSAPP_PROVIDER=meta`, from Phase 7).

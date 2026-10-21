@@ -9,8 +9,11 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Off on purpose: every ERP page is per-user and shows live financial data,
+  // so pages render on each request. See docs/ARCHITECTURE.md ("Rendering").
+  cacheComponents: false,
+  // Browser tests build into a separate folder so their test settings never mix with a real build.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   poweredByHeader: false,
   turbopack: {
     rules: {
