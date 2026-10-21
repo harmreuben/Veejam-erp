@@ -96,6 +96,7 @@ docs/                  Architecture, schema, workflows, security, deployment, te
 - [Security](docs/SECURITY.md)
 - [Deployment](docs/DEPLOYMENT.md)
 - [Testing](docs/TESTING.md)
+- [Legacy data migration](docs/DATA_MIGRATION.md)
 
 ## Build plan
 

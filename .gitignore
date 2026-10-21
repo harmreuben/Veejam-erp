@@ -50,3 +50,6 @@ next-env.d.ts
 # local database dumps (never commit customer data)
 /backups/
 *.dump
+
+# legacy exports from the old system (customer data)
+/legacy-data/
