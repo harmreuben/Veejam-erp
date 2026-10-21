@@ -15,6 +15,11 @@ const nextConfig: NextConfig = {
   // Browser tests build into a separate folder so their test settings never mix with a real build.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   poweredByHeader: false,
+  // The database certificate is read from disk at runtime, so tell the build to
+  // ship it with every server route (otherwise Vercel would leave it out).
+  outputFileTracingIncludes: {
+    "/**": ["./certs/*.crt"],
+  },
   turbopack: {
     rules: {
       "*.css": {

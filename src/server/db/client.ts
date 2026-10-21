@@ -3,9 +3,14 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "@/generated/prisma/client";
 
+import { planPgConnection } from "./connection";
+
+let warnedUnverified = false;
+
 /**
  * Creates a Prisma client for a connection string.
- * Scripts and tests call this directly; the app uses the shared `db` below.
+ * Scripts and tests call this directly; the app uses the shared client from getDb().
+ * Remote databases are always reached over TLS (see connection.ts).
  */
 export function createPrismaClient(connectionString: string): PrismaClient {
   if (!connectionString) {
@@ -13,7 +18,15 @@ export function createPrismaClient(connectionString: string): PrismaClient {
       "DATABASE_URL is not set. Add your Supabase connection string to .env.local (see docs/DEPLOYMENT.md).",
     );
   }
-  const adapter = new PrismaPg({ connectionString });
+  const { config, tls } = planPgConnection(connectionString, { caPath: process.env.DATABASE_SSL_CA_PATH });
+  if (tls === "encrypted-unverified" && !warnedUnverified) {
+    warnedUnverified = true;
+    console.warn(
+      "[db] Connection is encrypted but the server certificate is NOT verified. " +
+        "Download Supabase's CA certificate to certs/supabase-ca.crt (see docs/DEPLOYMENT.md).",
+    );
+  }
+  const adapter = new PrismaPg(config);
   return new PrismaClient({ adapter });
 }
 

@@ -23,6 +23,7 @@
 | Append-only audit log enforced by a database trigger; passwords, tokens and keys redacted before writing (tested)                                 | migration + `src/server/audit/audit.ts` |
 | Row-level security on every table blocks Supabase's Data API (tested)                                                                             | `prisma/migrations/…_init`              |
 | Edit conflicts detected: two people saving settings at once can't silently overwrite each other (tested)                                          | `company_settings.version`              |
+| Database connection always encrypted (TLS); server certificate verified against Supabase's CA when `certs/supabase-ca.crt` is present (tested)    | `src/server/db/connection.ts`           |
 | Server actions reject cross-site requests (Next.js checks the Origin header); inputs validated with Zod on the server                             | Next.js + service schemas               |
 
 ## Planned

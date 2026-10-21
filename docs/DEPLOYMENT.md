@@ -22,6 +22,10 @@
    Older projects show `anon` and `service_role` keys instead; they work the same way.
 
 5. Put all five values in `.env.local`. Never paste them into chat, code or Git.
+   Add `?sslmode=require&connect_timeout=30` to the end of `DIRECT_URL`.
+6. **Download the database certificate.** Project Settings → **Database** → **SSL Configuration** → **Download certificate**.
+   Save it as `certs\supabase-ca.crt` in the project. The app then verifies it is talking to the real database.
+   This file is public, not a secret.
 
 ## 2. Create the tables and first owner (PowerShell)
 
@@ -60,7 +64,12 @@ npm run legacy:stage
 
 This stores the files unchanged in the database. Running it again skips files already staged.
 
-## 4. Production on Vercel (Phase 9)
+## 4. Online on Vercel
+
+A preview deployment can go up any time to show progress; the production launch is Phase 9.
+The app runs in Vercel's Dublin region (`vercel.json`), next to the Supabase database in
+`eu-west-1` (Ireland), so every page avoids a round trip across the Atlantic.
+Commit `certs/supabase-ca.crt` so the deployed app can verify the database too.
 
 1. Push the repository to GitHub (private).
 2. Vercel → **Add New Project** → import it. Framework: Next.js.
