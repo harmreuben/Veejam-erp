@@ -2,29 +2,34 @@
 
 ## In place (Phases 1–2)
 
-| Control                                                                                                                                           | Where                                   |
-| ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Environment validated at startup; invalid config fails fast with a clear message                                                                  | `src/config/env.ts`                     |
-| Secrets can't reach browser code (`server-only` guard; only `NEXT_PUBLIC_` Supabase URL/anon key are public)                                      | `src/config/env.ts`                     |
-| Configuration status shown as booleans, never values (tested)                                                                                     | `getConfigChecks()`                     |
-| `.env*` ignored by Git except the empty `.env.example`                                                                                            | `.gitignore`                            |
-| Security headers: `nosniff`, `X-Frame-Options: DENY`, strict referrer, restricted permissions; `X-Powered-By` removed (tested)                    | `next.config.ts`                        |
-| Health endpoint exposes no configuration (tested)                                                                                                 | `src/app/api/health/route.ts`           |
-| App pages marked `noindex`                                                                                                                        | `src/app/layout.tsx`                    |
-| Decimal-safe money arithmetic                                                                                                                     | `src/lib/money.ts`                      |
-| Sign-in through Supabase Auth; passwords never stored by the app; public sign-up turned off in Supabase                                           | `src/app/(auth)/login`                  |
-| Every request: verified token **and** an active ERP user with a role; deactivation effective on the next click, plus a Supabase ban (tested)      | `src/server/auth/session.ts`            |
-| Role permissions checked on the server in every service function; pages show "no access" instead of hidden data (tested)                          | `src/server/auth/permissions.ts`        |
-| Session cookies HTTP-only, SameSite=Lax, Secure in production, 12-hour lifetime (tested)                                                          | `src/server/auth/cookie-options.ts`     |
-| Same generic message for wrong email or wrong password; failed sign-ins audited                                                                   | `src/app/(auth)/login/actions.ts`       |
-| Redirect after sign-in limited to this site's own pages (tested)                                                                                  | `safeNextPath()`                        |
-| Owners can't be changed by admins; nobody changes their own role; never zero active owners, with a row lock against simultaneous changes (tested) | `src/server/modules/users/service.ts`   |
-| Password change requires the current password                                                                                                     | `src/app/(app)/account`                 |
-| Append-only audit log enforced by a database trigger; passwords, tokens and keys redacted before writing (tested)                                 | migration + `src/server/audit/audit.ts` |
-| Row-level security on every table blocks Supabase's Data API (tested)                                                                             | `prisma/migrations/…_init`              |
-| Edit conflicts detected: two people saving settings at once can't silently overwrite each other (tested)                                          | `company_settings.version`              |
-| Database connection always encrypted (TLS); server certificate verified against Supabase's CA when `certs/supabase-ca.crt` is present (tested)    | `src/server/db/connection.ts`           |
-| Server actions reject cross-site requests (Next.js checks the Origin header); inputs validated with Zod on the server                             | Next.js + service schemas               |
+| Control                                                                                                                                                                | Where                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Environment validated at startup; invalid config fails fast with a clear message                                                                                       | `src/config/env.ts`                         |
+| Secrets can't reach browser code (`server-only` guard; only `NEXT_PUBLIC_` Supabase URL/anon key are public)                                                           | `src/config/env.ts`                         |
+| Configuration status shown as booleans, never values (tested)                                                                                                          | `getConfigChecks()`                         |
+| `.env*` ignored by Git except the empty `.env.example`                                                                                                                 | `.gitignore`                                |
+| Security headers: `nosniff`, `X-Frame-Options: DENY`, strict referrer, restricted permissions; `X-Powered-By` removed (tested)                                         | `next.config.ts`                            |
+| Health endpoint exposes no configuration (tested)                                                                                                                      | `src/app/api/health/route.ts`               |
+| App pages marked `noindex`                                                                                                                                             | `src/app/layout.tsx`                        |
+| Decimal-safe money arithmetic                                                                                                                                          | `src/lib/money.ts`                          |
+| Sign-in through Supabase Auth; passwords never stored by the app; public sign-up turned off in Supabase                                                                | `src/app/(auth)/login`                      |
+| Every request: verified token **and** an active ERP user with a role; deactivation effective on the next click, plus a Supabase ban (tested)                           | `src/server/auth/session.ts`                |
+| Role permissions checked on the server in every service function; pages show "no access" instead of hidden data (tested)                                               | `src/server/auth/permissions.ts`            |
+| Session cookies HTTP-only, SameSite=Lax, Secure in production, 12-hour lifetime (tested)                                                                               | `src/server/auth/cookie-options.ts`         |
+| Same generic message for wrong email or wrong password; failed sign-ins audited                                                                                        | `src/app/(auth)/login/actions.ts`           |
+| Redirect after sign-in limited to this site's own pages (tested)                                                                                                       | `safeNextPath()`                            |
+| Owners can't be changed by admins; nobody changes their own role; never zero active owners, with a row lock against simultaneous changes (tested)                      | `src/server/modules/users/service.ts`       |
+| Password change requires the current password                                                                                                                          | `src/app/(app)/account`                     |
+| Append-only audit log enforced by a database trigger; passwords, tokens and keys redacted before writing (tested)                                                      | migration + `src/server/audit/audit.ts`     |
+| Row-level security on every table blocks Supabase's Data API (tested)                                                                                                  | `prisma/migrations/…_init`                  |
+| Edit conflicts detected: two people saving settings at once can't silently overwrite each other (tested)                                                               | `company_settings.version`                  |
+| Database connection always encrypted (TLS); server certificate verified against Supabase's CA when `certs/supabase-ca.crt` is present (tested)                         | `src/server/db/connection.ts`               |
+| Phase 3 roles: only owners/admins change prices, post adjustments and post counts; sales can't see cost prices or set credit; storekeepers count and transfer (tested) | `src/server/auth/permissions.ts`            |
+| Stock can't go negative (database check + row locks); simultaneous postings can't oversell (tested with 8 parallel attempts)                                           | `inventory/stock.ts` + migration            |
+| Stock ledger is append-only (database trigger, tested)                                                                                                                 | `…_catalogue_customers_inventory` migration |
+| Double-submitted stock forms post once (idempotency keys, tested)                                                                                                      | `inventory/documents.ts`                    |
+| CSV imports: size/row limits, header check, every row validated with the form rules, re-validated at commit, all-or-nothing (tested)                                   | `imports/service.ts`                        |
+| Server actions reject cross-site requests (Next.js checks the Origin header); inputs validated with Zod on the server                                                  | Next.js + service schemas                   |
 
 ## Planned
 

@@ -16,6 +16,26 @@ Authorised users choose, per transaction type, which steps are mandatory. Typica
 | Credit sale to retailer | Sales order → Reservation → Invoice → Delivery → Payment later       |
 | Large wholesale order   | Quotation → Sales order → Reservation → Invoice → Delivery → Payment |
 
+## Getting started with stock (Phase 3)
+
+1. **Products.** Add each SKU under Products (or import them under Admin → Imports). Check the pieces-per-pack and packs-per-carton against a real carton. Every other quantity depends on them.
+2. **Prices.** Enter prices per piece, pack and/or carton on the default price list (Price lists → Standard prices). Create more lists (e.g. Wholesale) and assign them to customers if some customers pay different prices.
+3. **Opening stock on cut-over day.** Inventory → Stock counts → Start count for each warehouse. Count the shelves in cartons, packs and loose pieces, save, then an owner or administrator posts the count. Every counted product is set to exactly what was counted. Don't type in the old system's stock figures; they were wrong (see DATA_MIGRATION.md).
+4. **After that,** stock changes only through:
+   - **Adjustments** (owner/admin): damaged, expired, lost/stolen, samples, found, corrections. Each reason only allows the sensible direction; corrections must be explained.
+   - **Transfers**: between warehouses, e.g. loading a delivery van.
+   - **Counts**: periodic re-counts; differences are recorded as count gains/losses.
+   - **Invoices and returns** (from Phases 4–5).
+
+Nothing posted can be edited or deleted. A mistake is corrected by another adjustment, so the history always shows what happened and who did it.
+
+## Customers (Phase 3)
+
+- Every customer gets an account number (CUS-000001…).
+- Phone numbers are stored in one form (`2547…`), so the same customer can be matched from M-Pesa and WhatsApp later. Placeholders like "0700" are refused: leave the phone blank if it isn't known.
+- Adding a customer whose name matches an existing one (ignoring case, spaces and punctuation) asks you to confirm it's a different business. This stops the duplicates the old system had.
+- Sales staff can add and edit customers, but only an owner, administrator or accountant can give credit or payment terms.
+
 ## Units, packs and cartons
 
 Each SKU defines `unitsPerPack` and `packsPerCarton`. Stock is held in pieces. Example (illustrative numbers only, not real product data): if a pack holds 10 pieces and a carton holds 20 packs, selling 2 cartons deducts 2 × 20 × 10 = 400 pieces. Conversion happens once, on the server; fractional pieces are rejected.

@@ -26,13 +26,31 @@ Source of truth: `prisma/schema.prisma`. Changes are made only through migration
 
 Rules Prisma can't express (check constraints, the audit trigger, RLS) are hand-written at the end of `prisma/migrations/20261021090000_init/migration.sql`.
 
+## Phase 3 tables
+
+| Table                             | Purpose                                                                                            | Key rules                                                                                                                   |
+| --------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `products`                        | One sellable item (SKU) with brand, category, pack sizes, cost, tax category, reorder level        | SKU unique and upper-case; barcode unique; `units_per_pack` and `packs_per_carton` ≥ 1; cost ≥ 0                            |
+| `price_lists`, `price_list_items` | Prices per product **per unit** (piece, pack, carton) per list                                     | One price per list/product/unit; price > 0. The default list is set in `company_settings.default_price_list_id`             |
+| `customers`                       | Account (CUS-…), type, contact, KRA PIN, credit limit, payment terms, price list, old-system names | KRA PIN unique; phone in `2547…`/`2541…` form only (placeholders like "0700" can't be stored); credit ≥ 0; terms 0–365 days |
+| `suppliers`                       | Supplier master (SUP-…)                                                                            | KRA PIN unique                                                                                                              |
+| `warehouses`                      | Places stock is kept (seeded: MAIN "Main store")                                                   | Code unique; can't be deactivated while holding stock                                                                       |
+| `stock_balances`                  | Pieces on hand per product per warehouse                                                           | **Can never be negative** (check constraint); changed only with a ledger row, under a row lock                              |
+| `stock_movements`                 | **The stock ledger**                                                                               | **Append-only** (trigger rejects UPDATE/DELETE/TRUNCATE); quantity sign must match the type; balance after ≥ 0              |
+| `stock_adjustments` (+ lines)     | Opening balances, damages, expiries, losses, finds, corrections (ADJ-…)                            | Idempotency key unique, so a double-submitted form posts once                                                               |
+| `stock_transfers` (+ lines)       | Moves between warehouses (TRF-…)                                                                   | From ≠ to; idempotency key unique                                                                                           |
+| `stock_counts` (+ lines)          | Physical counts (CNT-…): draft → posted or cancelled                                               | Status/date consistency check; the variance is taken against the balance **at posting time**                                |
+| `import_jobs`, `import_job_rows`  | Uploaded CSVs, every row with its validation result                                                | Rows are written to customers/products only on commit, all or nothing                                                       |
+
+**Not built yet (deliberately):** batch/lot and expiry tracking. Every movement is ready to carry a batch later, but nothing records expiry dates today. Add it in a later phase if VeeJam needs expiry-date reporting (first-expiry-first-out).
+
 ## Roles
 
 Fixed roles in the `UserRole` enum: `OWNER`, `ADMIN`, `ACCOUNTANT`, `SALES`, `STOREKEEPER`. What each may do is defined in code (`src/server/auth/permissions.ts`) and checked on the server for every action. The system always keeps at least one active owner; this is enforced with a row lock, so two owners acting at the same moment can't both be removed.
 
 ## Planned entities by phase
 
-**Phase 3 — master data and stock:** `Product`, `Sku` (code, barcode, unit, `unitsPerPack`, `packsPerCarton`, cost, prices, tax code, reorder level, status), `PriceList`, `PriceListItem`, `Customer`, `CustomerType`, `Supplier`, `Warehouse`, `StockBalance`, `StockMovement` (ledger), `Batch`, `StockCount`, `StockCountLine`, `ImportJob`, `ImportJobRow`, and the legacy import that turns staged rows into these records.
+**Phase 3 — built** (see above). Still to do with Phase 3 data: the legacy import that turns the staged old-system rows into these records, once the owner has answered the questions in `DATA_MIGRATION.md`.
 
 **Phase 4 — sales:** `Quotation`, `SalesOrder`, `StockReservation`, `Invoice` (including historical invoices imported from the old system, with their original `VJL-` numbers), `DeliveryNote`, `DocumentShareLink`.
 

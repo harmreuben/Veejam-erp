@@ -108,7 +108,12 @@ describe("company settings", () => {
     await updateCompanySettings(db, owner, { ...(await formFor(1)), name: "VeeJam Ltd" });
     await db.documentSequence.update({ where: { documentType: "INVOICE" }, data: { nextNumber: 126 } });
     const report = await applySeed(db);
-    expect(report).toEqual({ companySettings: "kept", sequencesCreated: [] });
+    expect(report).toEqual({
+      companySettings: "kept",
+      sequencesCreated: [],
+      warehouse: "kept",
+      defaultPriceList: "kept",
+    });
     expect((await db.companySettings.findUniqueOrThrow({ where: { id: 1 } })).name).toBe("VeeJam Ltd");
     expect(
       (await db.documentSequence.findUniqueOrThrow({ where: { documentType: "INVOICE" } })).nextNumber,

@@ -20,6 +20,13 @@ export const E2E_USERS = {
     fullName: "Sam Sales",
     role: "SALES",
   },
+  storekeeper: {
+    authUserId: "44444444-4444-4444-8444-444444444444",
+    email: "store@veejam.test",
+    password: "Store-pass-2026",
+    fullName: "Sue Storekeeper",
+    role: "STOREKEEPER",
+  },
   // Has a Supabase sign-in but was never given ERP access.
   stranger: {
     authUserId: "33333333-3333-4333-8333-333333333333",

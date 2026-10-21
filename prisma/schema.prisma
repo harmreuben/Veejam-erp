@@ -34,21 +34,30 @@ enum UserRole {
 /// An ERP user. Sign-in credentials live in Supabase Auth; this row links the
 /// Supabase account to a role and lets the app deactivate access instantly.
 model User {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  authUserId  String    @unique @map("auth_user_id") @db.Uuid
-  email       String    @unique
-  fullName    String    @map("full_name")
-  phone       String?
-  role        UserRole
-  isActive    Boolean   @default(true) @map("is_active")
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authUserId    String    @unique @map("auth_user_id") @db.Uuid
+  email         String    @unique
+  fullName      String    @map("full_name")
+  phone         String?
+  role          UserRole
+  isActive      Boolean   @default(true) @map("is_active")
   deactivatedAt DateTime? @map("deactivated_at") @db.Timestamptz(3)
-  lastSeenAt  DateTime? @map("last_seen_at") @db.Timestamptz(3)
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  lastSeenAt    DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  auditEntries          AuditLog[]
-  settingsUpdates       CompanySettings[]
-  legacyImportBatches   LegacyImportBatch[]
+  auditEntries        AuditLog[]
+  settingsUpdates     CompanySettings[]
+  legacyImportBatches LegacyImportBatch[]
+  priceUpdates        PriceListItem[]
+  customersCreated    Customer[]
+  stockMovements      StockMovement[]
+  stockAdjustments    StockAdjustment[]
+  stockTransfers      StockTransfer[]
+  stockCountsCreated  StockCount[]        @relation("StockCountCreatedBy")
+  stockCountsPosted   StockCount[]        @relation("StockCountPostedBy")
+  importJobsCreated   ImportJob[]         @relation("ImportJobCreatedBy")
+  importJobsCommitted ImportJob[]         @relation("ImportJobCommittedBy")
 
   @@map("users")
 }
@@ -57,26 +66,29 @@ model User {
 
 /// Single row (id = 1, enforced by a CHECK constraint). Edited on the Settings page.
 model CompanySettings {
-  id                  Int      @id @default(1)
-  name                String
-  telephone           String
-  documentEmail       String   @map("document_email")
-  country             String
-  currency            String   @db.Char(3)
-  timezone            String
-  businessType        String   @map("business_type")
-  productScope        String   @map("product_scope")
-  kraPin              String?  @map("kra_pin")
-  physicalAddress     String?  @map("physical_address")
-  postalAddress       String?  @map("postal_address")
-  paymentInstructions String?  @map("payment_instructions")
-  invoiceTerms        String?  @map("invoice_terms")
-  defaultPaymentTermsDays Int  @default(0) @map("default_payment_terms_days")
+  id                      Int        @id @default(1)
+  name                    String
+  telephone               String
+  documentEmail           String     @map("document_email")
+  country                 String
+  currency                String     @db.Char(3)
+  timezone                String
+  businessType            String     @map("business_type")
+  productScope            String     @map("product_scope")
+  kraPin                  String?    @map("kra_pin")
+  physicalAddress         String?    @map("physical_address")
+  postalAddress           String?    @map("postal_address")
+  paymentInstructions     String?    @map("payment_instructions")
+  invoiceTerms            String?    @map("invoice_terms")
+  defaultPaymentTermsDays Int        @default(0) @map("default_payment_terms_days")
   /// Optimistic locking: incremented on every save, so two people editing at once can't overwrite each other.
-  version             Int      @default(1)
-  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedById         String?  @map("updated_by_id") @db.Uuid
-  updatedBy           User?    @relation(fields: [updatedById], references: [id], onDelete: Restrict)
+  version                 Int        @default(1)
+  updatedAt               DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById             String?    @map("updated_by_id") @db.Uuid
+  updatedBy               User?      @relation(fields: [updatedById], references: [id], onDelete: Restrict)
+  /// Price list used for customers that don't have their own.
+  defaultPriceListId      String?    @map("default_price_list_id") @db.Uuid
+  defaultPriceList        PriceList? @relation(fields: [defaultPriceListId], references: [id], onDelete: Restrict)
 
   @@map("company_settings")
 }
@@ -94,6 +106,10 @@ enum DocumentType {
   GOODS_RECEIPT
   STOCK_ADJUSTMENT
   JOURNAL_ENTRY
+  CUSTOMER
+  SUPPLIER
+  STOCK_TRANSFER
+  STOCK_COUNT
 }
 
 /// Next number per document type. Incremented with a row lock inside the
@@ -164,4 +180,407 @@ model LegacyRow {
 
   @@unique([batchId, rowNumber])
   @@map("legacy_rows")
+}
+
+// ─── Shared enums (Phase 3) ───────────────────────────────────────
+
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// The three ways a product can be counted and sold. Stock is always stored in PIECE.
+enum SellUnit {
+  PIECE
+  PACK
+  CARTON
+}
+
+/// The rate for each category is set in Phase 5 (tax settings), not hard-coded.
+enum TaxCategory {
+  STANDARD
+  ZERO_RATED
+  EXEMPT
+}
+
+// ─── Catalogue and pricing ────────────────────────────────────────
+
+/// One sellable product (one SKU). Quantities are stored in pieces;
+/// packs and cartons are conversions defined here.
+model Product {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sku            String       @unique
+  barcode        String?      @unique
+  name           String
+  brand          String
+  category       String
+  unitsPerPack   Int          @map("units_per_pack")
+  packsPerCarton Int          @map("packs_per_carton")
+  /// Cost of one piece, excluding tax. Null until the real cost is known.
+  costPrice      Decimal?     @map("cost_price") @db.Decimal(18, 2)
+  taxCategory    TaxCategory  @default(STANDARD) @map("tax_category")
+  /// Warn when stock across all warehouses falls to or below this many pieces.
+  reorderLevel   Int          @default(0) @map("reorder_level")
+  status         RecordStatus @default(ACTIVE)
+  notes          String?
+  version        Int          @default(1)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  prices          PriceListItem[]
+  balances        StockBalance[]
+  movements       StockMovement[]
+  adjustmentLines StockAdjustmentLine[]
+  transferLines   StockTransferLine[]
+  countLines      StockCountLine[]
+
+  @@index([status, name])
+  @@map("products")
+}
+
+model PriceList {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code             String       @unique
+  name             String
+  /// True when prices already include tax (VeeJam's practice so far).
+  pricesIncludeTax Boolean      @default(true) @map("prices_include_tax")
+  status           RecordStatus @default(ACTIVE)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  items      PriceListItem[]
+  customers  Customer[]
+  defaultFor CompanySettings[]
+
+  @@map("price_lists")
+}
+
+/// The price of one product in one unit (piece, pack or carton) on one price list.
+model PriceListItem {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  priceListId String    @map("price_list_id") @db.Uuid
+  priceList   PriceList @relation(fields: [priceListId], references: [id], onDelete: Restrict)
+  productId   String    @map("product_id") @db.Uuid
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  unit        SellUnit
+  price       Decimal   @db.Decimal(18, 2)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById String?   @map("updated_by_id") @db.Uuid
+  updatedBy   User?     @relation(fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@unique([priceListId, productId, unit])
+  @@index([productId])
+  @@map("price_list_items")
+}
+
+// ─── Customers and suppliers ──────────────────────────────────────
+
+enum CustomerType {
+  RETAIL_SHOP
+  WHOLESALER
+  SUPERMARKET
+  KIOSK
+  DISTRIBUTOR
+  INSTITUTION
+  WALK_IN
+  OTHER
+}
+
+model Customer {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Account number, e.g. CUS-000001. Assigned automatically.
+  code             String       @unique
+  name             String
+  type             CustomerType @default(RETAIL_SHOP)
+  contactPerson    String?      @map("contact_person")
+  /// Kenyan mobile or landline in international form, digits only (2547XXXXXXXX).
+  phone            String?
+  email            String?
+  kraPin           String?      @unique @map("kra_pin")
+  physicalAddress  String?      @map("physical_address")
+  town             String?
+  /// 0 means cash only. Enforced on sales orders and invoices from Phase 4.
+  creditLimit      Decimal      @default(0) @map("credit_limit") @db.Decimal(18, 2)
+  paymentTermsDays Int          @default(0) @map("payment_terms_days")
+  priceListId      String?      @map("price_list_id") @db.Uuid
+  priceList        PriceList?   @relation(fields: [priceListId], references: [id], onDelete: Restrict)
+  status           RecordStatus @default(ACTIVE)
+  notes            String?
+  /// Names this customer had in the previous system, for matching old records.
+  legacyNames      String[]     @map("legacy_names")
+  version          Int          @default(1)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById      String?      @map("created_by_id") @db.Uuid
+  createdBy        User?        @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([status, name])
+  @@index([phone])
+  @@map("customers")
+}
+
+model Supplier {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code             String       @unique
+  name             String
+  contactPerson    String?      @map("contact_person")
+  phone            String?
+  email            String?
+  kraPin           String?      @unique @map("kra_pin")
+  physicalAddress  String?      @map("physical_address")
+  paymentTermsDays Int          @default(0) @map("payment_terms_days")
+  status           RecordStatus @default(ACTIVE)
+  notes            String?
+  version          Int          @default(1)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status, name])
+  @@map("suppliers")
+}
+
+// ─── Inventory ────────────────────────────────────────────────────
+
+model Warehouse {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String       @unique
+  name      String
+  location  String?
+  status    RecordStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  balances     StockBalance[]
+  movements    StockMovement[]
+  adjustments  StockAdjustment[]
+  transfersOut StockTransfer[]   @relation("TransferFrom")
+  transfersIn  StockTransfer[]   @relation("TransferTo")
+  counts       StockCount[]
+
+  @@map("warehouses")
+}
+
+/// Current pieces on hand per product per warehouse. Changed only together with
+/// a StockMovement row, under a row lock. Can never go below zero.
+model StockBalance {
+  productId   String    @map("product_id") @db.Uuid
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouseId String    @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  quantity    Int       @default(0)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@id([productId, warehouseId])
+  @@index([warehouseId])
+  @@map("stock_balances")
+}
+
+enum StockMovementType {
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  TRANSFER_OUT
+  TRANSFER_IN
+  COUNT_GAIN
+  COUNT_LOSS
+}
+
+/// The stock ledger. Append-only: a trigger rejects UPDATE and DELETE.
+model StockMovement {
+  id           BigInt            @id @default(autoincrement())
+  occurredAt   DateTime          @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  productId    String            @map("product_id") @db.Uuid
+  product      Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouseId  String            @map("warehouse_id") @db.Uuid
+  warehouse    Warehouse         @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  type         StockMovementType
+  /// Pieces; positive adds stock, negative removes it.
+  quantity     Int
+  balanceAfter Int               @map("balance_after")
+  sourceType   String            @map("source_type")
+  sourceId     String            @map("source_id") @db.Uuid
+  sourceNumber String            @map("source_number")
+  reason       String?
+  createdById  String?           @map("created_by_id") @db.Uuid
+  createdBy    User?             @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([productId, occurredAt])
+  @@index([warehouseId, occurredAt])
+  @@index([sourceType, sourceId])
+  @@map("stock_movements")
+}
+
+enum AdjustmentReason {
+  OPENING_BALANCE
+  DAMAGED
+  EXPIRED
+  LOST_OR_STOLEN
+  FOUND
+  SAMPLE_OR_PROMOTION
+  CORRECTION
+  OTHER
+}
+
+model StockAdjustment {
+  id             String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number         String                @unique
+  warehouseId    String                @map("warehouse_id") @db.Uuid
+  warehouse      Warehouse             @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  reason         AdjustmentReason
+  notes          String?
+  /// Makes double-clicks and retries harmless: the same key never posts twice.
+  idempotencyKey String                @unique @map("idempotency_key")
+  postedAt       DateTime              @default(now()) @map("posted_at") @db.Timestamptz(3)
+  postedById     String                @map("posted_by_id") @db.Uuid
+  postedBy       User                  @relation(fields: [postedById], references: [id], onDelete: Restrict)
+  lines          StockAdjustmentLine[]
+
+  @@index([postedAt])
+  @@map("stock_adjustments")
+}
+
+model StockAdjustmentLine {
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adjustmentId String          @map("adjustment_id") @db.Uuid
+  adjustment   StockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: Restrict)
+  productId    String          @map("product_id") @db.Uuid
+  product      Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  /// As entered: e.g. 2 CARTON.
+  unit         SellUnit
+  unitQuantity Int             @map("unit_quantity")
+  /// Converted to pieces; positive adds, negative removes.
+  quantity     Int
+
+  @@index([adjustmentId])
+  @@map("stock_adjustment_lines")
+}
+
+model StockTransfer {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number          String              @unique
+  fromWarehouseId String              @map("from_warehouse_id") @db.Uuid
+  fromWarehouse   Warehouse           @relation("TransferFrom", fields: [fromWarehouseId], references: [id], onDelete: Restrict)
+  toWarehouseId   String              @map("to_warehouse_id") @db.Uuid
+  toWarehouse     Warehouse           @relation("TransferTo", fields: [toWarehouseId], references: [id], onDelete: Restrict)
+  notes           String?
+  idempotencyKey  String              @unique @map("idempotency_key")
+  postedAt        DateTime            @default(now()) @map("posted_at") @db.Timestamptz(3)
+  postedById      String              @map("posted_by_id") @db.Uuid
+  postedBy        User                @relation(fields: [postedById], references: [id], onDelete: Restrict)
+  lines           StockTransferLine[]
+
+  @@index([postedAt])
+  @@map("stock_transfers")
+}
+
+model StockTransferLine {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transferId   String        @map("transfer_id") @db.Uuid
+  transfer     StockTransfer @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  productId    String        @map("product_id") @db.Uuid
+  product      Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  unit         SellUnit
+  unitQuantity Int           @map("unit_quantity")
+  /// Pieces moved (always positive).
+  quantity     Int
+
+  @@index([transferId])
+  @@map("stock_transfer_lines")
+}
+
+enum StockCountStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+/// A physical stock count. Posting sets each counted product's balance to the
+/// counted quantity, recording the difference as a gain or loss movement.
+model StockCount {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number      String           @unique
+  warehouseId String           @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse        @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  status      StockCountStatus @default(DRAFT)
+  notes       String?
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String           @map("created_by_id") @db.Uuid
+  createdBy   User             @relation("StockCountCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  postedAt    DateTime?        @map("posted_at") @db.Timestamptz(3)
+  postedById  String?          @map("posted_by_id") @db.Uuid
+  postedBy    User?            @relation("StockCountPostedBy", fields: [postedById], references: [id], onDelete: Restrict)
+  cancelledAt DateTime?        @map("cancelled_at") @db.Timestamptz(3)
+  version     Int              @default(1)
+  lines       StockCountLine[]
+
+  @@index([status, createdAt])
+  @@map("stock_counts")
+}
+
+model StockCountLine {
+  id                   String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  countId              String     @map("count_id") @db.Uuid
+  count                StockCount @relation(fields: [countId], references: [id], onDelete: Restrict)
+  productId            String     @map("product_id") @db.Uuid
+  product              Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  /// Pieces the system showed when the count was started.
+  expectedQuantity     Int        @map("expected_quantity")
+  /// Pieces counted. Null = not counted yet (left unchanged when posting).
+  countedQuantity      Int?       @map("counted_quantity")
+  /// Pieces the system showed at the moment of posting; the variance is counted − this.
+  systemQuantityAtPost Int?       @map("system_quantity_at_post")
+
+  @@unique([countId, productId])
+  @@map("stock_count_lines")
+}
+
+// ─── Imports (CSV) ────────────────────────────────────────────────
+
+enum ImportKind {
+  CUSTOMERS
+  PRODUCTS
+  SUPPLIERS
+}
+
+enum ImportJobStatus {
+  VALIDATED
+  COMMITTED
+  CANCELLED
+}
+
+/// One uploaded CSV. It is validated first and shown for review; nothing is
+/// written to customers/products until someone commits it, and then all rows
+/// are written together or none are.
+model ImportJob {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind          ImportKind
+  fileName      String          @map("file_name")
+  fileSha256    String          @map("file_sha256")
+  status        ImportJobStatus @default(VALIDATED)
+  totalRows     Int             @map("total_rows")
+  errorRows     Int             @map("error_rows")
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById   String          @map("created_by_id") @db.Uuid
+  createdBy     User            @relation("ImportJobCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  committedAt   DateTime?       @map("committed_at") @db.Timestamptz(3)
+  committedById String?         @map("committed_by_id") @db.Uuid
+  committedBy   User?           @relation("ImportJobCommittedBy", fields: [committedById], references: [id], onDelete: Restrict)
+  summary       Json?
+  rows          ImportJobRow[]
+
+  @@index([createdAt])
+  @@map("import_jobs")
+}
+
+model ImportJobRow {
+  id        BigInt    @id @default(autoincrement())
+  jobId     String    @map("job_id") @db.Uuid
+  job       ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  rowNumber Int       @map("row_number")
+  data      Json
+  /// CREATE or UPDATE when valid; null when the row has errors.
+  action    String?
+  errors    String[]
+
+  @@unique([jobId, rowNumber])
+  @@map("import_job_rows")
 }

@@ -15,16 +15,51 @@ export const PERMISSIONS = [
   "users.manage",
   "audit.view",
   "legacy.import",
+  // Phase 3
+  "customers.view",
+  "customers.manage",
+  "customers.credit", // credit limit and payment terms
+  "catalogue.view",
+  "catalogue.manage",
+  "catalogue.costs", // see and edit cost prices
+  "pricing.manage",
+  "suppliers.view",
+  "suppliers.manage",
+  "inventory.view",
+  "inventory.adjust", // post stock adjustments (gains and write-offs)
+  "inventory.transfer",
+  "inventory.count", // start counts and enter counted quantities
+  "inventory.count.post", // post a count, which changes stock
+  "warehouses.manage",
+  "imports.run",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
 
 const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
   OWNER: PERMISSIONS,
-  ADMIN: ["settings.view", "settings.manage", "users.view", "users.manage", "audit.view", "legacy.import"],
-  ACCOUNTANT: ["settings.view", "audit.view"],
-  SALES: ["settings.view"],
-  STOREKEEPER: ["settings.view"],
+  ADMIN: PERMISSIONS,
+  ACCOUNTANT: [
+    "settings.view",
+    "audit.view",
+    "customers.view",
+    "customers.manage",
+    "customers.credit",
+    "catalogue.view",
+    "catalogue.costs",
+    "suppliers.view",
+    "suppliers.manage",
+    "inventory.view",
+  ],
+  SALES: ["settings.view", "customers.view", "customers.manage", "catalogue.view", "inventory.view"],
+  STOREKEEPER: [
+    "settings.view",
+    "catalogue.view",
+    "suppliers.view",
+    "inventory.view",
+    "inventory.transfer",
+    "inventory.count",
+  ],
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {
@@ -37,10 +72,10 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 
 export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   OWNER: "Full access, including WhatsApp commands and managing other owners.",
-  ADMIN: "Manages settings and users, except owners.",
-  ACCOUNTANT: "Payments, accounting and reports.",
-  SALES: "Customers, quotations, orders and invoices.",
-  STOREKEEPER: "Stock, warehouses and deliveries.",
+  ADMIN: "Everything except managing owners.",
+  ACCOUNTANT: "Customers and credit limits, suppliers, costs; payments and accounting from Phase 5.",
+  SALES: "Customers and the product list; quotations, orders and invoices from Phase 4.",
+  STOREKEEPER: "Stock levels, transfers and stock counts (posting a count needs an owner or admin).",
 };
 
 export type Actor = { id: string; email: string; role: UserRole };

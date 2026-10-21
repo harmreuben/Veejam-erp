@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { useResultToast } from "@/components/form-feedback";
+import { submitWithoutReset } from "@/components/forms";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -67,7 +68,7 @@ export function CompanySettingsForm({
 
   return (
     // key on version: after a save the server sends a new version and the form resets to the saved values
-    <form key={values.version} action={action} className="grid gap-8" noValidate>
+    <form key={values.version} onSubmit={submitWithoutReset(action)} className="grid gap-8" noValidate>
       <input type="hidden" name="version" value={values.version} />
 
       <Section title="Business" description="Shown at the top of invoices, receipts and statements.">

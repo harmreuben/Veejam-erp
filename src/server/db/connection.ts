@@ -53,8 +53,10 @@ export function planPgConnection(
   if (LOCAL_HOSTS.has(parsed.hostname)) return { config: base, tls: "none" };
 
   const cwd = options.cwd ?? process.cwd();
-  const exists = options.fileExists ?? existsSync;
-  const read = options.readFile ?? ((p: string) => readFileSync(p, "utf8"));
+  // The certificate is shipped explicitly (outputFileTracingIncludes in next.config.ts),
+  // so the bundler is told not to trace these reads, which would otherwise pull in the whole project.
+  const exists = options.fileExists ?? ((p: string) => existsSync(/*turbopackIgnore: true*/ p));
+  const read = options.readFile ?? ((p: string) => readFileSync(/*turbopackIgnore: true*/ p, "utf8"));
   const candidate = path.resolve(cwd, options.caPath || DEFAULT_CA_PATH);
 
   if (exists(candidate)) {

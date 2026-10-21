@@ -13,7 +13,8 @@ try {
   const report = await applySeed(db);
   console.log(
     `Company settings: ${report.companySettings}. ` +
-      `Document sequences created: ${report.sequencesCreated.length ? report.sequencesCreated.join(", ") : "none (all present)"}.`,
+      `Document sequences created: ${report.sequencesCreated.length ? report.sequencesCreated.join(", ") : "none (all present)"}. ` +
+      `Warehouse: ${report.warehouse}. Default price list: ${report.defaultPriceList}.`,
   );
 } catch (error) {
   console.error("Seed failed:", (error as Error).message);

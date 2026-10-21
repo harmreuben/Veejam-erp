@@ -16,7 +16,7 @@ export function findCompanySettings(db: DbOrTx): Promise<CompanySettings | null>
 export async function updateCompanySettingsIfVersion(
   db: DbOrTx,
   expectedVersion: number,
-  data: Omit<CompanySettings, "id" | "version" | "updatedAt" | "updatedById">,
+  data: Omit<CompanySettings, "id" | "version" | "updatedAt" | "updatedById" | "defaultPriceListId">,
   updatedById: string,
 ): Promise<number> {
   const result = await db.companySettings.updateMany({

@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { useResultToast } from "@/components/form-feedback";
+import { submitWithoutReset } from "@/components/forms";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -32,7 +33,7 @@ export function AddStaffForm({
   return (
     <form
       ref={formRef}
-      action={action}
+      onSubmit={submitWithoutReset(action)}
       onReset={() => setRole("SALES")}
       className="grid items-start gap-4 sm:grid-cols-2"
       noValidate

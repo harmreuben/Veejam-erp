@@ -1,14 +1,8 @@
+import { readFileSync } from "node:fs";
+
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  AuditLogScalarFieldEnum,
-  CompanySettingsScalarFieldEnum,
-  DocumentSequenceScalarFieldEnum,
-  LegacyImportBatchScalarFieldEnum,
-  LegacyRowScalarFieldEnum,
-  UserScalarFieldEnum,
-} from "@/generated/prisma/internal/prismaNamespace";
-import { DocumentType, UserRole } from "@/generated/prisma/enums";
+import * as PrismaEnums from "@/generated/prisma/enums";
 
 import { clearTestData, rawQuery } from "./db";
 import { makeUser, testDb } from "./helpers";
@@ -17,45 +11,63 @@ const db = testDb();
 afterAll(() => db.$disconnect());
 beforeEach(() => clearTestData());
 
-/** camelCase Prisma field → snake_case column, matching the @map convention used in schema.prisma. */
-const toColumn = (field: string) => field.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+type RuntimeField = { name: string; kind: "scalar" | "enum" | "object"; dbName?: string };
+type RuntimeModel = { dbName: string | null; fields: RuntimeField[] };
 
-const MODELS = {
-  users: UserScalarFieldEnum,
-  company_settings: CompanySettingsScalarFieldEnum,
-  document_sequences: DocumentSequenceScalarFieldEnum,
-  audit_log: AuditLogScalarFieldEnum,
-  legacy_import_batches: LegacyImportBatchScalarFieldEnum,
-  legacy_rows: LegacyRowScalarFieldEnum,
-} as const;
+/** Prisma's own description of every model, as generated from schema.prisma. */
+function prismaModels(): Record<string, RuntimeModel> {
+  const source = readFileSync("src/generated/prisma/internal/class.ts", "utf8");
+  const match = source.match(/config\.runtimeDataModel = JSON\.parse\((".*")\)/);
+  if (!match?.[1]) throw new Error("Could not find the runtime data model in the generated client");
+  return (JSON.parse(JSON.parse(match[1])) as { models: Record<string, RuntimeModel> }).models;
+}
+
+const MODELS = prismaModels();
+const tableOf = (name: string, m: RuntimeModel) => m.dbName ?? name;
 
 describe("migrations match the Prisma schema", () => {
-  it("every Prisma field has a column, and no column is missing from Prisma", async () => {
-    for (const [table, fields] of Object.entries(MODELS)) {
-      const cols = await rawQuery<{ column_name: string }>(
-        "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1",
-        [table],
-      );
-      const actual = cols.map((c) => c.column_name).sort();
-      const expected = Object.values(fields).map(toColumn).sort();
-      expect(actual, table).toEqual(expected);
-    }
+  it("every model has a table and every table has a model", async () => {
+    const tables = (
+      await rawQuery<{ tablename: string }>(
+        "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'",
+      )
+    ).map((t) => t.tablename);
+    expect(tables.sort()).toEqual(
+      Object.entries(MODELS)
+        .map(([n, m]) => tableOf(n, m))
+        .sort(),
+    );
   });
 
-  it("database enums have exactly the Prisma enum values", async () => {
-    const values = async (type: string) =>
-      (await rawQuery<{ v: string }>('SELECT unnest(enum_range(NULL::"' + type + '"))::text AS v')).map(
-        (r) => r.v,
-      );
-    expect(await values("UserRole")).toEqual(Object.values(UserRole));
-    expect(await values("DocumentType")).toEqual(Object.values(DocumentType));
+  it.each(Object.entries(MODELS))("%s: columns match field for field", async (name, model) => {
+    const cols = await rawQuery<{ column_name: string }>(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1",
+      [tableOf(name, model)],
+    );
+    const expected = model.fields.filter((f) => f.kind !== "object").map((f) => f.dbName ?? f.name);
+    expect(cols.map((c) => c.column_name).sort()).toEqual(expected.sort());
+  });
+
+  it("every database enum has exactly the Prisma enum values, in order", async () => {
+    const enums = Object.entries(PrismaEnums).filter(([, v]) => typeof v === "object" && v !== null) as [
+      string,
+      Record<string, string>,
+    ][];
+    expect(enums.length).toBeGreaterThanOrEqual(10);
+    for (const [name, values] of enums) {
+      const rows = await rawQuery<{ v: string }>(`SELECT unnest(enum_range(NULL::"${name}"))::text AS v`);
+      expect(
+        rows.map((r) => r.v),
+        name,
+      ).toEqual(Object.values(values));
+    }
   });
 
   it("row-level security is enabled on every table (blocks the Supabase Data API)", async () => {
     const rows = await rawQuery<{ relname: string; relrowsecurity: boolean }>(
       "SELECT relname, relrowsecurity FROM pg_class WHERE relnamespace='public'::regnamespace AND relkind='r'",
     );
-    expect(rows.length).toBeGreaterThanOrEqual(6);
+    expect(rows.length).toBe(Object.keys(MODELS).length);
     expect(rows.filter((r) => !r.relrowsecurity).map((r) => r.relname)).toEqual([]);
   });
 });

@@ -38,31 +38,35 @@ Both the web dashboard and the WhatsApp command handler call the **same services
 
 ### Modules
 
-| Folder (`src/server/modules/`) | Responsibility                                                    | Phase |
-| ------------------------------ | ----------------------------------------------------------------- | ----- |
-| `settings`                     | Company profile, document numbering, workflow switches            | 2     |
-| `catalogue`                    | Products, SKUs, unit/pack/carton conversions, imports             | 3     |
-| `customers`                    | Customers, credit limits, statements                              | 3     |
-| `suppliers`                    | Suppliers, purchase orders, goods received                        | 3     |
-| `inventory`                    | Warehouses, stock ledger, transfers, adjustments, counts, batches | 3     |
-| `quotations`                   | Quotes                                                            | 4     |
-| `sales-orders`                 | Orders, reservations, backorders                                  | 4     |
-| `invoicing`                    | Draft → posted invoices, PDFs, secure share links                 | 4     |
-| `delivery`                     | Dispatch and delivery notes                                       | 4     |
-| `payments`                     | Payments, allocations, receipts, reversals                        | 5     |
-| `returns`                      | Sales returns, credit notes                                       | 5     |
-| `accounting`                   | Chart of accounts, journal, ledger, posting rules, periods        | 5     |
-| `tax`                          | Configurable tax codes and rates                                  | 5     |
-| `reports`                      | Dashboard metrics, financial statements, exports                  | 8     |
-| `server/whatsapp`              | Provider interface, mock + Meta providers, parser, confirmations  | 6–7   |
-| `server/audit`                 | Append-only audit log                                             | 2+    |
-| `server/auth`                  | Session lookup, role/permission checks                            | 2     |
+| Folder (`src/server/modules/`) | Responsibility                                                             | Phase |
+| ------------------------------ | -------------------------------------------------------------------------- | ----- |
+| `settings`                     | Company profile, document numbering, workflow switches                     | 2     |
+| `catalogue`                    | Products (SKUs), pack sizes, cost prices                                   | 3     |
+| `pricing`                      | Price lists, prices per unit, price resolution for documents               | 3     |
+| `customers`                    | Customers, credit limits and terms (statements in Phase 4)                 | 3     |
+| `suppliers`                    | Supplier master (purchase orders and goods received in Phase 5)            | 3 / 5 |
+| `inventory`                    | Warehouses, stock ledger, adjustments, transfers, counts                   | 3     |
+| `imports`                      | CSV upload → validate → review → commit for customers, products, suppliers | 3     |
+| `quotations`                   | Quotes                                                                     | 4     |
+| `sales-orders`                 | Orders, reservations, backorders                                           | 4     |
+| `invoicing`                    | Draft → posted invoices, PDFs, secure share links                          | 4     |
+| `delivery`                     | Dispatch and delivery notes                                                | 4     |
+| `payments`                     | Payments, allocations, receipts, reversals                                 | 5     |
+| `returns`                      | Sales returns, credit notes                                                | 5     |
+| `accounting`                   | Chart of accounts, journal, ledger, posting rules, periods                 | 5     |
+| `tax`                          | Configurable tax codes and rates                                           | 5     |
+| `reports`                      | Dashboard metrics, financial statements, exports                           | 8     |
+| `server/whatsapp`              | Provider interface, mock + Meta providers, parser, confirmations           | 6–7   |
+| `server/audit`                 | Append-only audit log                                                      | 2+    |
+| `server/auth`                  | Session lookup, role/permission checks                                     | 2     |
 
 ## Key decisions
 
 **Money.** All amounts use `decimal.js` (app) and Postgres `NUMERIC(18,2)` (database). JavaScript `number` is never used for money. Rounding: half-up to 2 decimals, applied per line then on totals — to be confirmed with the accountant.
 
 **Quantities.** Stock is stored in the smallest sellable unit (pieces) as an integer. Packs and cartons are conversions defined per SKU (`unitsPerPack`, `packsPerCarton`). A sale of "2 cartons" is converted to pieces exactly once, on the server.
+
+**One door for stock.** `applyStockChanges()` in `server/modules/inventory/stock.ts` is the only code that changes stock. Adjustments, transfers, counts and (from Phase 4) invoices and receipts all go through it, so the locking, the no-negative rule and the ledger are written once.
 
 **Stock ledger, not a stock counter.** Every movement is an immutable row (source document, warehouse, quantity, user, time). On-hand quantity is derived from (and cached alongside) the ledger. Corrections are new movements, never edits.
 

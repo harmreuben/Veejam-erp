@@ -27,6 +27,9 @@ test("invalid values are rejected on the server with field messages", async ({ p
   await expect(page.getByText("A KRA PIN is a letter, 9 digits and a letter")).toBeVisible();
   await expect(page.getByText(/Enter a Kenyan number/)).toBeVisible();
   await expect(page.getByLabel("KRA PIN")).toHaveAttribute("aria-invalid", "true");
+  // What the person typed is kept, so they only fix the wrong fields.
+  await expect(page.getByLabel("KRA PIN")).toHaveValue("12345");
+  await expect(page.getByLabel("Telephone")).toHaveValue("123");
 });
 
 test("two people editing at once: the second save is refused, not silently overwritten", async ({

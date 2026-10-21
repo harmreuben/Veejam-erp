@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 
 import { useResultToast } from "@/components/form-feedback";
+import { submitWithoutReset } from "@/components/forms";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -21,7 +22,7 @@ export function ChangePasswordForm({ email }: { email: string }) {
   }, [state]);
 
   return (
-    <form ref={ref} action={action} className="grid max-w-sm gap-4" noValidate>
+    <form ref={ref} onSubmit={submitWithoutReset(action)} className="grid max-w-sm gap-4" noValidate>
       {/* Lets password managers save the new password against the right account. */}
       <input type="email" name="username" value={email} autoComplete="username" readOnly hidden />
       <Field id="currentPassword" label="Current password" errors={e.currentPassword}>

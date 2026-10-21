@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
+import { submitWithoutReset } from "@/components/forms";
 import { Input } from "@/components/ui/input";
 
 import { signIn, type SignInState } from "./actions";
@@ -13,7 +14,7 @@ export function LoginForm({ next, disabled }: { next?: string; disabled?: boolea
   const [state, action, pending] = useActionState<SignInState, FormData>(signIn, {});
 
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form onSubmit={submitWithoutReset(action)} className="grid gap-4" noValidate>
       {next && <input type="hidden" name="next" value={next} />}
       <Field id="email" label="Email">
         <Input

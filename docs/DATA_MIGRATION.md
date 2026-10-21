@@ -113,6 +113,13 @@ The 44 records are about 30 real customers.
 9. **Commissions:** who earns them, at what rate, and should they be added to the new system?
 10. **eTIMS:** is VeeJam VAT-registered and required to use eTIMS? If so, it needs adding to the build plan.
 
+## Status (after Phase 3)
+
+- The nine files can be stored in the database unchanged (`npm run legacy:stage`).
+- Customers, products/prices and suppliers can be imported from CSV (Admin → Imports), with every row checked and reviewed before anything is saved. The importer refuses the old system's typical problems: placeholder phones, duplicate names, duplicate SKUs.
+- **Still waiting on the owner's answers** (the 10 questions above) before the old invoices, payments and balances are brought across. Customers and products can be loaded now if the owner confirms the merge list and pack sizes.
+- Opening stock: use a stock count on cut-over day (Inventory → Stock counts).
+
 ## How the import will work (Phases 2–3)
 
 1. Load all nine files into **staging tables**, unchanged, for reference.

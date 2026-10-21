@@ -8,11 +8,12 @@ export type E2EUser = {
   email: string;
   password: string;
   fullName: string;
-  role: "OWNER" | "SALES" | null;
+  role: "OWNER" | "SALES" | "STOREKEEPER" | null;
 };
 
 export declare const E2E_USERS: {
   owner: E2EUser;
   sales: E2EUser;
+  storekeeper: E2EUser;
   stranger: E2EUser;
 };

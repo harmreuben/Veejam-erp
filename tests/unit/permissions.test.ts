@@ -22,18 +22,43 @@ describe("role permissions", () => {
     const matrix = Object.fromEntries(Object.values(UserRole).map((r) => [r, [...permissionsFor(r)].sort()]));
     expect(matrix).toEqual({
       OWNER: [...PERMISSIONS].sort(),
-      ADMIN: [
+      ADMIN: [...PERMISSIONS].sort(),
+      ACCOUNTANT: [
         "audit.view",
-        "legacy.import",
-        "settings.manage",
+        "catalogue.costs",
+        "catalogue.view",
+        "customers.credit",
+        "customers.manage",
+        "customers.view",
+        "inventory.view",
         "settings.view",
-        "users.manage",
-        "users.view",
+        "suppliers.manage",
+        "suppliers.view",
       ],
-      ACCOUNTANT: ["audit.view", "settings.view"],
-      SALES: ["settings.view"],
-      STOREKEEPER: ["settings.view"],
+      SALES: ["catalogue.view", "customers.manage", "customers.view", "inventory.view", "settings.view"],
+      STOREKEEPER: [
+        "catalogue.view",
+        "inventory.count",
+        "inventory.transfer",
+        "inventory.view",
+        "settings.view",
+        "suppliers.view",
+      ],
     });
+  });
+
+  it("price changes, stock write-offs and posting counts need an owner or admin", () => {
+    for (const p of [
+      "inventory.adjust",
+      "inventory.count.post",
+      "pricing.manage",
+      "catalogue.manage",
+    ] as const) {
+      expect(hasPermission("OWNER", p) && hasPermission("ADMIN", p)).toBe(true);
+      for (const r of ["ACCOUNTANT", "SALES", "STOREKEEPER"] as const) {
+        expect(hasPermission(r, p), `${r} ${p}`).toBe(false);
+      }
+    }
   });
 
   it("every role has a label", () => {

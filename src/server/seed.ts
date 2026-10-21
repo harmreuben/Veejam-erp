@@ -17,9 +17,22 @@ export const DEFAULT_SEQUENCES: Record<DocumentType, string> = {
   GOODS_RECEIPT: "GRN-",
   STOCK_ADJUSTMENT: "ADJ-",
   JOURNAL_ENTRY: "JE-",
+  CUSTOMER: "CUS-",
+  SUPPLIER: "SUP-",
+  STOCK_TRANSFER: "TRF-",
+  STOCK_COUNT: "CNT-",
 };
 
-export type SeedReport = { companySettings: "created" | "kept"; sequencesCreated: DocumentType[] };
+/** Structural starting points (renameable). Not business data: no products, customers or prices. */
+export const DEFAULT_WAREHOUSE = { code: "MAIN", name: "Main store" };
+export const DEFAULT_PRICE_LIST = { code: "STANDARD", name: "Standard prices", pricesIncludeTax: true };
+
+export type SeedReport = {
+  companySettings: "created" | "kept";
+  sequencesCreated: DocumentType[];
+  warehouse: "created" | "kept";
+  defaultPriceList: "created" | "kept";
+};
 
 /**
  * Initial data every installation needs. Safe to run any number of times:
@@ -43,8 +56,28 @@ export async function applySeed(db: Db): Promise<SeedReport> {
       });
     }
 
-    const report: SeedReport = { companySettings: existing ? "kept" : "created", sequencesCreated: missing };
-    if (!existing || missing.length) {
+    // A first warehouse, so stock can be recorded straight away.
+    const warehouseCount = await tx.warehouse.count();
+    if (warehouseCount === 0) await tx.warehouse.create({ data: DEFAULT_WAREHOUSE });
+
+    // A default price list, linked from company settings.
+    const settings = await tx.companySettings.findUniqueOrThrow({ where: { id: 1 } });
+    let priceListCreated = false;
+    if (!settings.defaultPriceListId) {
+      const list =
+        (await tx.priceList.findUnique({ where: { code: DEFAULT_PRICE_LIST.code } })) ??
+        (await tx.priceList.create({ data: DEFAULT_PRICE_LIST }));
+      priceListCreated = true;
+      await tx.companySettings.update({ where: { id: 1 }, data: { defaultPriceListId: list.id } });
+    }
+
+    const report: SeedReport = {
+      companySettings: existing ? "kept" : "created",
+      sequencesCreated: missing,
+      warehouse: warehouseCount === 0 ? "created" : "kept",
+      defaultPriceList: priceListCreated ? "created" : "kept",
+    };
+    if (!existing || missing.length || warehouseCount === 0 || priceListCreated) {
       await writeAudit(tx, {
         actorLabel: "system:seed",
         action: "SEED_APPLIED",

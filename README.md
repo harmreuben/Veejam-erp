@@ -2,7 +2,7 @@
 
 Distribution, invoicing, inventory and accounting system for **VeeJam Limited**, a Wrigley products distributor in Kenya. The business owner can also query and operate the ERP over the official WhatsApp Business Cloud API.
 
-> **Status: Phase 2 of 9 complete — database, sign-in and roles.** Staff can sign in; owners manage users and company settings. Business modules arrive from Phase 3. See [Build plan](#build-plan).
+> **Status: Phase 3 of 9 complete — customers, products, prices and stock.** Staff can sign in and manage customers, suppliers, products, price lists, warehouses and stock (adjustments, transfers, counts), and import lists from CSV. Selling (quotations, orders, invoices) arrives in Phase 4. See [Build plan](#build-plan).
 
 ## Tech stack
 
@@ -110,7 +110,7 @@ docs/                  Architecture, schema, workflows, security, deployment, te
 | ----- | ------------------------------------------------------- | ------ |
 | 1     | Foundation, tooling, docs, env template                 | Done   |
 | 2     | Supabase, Prisma schema, migrations, auth, roles, seed  | Done   |
-| 3     | Customers, products/SKUs, imports, pricing, inventory   |        |
+| 3     | Customers, products/SKUs, imports, pricing, inventory   | Done   |
 | 4     | Quotations, sales orders, invoices, PDFs, stock posting |        |
 | 5     | Payments, receipts, double-entry accounting             |        |
 | 6     | WhatsApp mock provider, command parser, confirmations   |        |

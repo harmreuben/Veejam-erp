@@ -51,16 +51,20 @@ export async function rebuildTestDatabase(url = TEST_DATABASE_URL): Promise<void
   }
 }
 
-/** Remove all rows between tests. The audit trigger blocks TRUNCATE, so it is disabled just for cleanup. */
+/**
+ * Remove all rows from every table between tests. Append-only tables block
+ * TRUNCATE with triggers, so triggers are switched off for this session only.
+ */
 export async function clearTestData(url = TEST_DATABASE_URL): Promise<void> {
   assertSafeTestDatabase(url);
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   try {
-    await client.query(`
-      ALTER TABLE audit_log DISABLE TRIGGER audit_log_no_truncate;
-      TRUNCATE legacy_rows, legacy_import_batches, audit_log, company_settings, document_sequences, users RESTART IDENTITY CASCADE;
-      ALTER TABLE audit_log ENABLE TRIGGER audit_log_no_truncate;`);
+    const { rows } = await client.query<{ tablename: string }>(
+      "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'",
+    );
+    const list = rows.map((r) => `"${r.tablename}"`).join(", ");
+    await client.query(`SET session_replication_role = replica; TRUNCATE ${list} RESTART IDENTITY CASCADE;`);
   } finally {
     await client.end();
   }
