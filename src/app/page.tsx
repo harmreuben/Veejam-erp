@@ -1,69 +1,136 @@
-import Image from "next/image";
+import { Suspense } from "react";
+import { connection } from "next/server";
+import { CheckCircle2, CircleDashed } from "lucide-react";
 
-export default function Home() {
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DEFAULT_COMPANY_PROFILE } from "@/config/company";
+import { getConfigChecks, getServerEnv } from "@/config/env";
+import { BUILD_PHASES, CURRENT_PHASE } from "@/config/modules";
+
+export const metadata = { title: "Setup status" };
+
+const PROFILE_ROWS: { label: string; key: keyof typeof DEFAULT_COMPANY_PROFILE }[] = [
+  { label: "Company", key: "name" },
+  { label: "Telephone", key: "telephone" },
+  { label: "Email on documents", key: "documentEmail" },
+  { label: "Country", key: "country" },
+  { label: "Currency", key: "currency" },
+  { label: "Time zone", key: "timezone" },
+  { label: "Business", key: "businessType" },
+  { label: "Products", key: "productScope" },
+];
+
+async function Integrations() {
+  await connection(); // read configuration at request time, not build time
+  const env = getServerEnv();
+  const checks = getConfigChecks(env);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <ul className="divide-y">
+      <li className="flex items-center justify-between gap-4 py-2.5 text-sm">
+        <span>WhatsApp provider</span>
+        <Badge variant="secondary">
+          {env.WHATSAPP_PROVIDER === "mock" ? "Mock (simulated)" : "Meta Cloud API"}
+        </Badge>
+      </li>
+      {checks.map((c) => (
+        <li key={c.key} className="flex items-center justify-between gap-4 py-2.5 text-sm">
+          <span className="flex items-center gap-2">
+            {c.configured ? (
+              <CheckCircle2 className="text-success size-4" aria-hidden />
+            ) : (
+              <CircleDashed className="text-muted-foreground size-4" aria-hidden />
+            )}
+            {c.label}
+          </span>
+          {c.configured ? (
+            <Badge variant="success">Configured</Badge>
+          ) : (
+            <span className="text-muted-foreground text-xs">Set up in phase {c.phase}</span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export default function SetupStatusPage() {
+  return (
+    <div className="mx-auto grid max-w-5xl gap-8 px-4 py-8 md:px-10 md:py-12">
+      <header className="grid gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Setup status</h1>
+        <p className="text-muted-foreground max-w-[65ch]">
+          The foundation is in place. Business modules appear in the menu as each phase is built and tested;
+          nothing here is simulated.
+        </p>
+      </header>
+
+      <section aria-labelledby="phases-heading" className="grid gap-3">
+        <h2 id="phases-heading" className="text-base font-semibold">
+          Build plan
+        </h2>
+        <ol className="bg-card divide-y rounded-lg border">
+          {BUILD_PHASES.map(({ phase, title }) => {
+            const done = phase <= CURRENT_PHASE;
+            return (
+              <li key={phase} className="flex items-center gap-4 px-5 py-3 text-sm">
+                <span
+                  className={
+                    done
+                      ? "bg-primary text-primary-foreground grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold"
+                      : "text-muted-foreground grid size-7 shrink-0 place-items-center rounded-full border text-xs"
+                  }
+                >
+                  {phase}
+                </span>
+                <span className={done ? "font-medium" : "text-muted-foreground"}>{title}</span>
+                {done && (
+                  <Badge variant="success" className="ml-auto">
+                    Done
+                  </Badge>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Company profile</CardTitle>
+            <CardDescription>
+              Starting values. From phase 2 they are stored in the database and edited on the Settings page.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+              {PROFILE_ROWS.map(({ label, key }) => (
+                <div key={key} className="contents">
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd className="break-words">{DEFAULT_COMPANY_PROFILE[key]}</dd>
+                </div>
+              ))}
+            </dl>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Connections</CardTitle>
+            <CardDescription>
+              Read from your <code className="text-foreground">.env.local</code> file. Only whether a value is
+              set is shown, never the value.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Suspense fallback={<p className="text-muted-foreground text-sm">Checking configuration…</p>}>
+              <Integrations />
+            </Suspense>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -1,26 +1,136 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * VeeJam design tokens.
+ * Palette: cool "spearmint" greens drawn from the product line, on a cool
+ * paper background. The deep green sidebar is the one bold surface; the
+ * work area stays quiet so tables and figures carry the page.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --radius: 0.5rem;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --background: #f4f7f6; /* paper */
+  --foreground: #13241f; /* ink */
+  --card: #ffffff;
+  --card-foreground: #13241f;
+  --popover: #ffffff;
+  --popover-foreground: #13241f;
+  --primary: #0b6e5b; /* spearmint */
+  --primary-foreground: #ffffff;
+  --secondary: #e3efeb; /* mint wash */
+  --secondary-foreground: #0d3d33;
+  --muted: #edf2f0;
+  --muted-foreground: #4f625c;
+  --accent: #e3efeb;
+  --accent-foreground: #0d3d33;
+  --destructive: #b42318;
+  --warning: #9a6200;
+  --warning-soft: #fdf3dc;
+  --success: #0b6e5b;
+  --success-soft: #def2ea;
+  --border: #d3ded9;
+  --input: #c4d3cd;
+  --ring: #0b6e5b;
+
+  --sidebar: #0d3a32; /* wrapper green */
+  --sidebar-foreground: #e6f2ee;
+  --sidebar-muted: #9fbfb5;
+  --sidebar-border: #1d5247;
+  --sidebar-accent: #145045;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0e1714;
+    --foreground: #e3ece8;
+    --card: #15211d;
+    --card-foreground: #e3ece8;
+    --popover: #15211d;
+    --popover-foreground: #e3ece8;
+    --primary: #4cc3a5;
+    --primary-foreground: #06231c;
+    --secondary: #1b2e28;
+    --secondary-foreground: #cfe6de;
+    --muted: #18251f;
+    --muted-foreground: #98aea6;
+    --accent: #1b2e28;
+    --accent-foreground: #cfe6de;
+    --destructive: #f2786d;
+    --warning: #f0b54a;
+    --warning-soft: #33280f;
+    --success: #4cc3a5;
+    --success-soft: #133029;
+    --border: #263832;
+    --input: #2f453e;
+    --ring: #4cc3a5;
+
+    --sidebar: #0a2420;
+    --sidebar-foreground: #dcebe6;
+    --sidebar-muted: #86a69c;
+    --sidebar-border: #173a33;
+    --sidebar-accent: #12352e;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --font-sans: "Public Sans Variable", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent: var(--sidebar-accent);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    font-feature-settings: "tnum" 1; /* tabular figures: columns of KES line up */
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
