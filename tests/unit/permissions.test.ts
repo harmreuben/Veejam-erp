@@ -24,35 +24,64 @@ describe("role permissions", () => {
       OWNER: [...PERMISSIONS].sort(),
       ADMIN: [...PERMISSIONS].sort(),
       ACCOUNTANT: [
+        "accounting.journal",
+        "accounting.view",
         "audit.view",
         "catalogue.costs",
         "catalogue.view",
+        "credit_notes.manage",
         "customers.credit",
         "customers.manage",
         "customers.view",
+        "documents.share",
         "inventory.view",
+        "invoices.manage",
+        "invoices.post",
+        "payments.record",
+        "payments.reverse",
+        "sales.view",
         "settings.view",
         "suppliers.manage",
         "suppliers.view",
       ],
-      SALES: ["catalogue.view", "customers.manage", "customers.view", "inventory.view", "settings.view"],
+      SALES: [
+        "catalogue.view",
+        "customers.manage",
+        "customers.view",
+        "delivery.manage",
+        "documents.share",
+        "inventory.view",
+        "invoices.manage",
+        "invoices.post",
+        "orders.manage",
+        "payments.record",
+        "quotations.manage",
+        "sales.view",
+        "settings.view",
+      ],
       STOREKEEPER: [
         "catalogue.view",
+        "delivery.manage",
         "inventory.count",
         "inventory.transfer",
         "inventory.view",
+        "sales.view",
         "settings.view",
         "suppliers.view",
       ],
     });
   });
 
-  it("price changes, stock write-offs and posting counts need an owner or admin", () => {
+  it("price changes, write-offs, posting counts, discounts, credit overrides and tax rates need an owner or admin", () => {
     for (const p of [
       "inventory.adjust",
       "inventory.count.post",
       "pricing.manage",
       "catalogue.manage",
+      "sales.discount",
+      "credit.override",
+      "tax.manage",
+      "accounting.close",
     ] as const) {
       expect(hasPermission("OWNER", p) && hasPermission("ADMIN", p)).toBe(true);
       for (const r of ["ACCOUNTANT", "SALES", "STOREKEEPER"] as const) {

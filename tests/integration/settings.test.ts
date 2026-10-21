@@ -31,6 +31,10 @@ async function formFor(version: number) {
     paymentInstructions: s.paymentInstructions ?? "",
     invoiceTerms: s.invoiceTerms ?? "",
     defaultPaymentTermsDays: String(s.defaultPaymentTermsDays),
+    tagline: s.tagline ?? "",
+    mpesaPaybill: s.mpesaPaybill ?? "",
+    mpesaAccount: s.mpesaAccount ?? "",
+    vatRegistered: s.vatRegistered ? "on" : "",
     version: String(version),
   };
 }
@@ -54,7 +58,7 @@ describe("company settings", () => {
     const audit = await db.auditLog.findFirstOrThrow({ where: { action: "SETTINGS_UPDATED" } });
     expect(audit.actorUserId).toBe(owner.id);
     expect(audit.after).toEqual({ kraPin: "P051234567X", paymentInstructions: "M-Pesa till 123456" });
-    expect(audit.before).toEqual({ kraPin: null, paymentInstructions: null });
+    expect(audit.before).toEqual({ kraPin: "A015035216B", paymentInstructions: null });
     expect(audit.ipAddress).toBe("10.0.0.1");
   });
 
@@ -113,6 +117,9 @@ describe("company settings", () => {
       sequencesCreated: [],
       warehouse: "kept",
       defaultPriceList: "kept",
+      taxRatesCreated: [],
+      documentDetailsFilled: [],
+      accountsCreated: 0,
     });
     expect((await db.companySettings.findUniqueOrThrow({ where: { id: 1 } })).name).toBe("VeeJam Ltd");
     expect(

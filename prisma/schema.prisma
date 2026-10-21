@@ -58,6 +58,16 @@ model User {
   stockCountsPosted   StockCount[]        @relation("StockCountPostedBy")
   importJobsCreated   ImportJob[]         @relation("ImportJobCreatedBy")
   importJobsCommitted ImportJob[]         @relation("ImportJobCommittedBy")
+  salesDocumentsCreated SalesDocument[]    @relation("SalesDocumentCreatedBy")
+  salesDocumentsPosted  SalesDocument[]    @relation("SalesDocumentPostedBy")
+  creditOverrides       SalesDocument[]    @relation("SalesDocumentCreditOverrideBy")
+  deliveryNotes         DeliveryNote[]
+  shareLinks            DocumentShareLink[]
+  taxRateUpdates        TaxRate[]
+  journalEntries        JournalEntry[]
+  paymentsReceived      Payment[]          @relation("PaymentReceivedBy")
+  paymentsReversed      Payment[]          @relation("PaymentReversedBy")
+  allocationsMade       PaymentAllocation[]
 
   @@map("users")
 }
@@ -81,6 +91,14 @@ model CompanySettings {
   paymentInstructions     String?    @map("payment_instructions")
   invoiceTerms            String?    @map("invoice_terms")
   defaultPaymentTermsDays Int        @default(0) @map("default_payment_terms_days")
+  /// Line under the company name on documents, e.g. "Wrigley Product Distribution - Kenya".
+  tagline                 String?
+  /// Printed in the payment box on invoices.
+  mpesaPaybill            String?    @map("mpesa_paybill")
+  mpesaAccount            String?    @map("mpesa_account")
+  vatRegistered           Boolean    @default(false) @map("vat_registered")
+  /// No journal entry, payment or credit note can be dated on or before this day.
+  booksClosedUntil        DateTime?  @map("books_closed_until") @db.Date
   /// Optimistic locking: incremented on every save, so two people editing at once can't overwrite each other.
   version                 Int        @default(1)
   updatedAt               DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -233,6 +251,8 @@ model Product {
   adjustmentLines StockAdjustmentLine[]
   transferLines   StockTransferLine[]
   countLines      StockCountLine[]
+  salesLines      SalesDocumentLine[]
+  reservations    StockReservation[]
 
   @@index([status, name])
   @@map("products")
@@ -251,6 +271,7 @@ model PriceList {
   items      PriceListItem[]
   customers  Customer[]
   defaultFor CompanySettings[]
+  salesDocuments   SalesDocument[]
 
   @@map("price_lists")
 }
@@ -299,7 +320,7 @@ model Customer {
   kraPin           String?      @unique @map("kra_pin")
   physicalAddress  String?      @map("physical_address")
   town             String?
-  /// 0 means cash only. Enforced on sales orders and invoices from Phase 4.
+  /// 0 means cash only: a new invoice can be posted only if nothing is owed. Checked when invoices are posted.
   creditLimit      Decimal      @default(0) @map("credit_limit") @db.Decimal(18, 2)
   paymentTermsDays Int          @default(0) @map("payment_terms_days")
   priceListId      String?      @map("price_list_id") @db.Uuid
@@ -313,6 +334,9 @@ model Customer {
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
   createdById      String?      @map("created_by_id") @db.Uuid
   createdBy        User?        @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  salesDocuments   SalesDocument[]
+  payments         Payment[]
+  journalLines     JournalLine[]
 
   @@index([status, name])
   @@index([phone])
@@ -356,6 +380,8 @@ model Warehouse {
   transfersOut StockTransfer[]   @relation("TransferFrom")
   transfersIn  StockTransfer[]   @relation("TransferTo")
   counts       StockCount[]
+  salesDocuments SalesDocument[]
+  reservations   StockReservation[]
 
   @@map("warehouses")
 }
@@ -382,6 +408,8 @@ enum StockMovementType {
   TRANSFER_IN
   COUNT_GAIN
   COUNT_LOSS
+  SALE
+  RETURN_IN
 }
 
 /// The stock ledger. Append-only: a trigger rejects UPDATE and DELETE.
@@ -583,4 +611,340 @@ model ImportJobRow {
 
   @@unique([jobId, rowNumber])
   @@map("import_job_rows")
+}
+
+// ─── Sales (Phase 4) ──────────────────────────────────────────────
+
+/// Tax rate per tax category. Configuration, not code: confirm with the accountant.
+model TaxRate {
+  category    TaxCategory @id
+  name        String
+  /// Percentage, e.g. 16.0000 for 16%.
+  rate        Decimal     @db.Decimal(9, 4)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById String?     @map("updated_by_id") @db.Uuid
+  updatedBy   User?       @relation(fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@map("tax_rates")
+}
+
+enum SalesDocumentKind {
+  QUOTATION
+  SALES_ORDER
+  INVOICE
+  CREDIT_NOTE
+}
+
+/// Which statuses each kind may use is enforced by a CHECK constraint.
+/// Quotation: DRAFT → SENT → ACCEPTED/DECLINED → CONVERTED (or CANCELLED)
+/// Sales order: DRAFT → CONFIRMED (stock reserved) → INVOICED (or CANCELLED)
+/// Invoice: DRAFT → POSTED (numbered, stock deducted; can't be edited or deleted)
+enum SalesDocumentStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  DECLINED
+  CONVERTED
+  CONFIRMED
+  INVOICED
+  POSTED
+  CANCELLED
+}
+
+/// Quotations, sales orders and invoices share one table and one set of
+/// pricing/tax rules, so a quote can become an order and then an invoice
+/// without re-keying anything.
+model SalesDocument {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind                 SalesDocumentKind
+  /// QUO-/SO- numbers are given at creation. INV- numbers only when an invoice is posted, so there are no gaps.
+  number               String?             @unique
+  status               SalesDocumentStatus @default(DRAFT)
+  customerId           String              @map("customer_id") @db.Uuid
+  customer             Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  /// Where the stock comes from.
+  warehouseId          String              @map("warehouse_id") @db.Uuid
+  warehouse            Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  priceListId          String?             @map("price_list_id") @db.Uuid
+  priceList            PriceList?          @relation(fields: [priceListId], references: [id], onDelete: Restrict)
+  pricesIncludeTax     Boolean             @default(true) @map("prices_include_tax")
+  issueDate            DateTime            @map("issue_date") @db.Date
+  validUntil           DateTime?           @map("valid_until") @db.Date
+  dueDate              DateTime?           @map("due_date") @db.Date
+  /// The customer's own order or LPO number.
+  customerReference    String?             @map("customer_reference")
+  notes                String?
+  sourceDocumentId     String?             @map("source_document_id") @db.Uuid
+  sourceDocument       SalesDocument?      @relation("SalesDocumentSource", fields: [sourceDocumentId], references: [id], onDelete: Restrict)
+  derivedDocuments     SalesDocument[]     @relation("SalesDocumentSource")
+  /// Totals excluding tax, discounts given, tax, and the amount payable. Recalculated on the server only.
+  subtotal             Decimal             @default(0) @db.Decimal(18, 2)
+  discountTotal        Decimal             @default(0) @map("discount_total") @db.Decimal(18, 2)
+  taxTotal             Decimal             @default(0) @map("tax_total") @db.Decimal(18, 2)
+  total                Decimal             @default(0) @db.Decimal(18, 2)
+  /// Updated by payments from Phase 5.
+  amountPaid           Decimal             @default(0) @map("amount_paid") @db.Decimal(18, 2)
+  /// Brought across from the old system with its original VJL- number. Read-only; never moved stock here.
+  historical           Boolean             @default(false)
+  /// Invoices: total of credit notes applied to this invoice.
+  amountCredited       Decimal             @default(0) @map("amount_credited") @db.Decimal(18, 2)
+  /// Credit notes: the returned goods went back into stock.
+  returnsToStock       Boolean             @default(false) @map("returns_to_stock")
+  /// Credit notes: the form's key, so a double submit issues one credit note.
+  idempotencyKey       String?             @unique @map("idempotency_key")
+  /// Company and customer details frozen at posting, so reprints match the original.
+  companySnapshot      Json?               @map("company_snapshot")
+  customerSnapshot     Json?               @map("customer_snapshot")
+  creditOverrideReason String?             @map("credit_override_reason")
+  creditOverrideById   String?             @map("credit_override_by_id") @db.Uuid
+  creditOverrideBy     User?               @relation("SalesDocumentCreditOverrideBy", fields: [creditOverrideById], references: [id], onDelete: Restrict)
+  version              Int                 @default(1)
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById          String              @map("created_by_id") @db.Uuid
+  createdBy            User                @relation("SalesDocumentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  confirmedAt          DateTime?           @map("confirmed_at") @db.Timestamptz(3)
+  postedAt             DateTime?           @map("posted_at") @db.Timestamptz(3)
+  postedById           String?             @map("posted_by_id") @db.Uuid
+  postedBy             User?               @relation("SalesDocumentPostedBy", fields: [postedById], references: [id], onDelete: Restrict)
+  cancelledAt          DateTime?           @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason         String?             @map("cancel_reason")
+
+  lines                SalesDocumentLine[]
+  reservations         StockReservation[]
+  deliveryNote         DeliveryNote?
+  shareLinks           DocumentShareLink[]
+  allocationsReceived  PaymentAllocation[] @relation("AllocationInvoice")
+  allocationsGiven     PaymentAllocation[] @relation("AllocationCreditNote")
+
+  @@index([kind, status, issueDate])
+  @@index([customerId, kind, status])
+  @@map("sales_documents")
+}
+
+/// One product line. Product details and the tax rate are copied in, so a
+/// posted invoice never changes when a product or rate is edited later.
+model SalesDocumentLine {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId      String        @map("document_id") @db.Uuid
+  document        SalesDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  position        Int
+  productId       String        @map("product_id") @db.Uuid
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  sku             String
+  description     String
+  unit            SellUnit
+  /// Units as sold (e.g. 2 cartons) and the same quantity in pieces.
+  quantity        Int
+  piecesPerUnit   Int           @map("pieces_per_unit")
+  pieces          Int
+  unitPrice       Decimal       @map("unit_price") @db.Decimal(18, 2)
+  discountPercent Decimal       @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  taxCategory     TaxCategory   @map("tax_category")
+  taxRate         Decimal       @map("tax_rate") @db.Decimal(9, 4)
+  netAmount       Decimal       @map("net_amount") @db.Decimal(18, 2)
+  discountAmount  Decimal       @default(0) @map("discount_amount") @db.Decimal(18, 2)
+  taxAmount       Decimal       @map("tax_amount") @db.Decimal(18, 2)
+  grossAmount     Decimal       @map("gross_amount") @db.Decimal(18, 2)
+
+  @@unique([documentId, position])
+  @@index([productId])
+  @@map("sales_document_lines")
+}
+
+/// Stock promised to a confirmed sales order. Released when the order is
+/// invoiced or cancelled. Available stock = on hand − reserved.
+model StockReservation {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId  String        @map("document_id") @db.Uuid
+  document    SalesDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  productId   String        @map("product_id") @db.Uuid
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouseId String        @map("warehouse_id") @db.Uuid
+  warehouse   Warehouse     @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  quantity    Int
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([documentId, productId, warehouseId])
+  @@index([productId, warehouseId])
+  @@map("stock_reservations")
+}
+
+enum DeliveryStatus {
+  PREPARED
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+/// Delivery note for a posted invoice (the whole invoice is delivered).
+model DeliveryNote {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number      String         @unique
+  invoiceId   String         @unique @map("invoice_id") @db.Uuid
+  invoice     SalesDocument  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  status      DeliveryStatus @default(PREPARED)
+  vehicle     String?
+  driver      String?
+  notes       String?
+  dispatchedAt DateTime?     @map("dispatched_at") @db.Timestamptz(3)
+  deliveredAt DateTime?      @map("delivered_at") @db.Timestamptz(3)
+  receivedBy  String?        @map("received_by")
+  version     Int            @default(1)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById String         @map("created_by_id") @db.Uuid
+  createdBy   User           @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@map("delivery_notes")
+}
+
+/// A link that lets someone without an account open one document's PDF.
+/// Only a hash of the token is stored; links expire and can be revoked.
+model DocumentShareLink {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId     String        @map("document_id") @db.Uuid
+  document       SalesDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  tokenHash      String        @unique @map("token_hash")
+  expiresAt      DateTime      @map("expires_at") @db.Timestamptz(3)
+  revokedAt      DateTime?     @map("revoked_at") @db.Timestamptz(3)
+  accessCount    Int           @default(0) @map("access_count")
+  lastAccessedAt DateTime?     @map("last_accessed_at") @db.Timestamptz(3)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById    String        @map("created_by_id") @db.Uuid
+  createdBy      User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([documentId])
+  @@map("document_share_links")
+}
+
+// ─── Money and accounting (Phase 5a) ─────────────────────────────
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+/// Chart of accounts. Accounts the system posts to automatically have a systemKey.
+model Account {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String       @unique
+  name      String
+  type      AccountType
+  /// e.g. AR, SALES, VAT_OUTPUT, CASH, MPESA, BANK. Never changes once set.
+  systemKey String?      @unique @map("system_key")
+  status    RecordStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  lines JournalLine[]
+
+  @@map("accounts")
+}
+
+/// A balanced journal entry (debits = credits, checked by the database). Append-only:
+/// mistakes are corrected with a reversing entry.
+model JournalEntry {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number       String        @unique
+  date         DateTime      @db.Date
+  description  String
+  /// What caused it: Invoice, Payment, CreditNote, PaymentReversal, OpeningBalances, Manual.
+  sourceType   String        @map("source_type")
+  sourceId     String?       @map("source_id") @db.Uuid
+  sourceNumber String?       @map("source_number")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById  String        @map("created_by_id") @db.Uuid
+  createdBy    User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  lines        JournalLine[]
+
+  @@unique([sourceType, sourceId])
+  @@index([date])
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id          BigInt       @id @default(autoincrement())
+  entryId     String       @map("entry_id") @db.Uuid
+  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  accountId   String       @map("account_id") @db.Uuid
+  account     Account      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  debit       Decimal      @default(0) @db.Decimal(18, 2)
+  credit      Decimal      @default(0) @db.Decimal(18, 2)
+  /// Set on receivables lines, so a customer's account can be followed in the ledger.
+  customerId  String?      @map("customer_id") @db.Uuid
+  customer    Customer?    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  description String?
+
+  @@index([entryId])
+  @@index([accountId])
+  @@index([customerId])
+  @@map("journal_lines")
+}
+
+enum PaymentMethod {
+  CASH
+  MPESA
+  BANK_TRANSFER
+  CHEQUE
+}
+
+enum PaymentStatus {
+  POSTED
+  REVERSED
+}
+
+/// Money received from a customer (RCT- receipt). Applied to invoices through allocations;
+/// any part not applied is credit on the customer's account.
+model Payment {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number         String              @unique
+  customerId     String              @map("customer_id") @db.Uuid
+  customer       Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  receivedOn     DateTime            @map("received_on") @db.Date
+  method         PaymentMethod
+  /// M-Pesa code, bank reference or cheque number. The same reference can't be recorded twice for one method.
+  reference      String?
+  amount         Decimal             @db.Decimal(18, 2)
+  notes          String?
+  status         PaymentStatus       @default(POSTED)
+  idempotencyKey String              @unique @map("idempotency_key")
+  receivedById   String              @map("received_by_id") @db.Uuid
+  receivedBy     User                @relation("PaymentReceivedBy", fields: [receivedById], references: [id], onDelete: Restrict)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  reversedAt     DateTime?           @map("reversed_at") @db.Timestamptz(3)
+  reversedById   String?             @map("reversed_by_id") @db.Uuid
+  reversedBy     User?               @relation("PaymentReversedBy", fields: [reversedById], references: [id], onDelete: Restrict)
+  reverseReason  String?             @map("reverse_reason")
+  version        Int                 @default(1)
+  allocations    PaymentAllocation[]
+
+  @@unique([method, reference])
+  @@index([customerId, receivedOn])
+  @@map("payments")
+}
+
+/// Part of a payment or credit note applied to one invoice.
+model PaymentAllocation {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceId    String         @map("invoice_id") @db.Uuid
+  invoice      SalesDocument  @relation("AllocationInvoice", fields: [invoiceId], references: [id], onDelete: Restrict)
+  paymentId    String?        @map("payment_id") @db.Uuid
+  payment      Payment?       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  creditNoteId String?        @map("credit_note_id") @db.Uuid
+  creditNote   SalesDocument? @relation("AllocationCreditNote", fields: [creditNoteId], references: [id], onDelete: Restrict)
+  amount       Decimal        @db.Decimal(18, 2)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById  String         @map("created_by_id") @db.Uuid
+  createdBy    User           @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  /// Set when the payment is reversed; the allocation then no longer counts.
+  reversedAt   DateTime?      @map("reversed_at") @db.Timestamptz(3)
+
+  @@index([invoiceId])
+  @@index([paymentId])
+  @@index([creditNoteId])
+  @@map("payment_allocations")
 }

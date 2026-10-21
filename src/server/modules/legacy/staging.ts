@@ -8,7 +8,7 @@ import { writeAudit } from "@/server/audit/audit";
 import type { Db } from "@/server/db/client";
 import { ValidationError } from "@/server/errors";
 
-/** The nine exports from the previous system and the columns each must have. */
+/** The exports from the previous system and the columns each must have. */
 export const LEGACY_FILES = {
   "audit-log": ["date", "action", "entity_type", "details", "performed_by"],
   "commission-records": [
@@ -24,6 +24,8 @@ export const LEGACY_FILES = {
   invoices: ["invoice_number", "date", "customer_name", "status", "total_amount", "amount_paid", "balance"],
   payments: ["date", "invoice_number", "amount", "payment_method"],
   "products-inventory": ["sku", "name", "unit_price", "wholesale_price", "stock_quantity"],
+  "price-lists": ["sku", "wholesale_price", "retail_unit_price", "units_per_case"],
+  "inventory-report": ["sku", "pack_size", "units_per_case", "cases", "loose", "total_units"],
   "stock-movements": ["date", "sku", "movement_type", "quantity", "reference"],
 } as const;
 

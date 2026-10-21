@@ -32,6 +32,24 @@ export const PERMISSIONS = [
   "inventory.count.post", // post a count, which changes stock
   "warehouses.manage",
   "imports.run",
+  // Phase 4
+  "sales.view", // see quotations, orders, invoices and delivery notes
+  "quotations.manage",
+  "orders.manage", // create and confirm sales orders (confirming reserves stock)
+  "invoices.manage", // create and edit draft invoices
+  "invoices.post", // post an invoice: numbers it and takes the stock out
+  "sales.discount", // give line discounts
+  "credit.override", // post past a customer's credit limit, with a reason
+  "delivery.manage",
+  "documents.share", // create links that let customers open a document
+  "tax.manage",
+  // Phase 5a
+  "payments.record", // record money received and apply it to invoices
+  "payments.reverse",
+  "credit_notes.manage",
+  "accounting.view", // chart of accounts, journal, trial balance
+  "accounting.journal", // manual journal entries (e.g. expenses)
+  "accounting.close", // close the books up to a date
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -50,8 +68,31 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "suppliers.view",
     "suppliers.manage",
     "inventory.view",
+    "sales.view",
+    "invoices.manage",
+    "invoices.post",
+    "documents.share",
+    "payments.record",
+    "payments.reverse",
+    "credit_notes.manage",
+    "accounting.view",
+    "accounting.journal",
   ],
-  SALES: ["settings.view", "customers.view", "customers.manage", "catalogue.view", "inventory.view"],
+  SALES: [
+    "settings.view",
+    "customers.view",
+    "customers.manage",
+    "catalogue.view",
+    "inventory.view",
+    "sales.view",
+    "quotations.manage",
+    "orders.manage",
+    "invoices.manage",
+    "invoices.post",
+    "delivery.manage",
+    "documents.share",
+    "payments.record",
+  ],
   STOREKEEPER: [
     "settings.view",
     "catalogue.view",
@@ -59,6 +100,8 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "inventory.view",
     "inventory.transfer",
     "inventory.count",
+    "sales.view",
+    "delivery.manage",
   ],
 };
 
@@ -73,9 +116,12 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   OWNER: "Full access, including WhatsApp commands and managing other owners.",
   ADMIN: "Everything except managing owners.",
-  ACCOUNTANT: "Customers and credit limits, suppliers, costs; payments and accounting from Phase 5.",
-  SALES: "Customers and the product list; quotations, orders and invoices from Phase 4.",
-  STOREKEEPER: "Stock levels, transfers and stock counts (posting a count needs an owner or admin).",
+  ACCOUNTANT:
+    "Customers and credit limits, invoices, payments and reversals, credit notes, the accounts and journals.",
+  SALES:
+    "Customers, quotations, sales orders, invoices, deliveries and recording payments. No discounts, reversals or credit overrides.",
+  STOREKEEPER:
+    "Stock levels, transfers, stock counts and deliveries (posting a count needs an owner or admin).",
 };
 
 export type Actor = { id: string; email: string; role: UserRole };

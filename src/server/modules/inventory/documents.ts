@@ -181,6 +181,7 @@ export async function postTransfer(
           { productId: l.productId, warehouseId: to.id, quantity: l.pieces, type: "TRANSFER_IN" as const },
         ]),
         { type: "StockTransfer", id: transfer.id, number, reason: values.notes, actorId: actor.id },
+        { respectReservations: true },
       );
       await writeAudit(tx, {
         actorUserId: actor.id,

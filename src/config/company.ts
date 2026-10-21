@@ -37,3 +37,18 @@ export const DEFAULT_COMPANY_PROFILE: CompanyProfile = companyProfileSchema.pars
   businessType: "Wrigley products distribution",
   productScope: "Wrigley products only",
 });
+
+/**
+ * Details printed on invoices, taken from the old system's invoice. The seed
+ * fills these in only where the company settings are still empty; after that
+ * they are edited on Settings → Company settings.
+ */
+export const DEFAULT_DOCUMENT_DETAILS = {
+  tagline: "Wrigley Product Distribution - Kenya",
+  kraPin: "A015035216B",
+  physicalAddress: "Nairobi, Kenya",
+  mpesaPaybill: "247247",
+  mpesaAccount: "1280186110945",
+  invoiceTerms:
+    "Payment is due within 30 days of invoice date. Late payments attract a 2% monthly interest. All goods remain property of VeeJam Limited until fully paid.",
+} as const;

@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyRow, TBody, TD, TH, THead, Table } from "@/components/ui/table";
 import type { RecordStatus } from "@/generated/prisma/enums";
+import { formatKES } from "@/lib/money";
+import { UNIT_LABELS } from "@/lib/units";
 import { pageUser } from "@/server/auth/guard";
 import { hasPermission } from "@/server/auth/permissions";
 import { toActor } from "@/server/auth/session";
@@ -50,12 +52,13 @@ export default async function ProductsPage({
         placeholder="Name, SKU, brand, category or barcode"
         selects={[{ name: "status", label: "Status", value: status, options: STATUS_OPTIONS }]}
       />
-      <Table minWidth={820}>
+      <Table minWidth={980}>
         <THead>
           <tr>
             <TH>Product</TH>
             <TH>Brand / category</TH>
             <TH numeric>Pack sizes</TH>
+            <TH numeric>Selling prices (incl. VAT)</TH>
             {showCost && <TH numeric>Cost / piece</TH>}
             <TH numeric>In stock</TH>
             <TH>Status</TH>
@@ -63,7 +66,7 @@ export default async function ProductsPage({
         </THead>
         <TBody>
           {products.length === 0 && (
-            <EmptyRow colSpan={showCost ? 6 : 5}>
+            <EmptyRow colSpan={showCost ? 7 : 6}>
               {q
                 ? "No products match that search."
                 : "No products yet. Add one, or import your product list under Admin → Imports."}
@@ -84,6 +87,18 @@ export default async function ProductsPage({
               <TD numeric className="text-xs">
                 {p.unitsPerPack} pcs/pk
                 <div className="text-muted-foreground">{p.packsPerCarton} pk/ctn</div>
+              </TD>
+              <TD numeric className="text-xs whitespace-nowrap">
+                {p.priceLists.length === 0 ? (
+                  <span className="text-warning">No price</span>
+                ) : (
+                  p.priceLists.map((l) => (
+                    <div key={l.list}>
+                      <span className="text-muted-foreground">{l.list.replace(/ prices$/i, "")}: </span>
+                      {l.prices.map((x) => `${formatKES(x.price)} /${UNIT_LABELS[x.unit].short}`).join(" · ")}
+                    </div>
+                  ))
+                )}
               </TD>
               {showCost && (
                 <TD numeric>

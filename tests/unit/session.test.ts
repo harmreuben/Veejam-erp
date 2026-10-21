@@ -41,6 +41,10 @@ describe("public paths", () => {
     expect(isPublicPath("/settings/users")).toBe(false);
     expect(isPublicPath("/loginx")).toBe(false);
     expect(isPublicPath("/api/healthy")).toBe(false);
+    // Share links are public; everything else about documents is not.
+    expect(isPublicPath("/d/abc")).toBe(true);
+    expect(isPublicPath("/documents/abc/pdf")).toBe(false);
+    expect(isPublicPath("/deliveries")).toBe(false);
   });
 });
 

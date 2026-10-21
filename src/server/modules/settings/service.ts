@@ -68,6 +68,9 @@ export async function updateCompanySettings(
     postalAddress: values.postalAddress ?? null,
     paymentInstructions: values.paymentInstructions ?? null,
     invoiceTerms: values.invoiceTerms ?? null,
+    tagline: values.tagline ?? null,
+    mpesaPaybill: values.mpesaPaybill ?? null,
+    mpesaAccount: values.mpesaAccount ?? null,
   };
 
   return db.$transaction(async (tx) => {

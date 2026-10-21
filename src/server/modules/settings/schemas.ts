@@ -33,6 +33,19 @@ export const companySettingsInputSchema = companyProfileSchema.extend({
   postalAddress: optionalText(200),
   paymentInstructions: optionalText(1000),
   invoiceTerms: optionalText(2000),
+  tagline: optionalText(120),
+  mpesaPaybill: z
+    .string()
+    .trim()
+    .regex(/^(\d{5,7})?$/, "A paybill number is 5 to 7 digits")
+    .transform((v) => (v === "" ? null : v))
+    .nullable()
+    .optional(),
+  mpesaAccount: optionalText(40),
+  vatRegistered: z
+    .unknown()
+    .optional()
+    .transform((v) => v === true || v === "on" || v === "true" || v === "1"),
   defaultPaymentTermsDays: z.coerce
     .number()
     .int("Use whole days")

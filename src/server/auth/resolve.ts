@@ -34,7 +34,8 @@ export async function resolveSession(claims: VerifiedClaims, lookup: UserLookup)
 }
 
 /** Paths reachable without signing in. Everything else requires a session. */
-const PUBLIC_PATHS = ["/login", "/api/health"];
+/** "/d/…" is a customer's share link: the token itself is the permission (see sales/extras.ts). */
+const PUBLIC_PATHS = ["/login", "/api/health", "/d"];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

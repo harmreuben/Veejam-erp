@@ -14,7 +14,7 @@ export type StockChange = {
 };
 
 export type StockSource = {
-  type: "StockAdjustment" | "StockTransfer" | "StockCount";
+  type: "StockAdjustment" | "StockTransfer" | "StockCount" | "Invoice" | "CreditNote";
   id: string;
   number: string;
   reason?: string | null;
@@ -22,6 +22,77 @@ export type StockSource = {
 };
 
 const pairKey = (c: { productId: string; warehouseId: string }) => `${c.productId}|${c.warehouseId}`;
+type Pair = { productId: string; warehouseId: string };
+
+export type StockOptions = {
+  /**
+   * Also keep stock reserved for confirmed sales orders: a removal may only use
+   * stock that isn't promised to someone else. Used by invoices and transfers.
+   * Adjustments and counts record what physically happened, so they don't.
+   */
+  respectReservations?: boolean;
+};
+
+/** Make sure balance rows exist, then lock them in a fixed order (no deadlocks). Returns pieces on hand. */
+async function lockBalances(
+  tx: DbOrTx,
+  items: Pair[],
+): Promise<{ pairs: Pair[]; onHand: Map<string, number> }> {
+  const pairs = [
+    ...new Map(
+      items.map((c) => [pairKey(c), { productId: c.productId, warehouseId: c.warehouseId }]),
+    ).values(),
+  ].sort((a, b) => pairKey(a).localeCompare(pairKey(b)));
+  await tx.stockBalance.createMany({
+    data: pairs.map((p) => ({ productId: p.productId, warehouseId: p.warehouseId, quantity: 0 })),
+    skipDuplicates: true,
+  });
+  const onHand = new Map<string, number>();
+  for (const p of pairs) {
+    const rows = await tx.$queryRaw<{ quantity: number }[]>`
+      SELECT quantity FROM stock_balances
+       WHERE product_id = ${p.productId}::uuid AND warehouse_id = ${p.warehouseId}::uuid
+       FOR UPDATE`;
+    onHand.set(pairKey(p), rows[0]?.quantity ?? 0);
+  }
+  return { pairs, onHand };
+}
+
+/** Pieces reserved by confirmed orders, per product/warehouse. Call after lockBalances. */
+async function reservedFor(tx: DbOrTx, pairs: Pair[]): Promise<Map<string, number>> {
+  const rows = await tx.stockReservation.groupBy({
+    by: ["productId", "warehouseId"],
+    where: { OR: pairs.map((p) => ({ productId: p.productId, warehouseId: p.warehouseId })) },
+    _sum: { quantity: true },
+  });
+  return new Map(rows.map((r) => [pairKey(r), r._sum.quantity ?? 0]));
+}
+
+type Shortage = Pair & { onHand: number; reserved: number; needed: number };
+
+async function shortageError(
+  tx: DbOrTx,
+  short: Shortage[],
+  prefix = "Not enough stock",
+): Promise<ConflictError> {
+  const products = await tx.product.findMany({
+    where: { id: { in: short.map((s) => s.productId) } },
+    select: { id: true, sku: true, name: true, unitsPerPack: true, packsPerCarton: true },
+  });
+  const warehouses = await tx.warehouse.findMany({
+    where: { id: { in: short.map((s) => s.warehouseId) } },
+    select: { id: true, name: true },
+  });
+  const lines = short.map((s) => {
+    const p = products.find((x) => x.id === s.productId)!;
+    const w = warehouses.find((x) => x.id === s.warehouseId)!;
+    const held = s.reserved
+      ? `${formatQuantity(s.onHand, p)} of which ${formatQuantity(s.reserved, p)} is reserved for confirmed orders`
+      : formatQuantity(s.onHand, p);
+    return `${p.sku} ${p.name}: ${w.name} has ${held}, this needs ${formatQuantity(s.needed, p)}`;
+  });
+  return new ConflictError(`${prefix}. ${lines.join("; ")}. Nothing was changed.`);
+}
 
 /**
  * The only way stock changes. Inside the caller's transaction it:
@@ -36,6 +107,7 @@ export async function applyStockChanges(
   tx: DbOrTx,
   changes: StockChange[],
   source: StockSource,
+  options: StockOptions = {},
 ): Promise<void> {
   const effective = changes.filter((c) => c.quantity !== 0);
   if (!effective.length) return;
@@ -43,23 +115,9 @@ export async function applyStockChanges(
     if (!Number.isSafeInteger(c.quantity)) throw new RangeError("Stock quantities must be whole pieces");
   }
 
-  const pairs = [...new Map(effective.map((c) => [pairKey(c), c])).values()].sort((a, b) =>
-    pairKey(a).localeCompare(pairKey(b)),
-  );
-
-  await tx.stockBalance.createMany({
-    data: pairs.map((p) => ({ productId: p.productId, warehouseId: p.warehouseId, quantity: 0 })),
-    skipDuplicates: true,
-  });
-
-  const balances = new Map<string, number>();
-  for (const p of pairs) {
-    const rows = await tx.$queryRaw<{ quantity: number }[]>`
-      SELECT quantity FROM stock_balances
-       WHERE product_id = ${p.productId}::uuid AND warehouse_id = ${p.warehouseId}::uuid
-       FOR UPDATE`;
-    balances.set(pairKey(p), rows[0]?.quantity ?? 0);
-  }
+  const { pairs, onHand } = await lockBalances(tx, effective);
+  const reserved = options.respectReservations ? await reservedFor(tx, pairs) : new Map<string, number>();
+  const balances = new Map(onHand);
 
   const movements: {
     productId: string;
@@ -68,37 +126,27 @@ export async function applyStockChanges(
     quantity: number;
     balanceAfter: number;
   }[] = [];
-  const short: { productId: string; warehouseId: string; available: number; needed: number }[] = [];
+  const short = new Map<string, Shortage>();
   for (const c of effective) {
-    const before = balances.get(pairKey(c))!;
-    const after = before + c.quantity;
-    if (after < 0)
-      short.push({
+    const key = pairKey(c);
+    const after = balances.get(key)! + c.quantity;
+    const held = reserved.get(key) ?? 0;
+    if (c.quantity < 0 && after < held) {
+      const s = short.get(key) ?? {
         productId: c.productId,
         warehouseId: c.warehouseId,
-        available: before,
-        needed: -c.quantity,
-      });
-    balances.set(pairKey(c), after);
+        onHand: onHand.get(key)!,
+        reserved: held,
+        needed: 0,
+      };
+      s.needed += -c.quantity;
+      short.set(key, s);
+    }
+    balances.set(key, after);
     movements.push({ ...c, balanceAfter: after });
   }
 
-  if (short.length) {
-    const products = await tx.product.findMany({
-      where: { id: { in: short.map((s) => s.productId) } },
-      select: { id: true, sku: true, name: true, unitsPerPack: true, packsPerCarton: true },
-    });
-    const warehouses = await tx.warehouse.findMany({
-      where: { id: { in: short.map((s) => s.warehouseId) } },
-      select: { id: true, name: true },
-    });
-    const lines = short.map((s) => {
-      const p = products.find((x) => x.id === s.productId)!;
-      const w = warehouses.find((x) => x.id === s.warehouseId)!;
-      return `${p.sku} ${p.name}: ${w.name} has ${formatQuantity(s.available, p)}, this needs ${formatQuantity(s.needed, p)}`;
-    });
-    throw new ConflictError(`Not enough stock. ${lines.join("; ")}. Nothing was changed.`);
-  }
+  if (short.size) throw await shortageError(tx, [...short.values()]);
 
   for (const p of pairs) {
     await tx.stockBalance.update({
@@ -128,4 +176,64 @@ export function isUniqueViolation(error: unknown): boolean {
     e?.cause?.code === "23505" ||
     /unique constraint/i.test(e?.message ?? "")
   );
+}
+
+/**
+ * Reserve stock for a confirmed sales order. Locks the same balance rows as a
+ * posting, so a reservation and a sale can't both take the last cartons.
+ */
+export async function reserveStock(
+  tx: DbOrTx,
+  documentId: string,
+  items: (Pair & { quantity: number })[],
+): Promise<void> {
+  const wanted = new Map<string, Pair & { quantity: number }>();
+  for (const i of items) {
+    const key = pairKey(i);
+    const w = wanted.get(key) ?? { productId: i.productId, warehouseId: i.warehouseId, quantity: 0 };
+    w.quantity += i.quantity;
+    wanted.set(key, w);
+  }
+  if (!wanted.size) return;
+  const { pairs, onHand } = await lockBalances(tx, [...wanted.values()]);
+  const reserved = await reservedFor(tx, pairs);
+  const short: Shortage[] = [];
+  for (const w of wanted.values()) {
+    const key = pairKey(w);
+    const available = onHand.get(key)! - (reserved.get(key) ?? 0);
+    if (w.quantity > available)
+      short.push({ ...w, onHand: onHand.get(key)!, reserved: reserved.get(key) ?? 0, needed: w.quantity });
+  }
+  if (short.length) throw await shortageError(tx, short, "Not enough stock to reserve");
+  await tx.stockReservation.createMany({
+    data: [...wanted.values()].map((w) => ({ documentId, ...w })),
+  });
+}
+
+/** Release everything reserved for a document (order invoiced or cancelled). */
+export async function releaseReservations(tx: DbOrTx, documentId: string): Promise<void> {
+  await tx.stockReservation.deleteMany({ where: { documentId } });
+}
+
+/** Pieces on hand, reserved and available, for a set of products in one warehouse. */
+export async function availability(
+  db: DbOrTx,
+  warehouseId: string,
+  productIds: string[],
+): Promise<Map<string, { onHand: number; reserved: number; available: number }>> {
+  const [balances, reservations] = await Promise.all([
+    db.stockBalance.findMany({ where: { warehouseId, productId: { in: productIds } } }),
+    db.stockReservation.groupBy({
+      by: ["productId"],
+      where: { warehouseId, productId: { in: productIds } },
+      _sum: { quantity: true },
+    }),
+  ]);
+  const result = new Map<string, { onHand: number; reserved: number; available: number }>();
+  for (const id of productIds) {
+    const onHand = balances.find((b) => b.productId === id)?.quantity ?? 0;
+    const reserved = reservations.find((r) => r.productId === id)?._sum.quantity ?? 0;
+    result.set(id, { onHand, reserved, available: onHand - reserved });
+  }
+  return result;
 }

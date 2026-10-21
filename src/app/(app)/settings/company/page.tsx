@@ -55,6 +55,10 @@ export default async function CompanySettingsPage() {
           paymentInstructions: settings.paymentInstructions,
           invoiceTerms: settings.invoiceTerms,
           defaultPaymentTermsDays: settings.defaultPaymentTermsDays,
+          tagline: settings.tagline,
+          mpesaPaybill: settings.mpesaPaybill,
+          mpesaAccount: settings.mpesaAccount,
+          vatRegistered: settings.vatRegistered,
           version: settings.version,
         }}
       />

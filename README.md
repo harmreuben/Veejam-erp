@@ -2,7 +2,7 @@
 
 Distribution, invoicing, inventory and accounting system for **VeeJam Limited**, a Wrigley products distributor in Kenya. The business owner can also query and operate the ERP over the official WhatsApp Business Cloud API.
 
-> **Status: Phase 3 of 9 complete — customers, products, prices and stock.** Staff can sign in and manage customers, suppliers, products, price lists, warehouses and stock (adjustments, transfers, counts), and import lists from CSV. Selling (quotations, orders, invoices) arrives in Phase 4. See [Build plan](#build-plan).
+> **Status: Phase 5a of 9 — money in.** On top of selling (Phase 4), staff record customer payments (cash, M-Pesa, bank, cheque) with printed receipts, issue credit notes for returns, and see statements and ageing per customer. Every invoice, payment and credit note posts a balanced double-entry journal; the trial balance, ledgers, manual journal entries and closing the books are under Accounting. Purchasing (Phase 5b) is next. See [Build plan](#build-plan).
 
 ## Tech stack
 
@@ -106,17 +106,17 @@ docs/                  Architecture, schema, workflows, security, deployment, te
 
 ## Build plan
 
-| Phase | Scope                                                   | Status |
-| ----- | ------------------------------------------------------- | ------ |
-| 1     | Foundation, tooling, docs, env template                 | Done   |
-| 2     | Supabase, Prisma schema, migrations, auth, roles, seed  | Done   |
-| 3     | Customers, products/SKUs, imports, pricing, inventory   | Done   |
-| 4     | Quotations, sales orders, invoices, PDFs, stock posting |        |
-| 5     | Payments, receipts, double-entry accounting             |        |
-| 6     | WhatsApp mock provider, command parser, confirmations   |        |
-| 7     | Meta Cloud API on a test number with verified webhook   |        |
-| 8     | Reports, audit tools, security hardening, backups       |        |
-| 9     | Production deployment and full workflow test            |        |
+| Phase | Scope                                                   | Status                        |
+| ----- | ------------------------------------------------------- | ----------------------------- |
+| 1     | Foundation, tooling, docs, env template                 | Done                          |
+| 2     | Supabase, Prisma schema, migrations, auth, roles, seed  | Done                          |
+| 3     | Customers, products/SKUs, imports, pricing, inventory   | Done                          |
+| 4     | Quotations, sales orders, invoices, PDFs, stock posting | Done                          |
+| 5     | Payments, receipts, double-entry accounting             | 5a done; 5b (purchasing) next |
+| 6     | WhatsApp mock provider, command parser, confirmations   |                               |
+| 7     | Meta Cloud API on a test number with verified webhook   |                               |
+| 8     | Reports, audit tools, security hardening, backups       |                               |
+| 9     | Production deployment and full workflow test            |                               |
 
 ## Ground rules
 

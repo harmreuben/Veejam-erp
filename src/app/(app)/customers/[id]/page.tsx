@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
 
-import { formatDateTime, StatusBadge } from "@/components/format";
+import Link from "next/link";
+
+import { formatDateTime, Money, StatusBadge } from "@/components/format";
 import { NoAccess } from "@/components/no-access";
 import { Page, PageHeader } from "@/components/page";
+import { Button } from "@/components/ui/button";
 import { pageUser } from "@/server/auth/guard";
 import { hasPermission } from "@/server/auth/permissions";
 import { toActor } from "@/server/auth/session";
@@ -10,6 +13,7 @@ import { getDb } from "@/server/db/client";
 import { NotFoundError } from "@/server/errors";
 import { CUSTOMER_TYPE_LABELS } from "@/server/modules/customers/schemas";
 import { getCustomer } from "@/server/modules/customers/service";
+import { customerBalance } from "@/server/modules/payments/service";
 import { listPriceLists } from "@/server/modules/pricing/service";
 
 import { updateCustomerAction } from "../actions";
@@ -28,6 +32,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
     throw e;
   });
   const lists = hasPermission(user.role, "catalogue.view") ? await listPriceLists(db, actor) : [];
+  const bal = await customerBalance(db, customer.id);
 
   return (
     <Page>
@@ -46,7 +51,39 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             {customer.legacyNames.length > 0 && <> · Old-system name(s): {customer.legacyNames.join(", ")}</>}
           </>
         }
+        actions={
+          <>
+            <Button variant="outline" asChild>
+              <Link href={`/customers/${customer.id}/statement`}>Statement</Link>
+            </Button>
+            {hasPermission(user.role, "payments.record") && (
+              <Button asChild>
+                <Link href={`/payments/new?customer=${customer.id}`}>Record payment</Link>
+              </Button>
+            )}
+          </>
+        }
       />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="bg-card rounded-lg border p-4">
+          <div className="text-muted-foreground text-xs">Owes on invoices</div>
+          <div className="text-xl font-semibold">
+            <Money value={bal.owedOnInvoices} />
+          </div>
+        </div>
+        <div className="bg-card rounded-lg border p-4">
+          <div className="text-muted-foreground text-xs">Credit not yet applied</div>
+          <div className="text-xl font-semibold">
+            <Money value={bal.unappliedCredit} />
+          </div>
+        </div>
+        <div className="bg-card rounded-lg border p-4">
+          <div className="text-muted-foreground text-xs">Balance</div>
+          <div className="text-xl font-semibold">
+            <Money value={bal.balance} />
+          </div>
+        </div>
+      </div>
       <CustomerForm
         action={updateCustomerAction}
         values={{ ...customer, priceListId: customer.priceListId }}

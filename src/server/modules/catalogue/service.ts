@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { Product } from "@/generated/prisma/client";
-import type { RecordStatus } from "@/generated/prisma/enums";
+import type { RecordStatus, SellUnit } from "@/generated/prisma/enums";
 import { diffFields, writeAudit } from "@/server/audit/audit";
 import { authorize, hasPermission, type Actor } from "@/server/auth/permissions";
 import type { Db, DbOrTx } from "@/server/db/client";
@@ -51,12 +51,42 @@ export async function listProducts(
         : {}),
     },
     orderBy: [{ status: "asc" }, { brand: "asc" }, { name: "asc" }],
-    include: { balances: { select: { quantity: true } } },
+    include: {
+      balances: { select: { quantity: true } },
+      prices: {
+        where: { priceList: { status: "ACTIVE" } },
+        select: { unit: true, price: true, priceList: { select: { id: true, name: true } } },
+      },
+    },
     take: 500,
   });
-  return products.map(({ balances, ...p }) => {
+  const defaultListId = await getDefaultPriceListId(db);
+  const unitOrder = { PIECE: 0, PACK: 1, CARTON: 2 } as const;
+  return products.map(({ balances, prices, ...p }) => {
     const onHand = balances.reduce((sum, b) => sum + b.quantity, 0);
-    return { ...view(p, actor), onHand, lowStock: p.status === "ACTIVE" && onHand <= p.reorderLevel };
+    // Prices grouped by list, default list first: [{ list, prices: [{ unit, price }] }]
+    const byList = new Map<
+      string,
+      { list: string; isDefault: boolean; prices: { unit: SellUnit; price: string }[] }
+    >();
+    for (const item of prices) {
+      const entry = byList.get(item.priceList.id) ?? {
+        list: item.priceList.name,
+        isDefault: item.priceList.id === defaultListId,
+        prices: [],
+      };
+      entry.prices.push({ unit: item.unit, price: item.price.toFixed(2) });
+      byList.set(item.priceList.id, entry);
+    }
+    const priceLists = [...byList.values()]
+      .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.list.localeCompare(b.list))
+      .map((l) => ({ ...l, prices: l.prices.sort((a, b) => unitOrder[a.unit] - unitOrder[b.unit]) }));
+    return {
+      ...view(p, actor),
+      onHand,
+      lowStock: p.status === "ACTIVE" && onHand <= p.reorderLevel,
+      priceLists,
+    };
   });
 }
 

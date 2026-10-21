@@ -28,6 +28,10 @@ export type CompanySettingsFormValues = {
   paymentInstructions: string | null;
   invoiceTerms: string | null;
   defaultPaymentTermsDays: number;
+  tagline: string | null;
+  mpesaPaybill: string | null;
+  mpesaAccount: string | null;
+  vatRegistered: boolean;
   version: number;
 };
 
@@ -82,6 +86,15 @@ export function CompanySettingsForm({
           errors={e.kraPin}
         >
           <Input name="kraPin" defaultValue={values.kraPin ?? ""} readOnly={ro} autoCapitalize="characters" />
+        </Field>
+        <Field
+          id="tagline"
+          label="Line under the name on documents"
+          hint="e.g. Wrigley Product Distribution - Kenya"
+          errors={e.tagline}
+          className="sm:col-span-2"
+        >
+          <Input name="tagline" defaultValue={values.tagline ?? ""} readOnly={ro} />
         </Field>
         <Field id="businessType" label="Business type" errors={e.businessType}>
           <Input name="businessType" defaultValue={values.businessType} readOnly={ro} />
@@ -138,11 +151,31 @@ export function CompanySettingsForm({
             readOnly={ro}
           />
         </Field>
-        <div className="hidden sm:block" />
+        <label className="flex items-center gap-2 self-end pb-2 text-sm">
+          <input
+            type="checkbox"
+            name="vatRegistered"
+            defaultChecked={values.vatRegistered}
+            disabled={ro}
+            className="size-4"
+          />
+          VAT registered (printed on invoices)
+        </label>
+        <Field id="mpesaPaybill" label="M-Pesa paybill" errors={e.mpesaPaybill}>
+          <Input
+            name="mpesaPaybill"
+            inputMode="numeric"
+            defaultValue={values.mpesaPaybill ?? ""}
+            readOnly={ro}
+          />
+        </Field>
+        <Field id="mpesaAccount" label="Paybill account number" errors={e.mpesaAccount}>
+          <Input name="mpesaAccount" defaultValue={values.mpesaAccount ?? ""} readOnly={ro} />
+        </Field>
         <Field
           id="paymentInstructions"
           label="Payment instructions"
-          hint="For example the M-Pesa paybill or till number and bank details."
+          hint="Anything else about paying, e.g. bank details. Printed on invoices."
           errors={e.paymentInstructions}
           className="sm:col-span-2"
         >

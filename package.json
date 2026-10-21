@@ -24,8 +24,10 @@
     "db:drift": "prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code",
     "db:seed": "tsx --conditions=react-server prisma/seed.mts",
     "db:studio": "prisma studio",
+    "db:check": "tsx --conditions=react-server scripts/check-data.mts",
     "user:grant": "tsx --conditions=react-server scripts/grant-user.mts",
-    "legacy:stage": "tsx --conditions=react-server scripts/stage-legacy.mts"
+    "legacy:stage": "tsx --conditions=react-server scripts/stage-legacy.mts",
+    "legacy:import": "tsx --conditions=react-server scripts/import-legacy.mts"
   },
   "dependencies": {
     "@fontsource-variable/public-sans": "^5.3.0",
@@ -39,6 +41,7 @@
     "decimal.js": "^10.6.0",
     "lucide-react": "^1.61.0",
     "next": "16.4.2",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.23.1",
     "radix-ui": "^1.8.1",
     "react": "19.3.0",

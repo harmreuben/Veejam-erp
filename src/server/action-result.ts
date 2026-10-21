@@ -8,6 +8,8 @@ export type ActionResult = {
   fieldErrors?: Record<string, string[]>;
   /** Changes on every submission so the client can show a fresh toast. */
   at?: number;
+  /** Extra values for the form to show, e.g. a share link that is displayed once. */
+  data?: Record<string, string>;
 };
 
 /**
@@ -15,10 +17,13 @@ export type ActionResult = {
  * Unknown errors are logged on the server and shown as a generic message,
  * so internal details never reach the browser.
  */
-export async function toActionResult(fn: () => Promise<string>): Promise<ActionResult> {
+export async function toActionResult(
+  fn: () => Promise<string | { message: string; data?: Record<string, string> }>,
+): Promise<ActionResult> {
   try {
-    const message = await fn();
-    return { ok: true, message, at: Date.now() };
+    const out = await fn();
+    const { message, data } = typeof out === "string" ? { message: out, data: undefined } : out;
+    return { ok: true, message, at: Date.now(), ...(data ? { data } : {}) };
   } catch (error) {
     if (error instanceof ValidationError) {
       return { ok: false, message: error.message, fieldErrors: error.fieldErrors, at: Date.now() };

@@ -113,12 +113,31 @@ The 44 records are about 30 real customers.
 9. **Commissions:** who earns them, at what rate, and should they be added to the new system?
 10. **eTIMS:** is VeeJam VAT-registered and required to use eTIMS? If so, it needs adding to the build plan.
 
+## Running the import
+
+1. Put the nine CSV files, plus the price list export (`price-lists-….csv`, used for prices when present), in `legacy-data/` (not in Git).
+2. `npm run legacy:import` — **check only**. Writes `legacy-data/import-report.md`: every customer (with the old names merged into it), product, price and historical invoice, the totals before and after, and every problem found. Nothing is saved.
+3. Read the report with the owner. Change any decision in `src/server/modules/legacy/decisions.ts` (merges, test records, corrections) and run step 2 again.
+4. `npm run legacy:import -- --commit` — imports everything in one transaction, as the first active owner (or `--by email`). Running it again creates nothing twice.
+
+What it creates:
+
+- **Customers:** 22 (from 44 old records), each with its old spellings kept as "old names" so searches still find them. Placeholder phones are left blank. Wholesalers get the new Wholesale price list. Credit limit 0 (cash only) until the owner sets limits.
+- **Products:** the 12 WRG- SKUs. The old "pack size" becomes pieces per packet and "units per case" becomes packets per carton. Old invoices sold by the packet.
+- **Prices:** retail per packet on Standard prices; wholesale per packet and per carton on Wholesale prices. Existing prices are never overwritten.
+- **Historical invoices:** all 86, with their original VJL- numbers, dates, lines, discounts and amounts paid. Read-only (the database refuses changes), marked "Old system", and they take **no** stock out. They count towards what each customer owes, so customers who still owe on old invoices need a payment (Phase 5) or an owner's override before a new invoice can be posted.
+- **Opening stock:** from `inventory-report-….csv` when present: one opening-balance stock adjustment (ADJ-) in the main warehouse, in packets, posted once. Products that already have stock in the new system are skipped. Confirm the figures with a stock count.
+- **Not imported:** the old stock movement history, commissions, the eTIMS queue, the old audit log, and payments against deleted, test or missing invoices (listed in the report).
+
+Imported totals: invoiced KES 969,710.00, paid KES 808,945.00, outstanding **KES 160,765.00** (the old system showed 172,523.40; the difference is the two VAT-on-top invoices).
+
 ## Status (after Phase 3)
 
 - The nine files can be stored in the database unchanged (`npm run legacy:stage`).
 - Customers, products/prices and suppliers can be imported from CSV (Admin → Imports), with every row checked and reviewed before anything is saved. The importer refuses the old system's typical problems: placeholder phones, duplicate names, duplicate SKUs.
 - **Still waiting on the owner's answers** (the 10 questions above) before the old invoices, payments and balances are brought across. Customers and products can be loaded now if the owner confirms the merge list and pack sizes.
 - Opening stock: use a stock count on cut-over day (Inventory → Stock counts).
+- Phase 4 (selling) uses prices that **include** VAT, like the old system, but works VAT out correctly. The two old invoices that added VAT on top (Abdi, Martin Carni) show the problem the new system avoids.
 
 ## How the import will work (Phases 2–3)
 

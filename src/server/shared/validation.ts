@@ -115,3 +115,7 @@ export const moneyField = (opts: { min?: string; allowBlank?: boolean; label?: s
 
 /** Optimistic-locking version sent back by edit forms. */
 export const versionField = z.coerce.number().int().min(1);
+
+/** True for a well-formed UUID; used to turn junk ids in URLs into "not found". */
+export const isUuid = (v: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);

@@ -38,27 +38,23 @@ Both the web dashboard and the WhatsApp command handler call the **same services
 
 ### Modules
 
-| Folder (`src/server/modules/`) | Responsibility                                                             | Phase |
-| ------------------------------ | -------------------------------------------------------------------------- | ----- |
-| `settings`                     | Company profile, document numbering, workflow switches                     | 2     |
-| `catalogue`                    | Products (SKUs), pack sizes, cost prices                                   | 3     |
-| `pricing`                      | Price lists, prices per unit, price resolution for documents               | 3     |
-| `customers`                    | Customers, credit limits and terms (statements in Phase 4)                 | 3     |
-| `suppliers`                    | Supplier master (purchase orders and goods received in Phase 5)            | 3 / 5 |
-| `inventory`                    | Warehouses, stock ledger, adjustments, transfers, counts                   | 3     |
-| `imports`                      | CSV upload → validate → review → commit for customers, products, suppliers | 3     |
-| `quotations`                   | Quotes                                                                     | 4     |
-| `sales-orders`                 | Orders, reservations, backorders                                           | 4     |
-| `invoicing`                    | Draft → posted invoices, PDFs, secure share links                          | 4     |
-| `delivery`                     | Dispatch and delivery notes                                                | 4     |
-| `payments`                     | Payments, allocations, receipts, reversals                                 | 5     |
-| `returns`                      | Sales returns, credit notes                                                | 5     |
-| `accounting`                   | Chart of accounts, journal, ledger, posting rules, periods                 | 5     |
-| `tax`                          | Configurable tax codes and rates                                           | 5     |
-| `reports`                      | Dashboard metrics, financial statements, exports                           | 8     |
-| `server/whatsapp`              | Provider interface, mock + Meta providers, parser, confirmations           | 6–7   |
-| `server/audit`                 | Append-only audit log                                                      | 2+    |
-| `server/auth`                  | Session lookup, role/permission checks                                     | 2     |
+| Folder (`src/server/modules/`) | Responsibility                                                                                                                                                      | Phase |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `settings`                     | Company profile, document numbering, workflow switches                                                                                                              | 2     |
+| `catalogue`                    | Products (SKUs), pack sizes, cost prices                                                                                                                            | 3     |
+| `pricing`                      | Price lists, prices per unit, price resolution for documents                                                                                                        | 3     |
+| `customers`                    | Customers, credit limits and terms (statements in Phase 4)                                                                                                          | 3     |
+| `suppliers`                    | Supplier master (purchase orders and goods received in Phase 5)                                                                                                     | 3 / 5 |
+| `inventory`                    | Warehouses, stock ledger, adjustments, transfers, counts                                                                                                            | 3     |
+| `imports`                      | CSV upload → validate → review → commit for customers, products, suppliers                                                                                          | 3     |
+| `sales`                        | Quotations, sales orders (reservations), invoices (draft → posted), pricing and VAT per line, credit checks, delivery notes, PDFs (pdf-lib), share links, tax rates | 4     |
+| `payments`                     | Payments, allocations, receipts, reversals                                                                                                                          | 5     |
+| `returns`                      | Sales returns, credit notes                                                                                                                                         | 5     |
+| `accounting`                   | Chart of accounts, journal, ledger, posting rules, periods                                                                                                          | 5     |
+| `reports`                      | Dashboard metrics, financial statements, exports                                                                                                                    | 8     |
+| `server/whatsapp`              | Provider interface, mock + Meta providers, parser, confirmations                                                                                                    | 6–7   |
+| `server/audit`                 | Append-only audit log                                                                                                                                               | 2+    |
+| `server/auth`                  | Session lookup, role/permission checks                                                                                                                              | 2     |
 
 ## Key decisions
 
@@ -66,7 +62,7 @@ Both the web dashboard and the WhatsApp command handler call the **same services
 
 **Quantities.** Stock is stored in the smallest sellable unit (pieces) as an integer. Packs and cartons are conversions defined per SKU (`unitsPerPack`, `packsPerCarton`). A sale of "2 cartons" is converted to pieces exactly once, on the server.
 
-**One door for stock.** `applyStockChanges()` in `server/modules/inventory/stock.ts` is the only code that changes stock. Adjustments, transfers, counts and (from Phase 4) invoices and receipts all go through it, so the locking, the no-negative rule and the ledger are written once.
+**One door for stock.** `applyStockChanges()` in `server/modules/inventory/stock.ts` is the only code that changes stock. Adjustments, transfers, counts and invoices all go through it, so the locking, the no-negative rule and the ledger are written once. Reservations for confirmed orders (`reserveStock()`) lock the same rows, and invoices and transfers can only use stock that isn't reserved for someone else.
 
 **Stock ledger, not a stock counter.** Every movement is an immutable row (source document, warehouse, quantity, user, time). On-hand quantity is derived from (and cached alongside) the ledger. Corrections are new movements, never edits.
 
@@ -90,9 +86,9 @@ Session cookies are HTTP-only, `SameSite=Lax`, `Secure` in production, and last 
 
 **No Docker, no extra services.** Supabase provides Postgres and Auth; Vercel hosts the app and webhook endpoint.
 
-## Request flow example (Phase 4+): posting an invoice
+## Request flow example: posting an invoice
 
-1. Route/server action verifies the session and the `invoice.post` permission.
-2. Input parsed with Zod (only the invoice ID and idempotency key — no totals).
-3. `invoicing.service.post()` opens a transaction: locks the draft, recalculates every line from catalogue prices and tax codes, checks stock and the customer's credit limit, assigns the next invoice number, writes stock movements, writes balanced journal lines, writes the audit row, commits.
-4. Response returns the posted invoice; the PDF is generated on demand from posted data.
+1. The server action verifies the session; `postInvoice()` checks the `invoices.post` permission.
+2. Input parsed with Zod: only the draft's version and, for a credit override, the reason. No prices or totals.
+3. One transaction: lock the draft row (a second click waits, then sees it's posted); re-price every line from the price list and tax rates (if anything changed, save the new figures and stop); lock the customer row and check credit; take the next INV- number; release the order's reservation; `applyStockChanges()` with SALE movements; freeze company and customer details; audit; commit. The invoice's journal entry (Dr receivables, Cr sales and VAT) is posted in the same transaction.
+4. The page shows the posted invoice; the PDF is drawn on request from the frozen data (`sales/pdf.ts`).

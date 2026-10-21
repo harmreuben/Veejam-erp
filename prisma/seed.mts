@@ -14,7 +14,12 @@ try {
   console.log(
     `Company settings: ${report.companySettings}. ` +
       `Document sequences created: ${report.sequencesCreated.length ? report.sequencesCreated.join(", ") : "none (all present)"}. ` +
-      `Warehouse: ${report.warehouse}. Default price list: ${report.defaultPriceList}.`,
+      `Warehouse: ${report.warehouse}. Default price list: ${report.defaultPriceList}. ` +
+      `Tax rates created: ${report.taxRatesCreated.length ? report.taxRatesCreated.join(", ") : "none (all present)"}.` +
+      (report.documentDetailsFilled.length
+        ? ` Invoice details filled in: ${report.documentDetailsFilled.join(", ")}.`
+        : "") +
+      (report.accountsCreated ? ` Accounts created: ${report.accountsCreated}.` : ""),
   );
 } catch (error) {
   console.error("Seed failed:", (error as Error).message);

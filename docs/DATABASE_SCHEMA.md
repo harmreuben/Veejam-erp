@@ -19,7 +19,7 @@ Source of truth: `prisma/schema.prisma`. Changes are made only through migration
 | ----------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `users`                 | ERP users, linked to Supabase Auth by `auth_user_id`                                  | Unique auth id and email; email stored lowercase; deactivated users must have `deactivated_at`                             |
 | `company_settings`      | Company profile shown on documents                                                    | Exactly one row (`id = 1`); `version` for edit-conflict detection; currency is 3 capital letters; payment terms 0–365 days |
-| `document_sequences`    | Next number per document type (INV-, QUO-, SO-, RCT-, CN-, DN-, PO-, GRN-, ADJ-, JE-) | `next_number ≥ 1`; incremented under a row lock inside the posting transaction (Phase 4)                                   |
+| `document_sequences`    | Next number per document type (INV-, QUO-, SO-, RCT-, CN-, DN-, PO-, GRN-, ADJ-, JE-) | `next_number ≥ 1`; incremented under a row lock inside the posting transaction, so a failed posting uses no number         |
 | `audit_log`             | Who did what, when, before/after                                                      | **Append-only**: a trigger rejects UPDATE, DELETE and TRUNCATE. Secrets are redacted before writing                        |
 | `legacy_import_batches` | One staged CSV export from the old system                                             | Unique per file name + SHA-256, so the same file can't be staged twice                                                     |
 | `legacy_rows`           | Each CSV row, stored unchanged as JSON                                                | Row numbers match the spreadsheet (header is row 1)                                                                        |
@@ -42,7 +42,32 @@ Rules Prisma can't express (check constraints, the audit trigger, RLS) are hand-
 | `stock_counts` (+ lines)          | Physical counts (CNT-…): draft → posted or cancelled                                               | Status/date consistency check; the variance is taken against the balance **at posting time**                                |
 | `import_jobs`, `import_job_rows`  | Uploaded CSVs, every row with its validation result                                                | Rows are written to customers/products only on commit, all or nothing                                                       |
 
+## Phase 4 tables
+
+| Table                  | Purpose                                                                                                      | Key rules                                                                                                                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tax_rates`            | Rate per tax category (seeded: standard 16%, zero-rated 0%, exempt 0%)                                       | 0–100%; changes audited                                                                                                                                                                                    |
+| `sales_documents`      | Quotations (QUO-), sales orders (SO-) and invoices (INV-) in one table, so conversion copies nothing by hand | Each kind uses only its own statuses (check); quotes/orders numbered at creation, invoices **only when posted**; totals ≥ 0, amount paid ≤ total; cancelled ⇔ cancelled_at; credit override needs a reason |
+| `sales_document_lines` | Product, unit, quantity and pieces, price, discount %, tax category and rate, net/VAT/gross                  | Product name, SKU and tax rate copied in; pieces = quantity × pieces per unit; gross = net + VAT (check)                                                                                                   |
+| `stock_reservations`   | Pieces promised to a confirmed sales order                                                                   | > 0; one row per order/product/warehouse; removed when the order is invoiced or cancelled                                                                                                                  |
+| `delivery_notes`       | One per posted invoice (DN-)                                                                                 | Delivered ⇔ delivered_at; dispatched/delivered need dispatched_at                                                                                                                                          |
+| `document_share_links` | Customer links to a document                                                                                 | Only the SHA-256 of the token is stored; expiry; revocation; access count                                                                                                                                  |
+
+**A posted invoice is final, enforced by the database:** a trigger refuses any change to a posted invoice except `amount_paid` and `amount_credited`, refuses deleting it, and refuses inserting, changing or deleting its lines. `stock_movements` gained the `SALE` type (always negative).
+
 **Not built yet (deliberately):** batch/lot and expiry tracking. Every movement is ready to carry a batch later, but nothing records expiry dates today. Add it in a later phase if VeeJam needs expiry-date reporting (first-expiry-first-out).
+
+## Phase 5a tables
+
+| Table                 | Purpose                                                                                     | Key rules                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `accounts`            | Chart of accounts (seeded: cash, M-Pesa, bank, receivables, VAT, sales, returns, expenses…) | Unique code; system accounts carry a `system_key` the code posts to; type ASSET/LIABILITY/EQUITY/INCOME/EXPENSE       |
+| `journal_entries`     | One entry per posting (JE-), linked to its source document                                  | **Append-only** (trigger); debits must equal credits, checked by a deferred constraint trigger at commit              |
+| `journal_lines`       | Account, debit or credit, optional customer                                                 | Exactly one of debit/credit > 0                                                                                       |
+| `payments`            | Customer payments / receipts (RCT-)                                                         | Amount > 0; M-Pesa code `^[A-Z0-9]{10}$`, never reused; idempotency key unique; reversed ⇔ reversed_at, by and reason |
+| `payment_allocations` | How much of a payment or credit note went to which invoice                                  | Exactly one source (payment or credit note); amount > 0                                                               |
+
+`sales_documents` gained the `CREDIT_NOTE` kind (CN-, draft → posted, always linked to its invoice), `amount_credited` (paid + credited ≤ total), `returns_to_stock` and a unique `idempotency_key`. The posted-document trigger now covers credit notes and allows only `amount_paid`, `amount_credited`, `updated_at` and `version` to change. `stock_movements` gained `RETURN_IN` (always positive). `company_settings` gained `books_closed_until`.
 
 ## Roles
 
@@ -52,9 +77,11 @@ Fixed roles in the `UserRole` enum: `OWNER`, `ADMIN`, `ACCOUNTANT`, `SALES`, `ST
 
 **Phase 3 — built** (see above). Still to do with Phase 3 data: the legacy import that turns the staged old-system rows into these records, once the owner has answered the questions in `DATA_MIGRATION.md`.
 
-**Phase 4 — sales:** `Quotation`, `SalesOrder`, `StockReservation`, `Invoice` (including historical invoices imported from the old system, with their original `VJL-` numbers), `DeliveryNote`, `DocumentShareLink`.
+**Phase 4 — built** (see above). Still to do: historical invoices imported from the old system with their original `VJL-` numbers, once the owner has answered DATA_MIGRATION.md.
 
-**Phase 5 — money:** `PaymentMethod`, `Payment`, `PaymentAllocation`, `Receipt`, `CreditNote`, `SalesReturn`, `TaxCode`, `Account`, `JournalEntry`, `JournalLine`, `AccountingPeriod`, `PurchaseOrder`, `GoodsReceipt`, `SupplierInvoice`.
+**Phase 5a — built** (see above).
+
+**Phase 5b — purchasing:** `PurchaseOrder`, `GoodsReceipt`, `SupplierInvoice`, supplier payments, cost layers for cost of goods sold.
 
 **Phases 6–7 — WhatsApp:** `WhatsAppMessage`, `WhatsAppEvent` (unique event id for idempotency), `PendingConfirmation`.
 
