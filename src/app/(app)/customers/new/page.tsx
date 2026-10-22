@@ -15,9 +15,7 @@ export const metadata = { title: "Add customer" };
 export default async function NewCustomerPage() {
   const user = await pageUser("customers.manage");
   if (!user) return <NoAccess what="adding customers" />;
-  const lists = hasPermission(user.role, "catalogue.view")
-    ? await listPriceLists(getDb(), toActor(user))
-    : [];
+  const lists = hasPermission(user, "catalogue.view") ? await listPriceLists(getDb(), toActor(user)) : [];
 
   return (
     <Page>
@@ -33,7 +31,7 @@ export default async function NewCustomerPage() {
         priceLists={lists
           .filter((l) => l.status === "ACTIVE")
           .map((l) => ({ id: l.id, label: `${l.name} (${l.code})` }))}
-        canCredit={hasPermission(user.role, "customers.credit")}
+        canCredit={hasPermission(user, "customers.credit")}
         canEdit
         isNew
       />

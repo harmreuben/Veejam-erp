@@ -16,7 +16,7 @@ export default async function AccountingSettingsPage() {
   if (!user) return <NoAccess what="the accounts" />;
   const db = getDb();
   const [accounts, status] = await Promise.all([listAccounts(db, toActor(user)), accountingStatus(db)]);
-  const canClose = hasPermission(user.role, "accounting.close");
+  const canClose = hasPermission(user, "accounting.close");
   return (
     <Page>
       <PageHeader title="Accounts and closing" />

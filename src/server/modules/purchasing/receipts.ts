@@ -43,7 +43,7 @@ export async function postGoodsReceipt(
 ): Promise<ReceiptResult> {
   authorize(actor, "goods.receive");
   const v = parseInput(goodsReceiptSchema, input);
-  const canCost = hasPermission(actor.role, "catalogue.costs");
+  const canCost = hasPermission(actor, "catalogue.costs");
 
   const existing = await db.goodsReceipt.findUnique({ where: { idempotencyKey: v.idempotencyKey } });
   if (existing) return { id: existing.id, number: existing.number, alreadyPosted: true };
@@ -288,7 +288,7 @@ export async function listGoodsReceipts(
   filter: { q?: string; unbilled?: boolean; supplierId?: string } = {},
 ) {
   authorize(actor, "purchasing.view");
-  const showCosts = hasPermission(actor.role, "catalogue.costs");
+  const showCosts = hasPermission(actor, "catalogue.costs");
   const where: Prisma.GoodsReceiptWhereInput = {};
   if (filter.unbilled) where.billId = null;
   if (filter.supplierId && isUuid(filter.supplierId)) where.supplierId = filter.supplierId;
@@ -329,7 +329,7 @@ export async function listGoodsReceipts(
 export async function getGoodsReceipt(db: Db, actor: Actor, id: string) {
   authorize(actor, "purchasing.view");
   if (!isUuid(id)) throw new NotFoundError();
-  const showCosts = hasPermission(actor.role, "catalogue.costs");
+  const showCosts = hasPermission(actor, "catalogue.costs");
   const r = await db.goodsReceipt.findUnique({
     where: { id },
     include: {
@@ -376,7 +376,7 @@ export async function getGoodsReceipt(db: Db, actor: Actor, id: string) {
 /** What the "receive goods" form needs: open orders (with what's still to come) or products for a direct receipt. */
 export async function receiptFormData(db: Db, actor: Actor, purchaseOrderId?: string) {
   authorize(actor, "goods.receive");
-  const showCosts = hasPermission(actor.role, "catalogue.costs");
+  const showCosts = hasPermission(actor, "catalogue.costs");
   const [orders, suppliers, warehouses, products] = await Promise.all([
     db.purchaseOrder.findMany({
       where: { status: { in: OPEN_PO_STATUSES } },

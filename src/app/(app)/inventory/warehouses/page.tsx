@@ -13,7 +13,7 @@ export const metadata = { title: "Warehouses" };
 export default async function WarehousesPage() {
   const user = await requireUser();
   const warehouses = await listWarehouses(getDb(), toActor(user));
-  const canManage = hasPermission(user.role, "warehouses.manage");
+  const canManage = hasPermission(user, "warehouses.manage");
 
   return (
     <Page>

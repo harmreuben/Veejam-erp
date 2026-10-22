@@ -82,7 +82,7 @@ Rules Prisma can't express (check constraints, the audit trigger, RLS) are hand-
 
 ## Roles
 
-Fixed roles in the `UserRole` enum: `OWNER`, `ADMIN`, `ACCOUNTANT`, `SALES`, `STOREKEEPER`. What each may do is defined in code (`src/server/auth/permissions.ts`) and checked on the server for every action. The system always keeps at least one active owner; this is enforced with a row lock, so two owners acting at the same moment can't both be removed.
+Fixed roles in the `UserRole` enum: `OWNER`, `ADMIN`, `ACCOUNTANT`, `SALES`, `STOREKEEPER`. Each role's default duties are defined in code (`src/server/auth/permissions.ts`). An owner or admin can switch individual duties on or off per person; those changes are stored in `user_duty_changes` (user, permission, granted), cleared when the person's role changes, and ignored for owners. The effective duties are worked out on every request and checked on the server for every action. The database refuses granting WhatsApp commands to anyone. The system always keeps at least one active owner; this is enforced with a row lock, so two owners acting at the same moment can't both be removed.
 
 ## Planned entities by phase
 

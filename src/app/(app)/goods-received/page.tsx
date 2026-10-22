@@ -31,14 +31,14 @@ export default async function GoodsReceivedPage({
     q,
     unbilled: show === "UNBILLED",
   });
-  const billsLink = hasPermission(user.role, "payables.view");
+  const billsLink = hasPermission(user, "payables.view");
   return (
     <Page wide>
       <PageHeader
         title="Goods received"
         description="Every delivery from a supplier (GRN). Each one puts stock in at cost and waits for the supplier's bill."
         actions={
-          hasPermission(user.role, "goods.receive") && (
+          hasPermission(user, "goods.receive") && (
             <Button asChild>
               <Link href="/goods-received/new">
                 <Plus aria-hidden /> Receive goods

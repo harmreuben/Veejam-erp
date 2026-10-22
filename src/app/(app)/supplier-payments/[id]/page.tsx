@@ -58,7 +58,7 @@ export default async function SupplierPaymentPage({
         }
         actions={
           !reversed &&
-          hasPermission(user.role, "supplier_payments.manage") && (
+          hasPermission(user, "supplier_payments.manage") && (
             <ConfirmButton
               action={supplierPaymentAction}
               variant="ghost"

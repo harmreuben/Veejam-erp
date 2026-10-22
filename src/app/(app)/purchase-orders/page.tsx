@@ -39,7 +39,7 @@ export default async function PurchaseOrdersPage({
         title="Purchase orders"
         description="What VeeJam has ordered from suppliers. Send the PDF to the supplier, then receive the goods against the order when they arrive."
         actions={
-          hasPermission(user.role, "purchasing.manage") && (
+          hasPermission(user, "purchasing.manage") && (
             <Button asChild>
               <Link href="/purchase-orders/new">
                 <Plus aria-hidden /> New purchase order

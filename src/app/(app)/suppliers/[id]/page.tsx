@@ -32,8 +32,8 @@ export default async function SupplierPage({ params }: { params: Promise<{ id: s
     throw e;
   });
   const db = getDb();
-  const seePayables = hasPermission(user.role, "payables.view");
-  const seeOrders = hasPermission(user.role, "purchasing.view");
+  const seePayables = hasPermission(user, "payables.view");
+  const seeOrders = hasPermission(user, "purchasing.view");
   const [balance, orders] = await Promise.all([
     seePayables ? supplierBalance(db, s.id) : null,
     seeOrders ? listPurchaseOrders(db, toActor(user), { supplierId: s.id, status: "OPEN" }) : null,
@@ -43,17 +43,17 @@ export default async function SupplierPage({ params }: { params: Promise<{ id: s
       <PageHeader
         actions={
           <>
-            {hasPermission(user.role, "purchasing.manage") && (
+            {hasPermission(user, "purchasing.manage") && (
               <Button asChild variant="outline">
                 <Link href={`/purchase-orders/new?supplier=${s.id}`}>New purchase order</Link>
               </Button>
             )}
-            {hasPermission(user.role, "bills.manage") && (
+            {hasPermission(user, "bills.manage") && (
               <Button asChild variant="outline">
                 <Link href={`/supplier-bills/new?supplier=${s.id}`}>Enter a bill</Link>
               </Button>
             )}
-            {hasPermission(user.role, "supplier_payments.manage") && (
+            {hasPermission(user, "supplier_payments.manage") && (
               <Button asChild>
                 <Link href={`/supplier-payments/new?supplier=${s.id}`}>Pay</Link>
               </Button>
@@ -108,7 +108,7 @@ export default async function SupplierPage({ params }: { params: Promise<{ id: s
       <SupplierForm
         action={updateSupplierAction}
         values={s}
-        canEdit={hasPermission(user.role, "suppliers.manage")}
+        canEdit={hasPermission(user, "suppliers.manage")}
       />
     </Page>
   );

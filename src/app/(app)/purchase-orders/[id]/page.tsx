@@ -37,9 +37,9 @@ export default async function PurchaseOrderPage({
     if (e instanceof NotFoundError) notFound();
     throw e;
   });
-  const manage = hasPermission(user.role, "purchasing.manage");
+  const manage = hasPermission(user, "purchasing.manage");
   const canReceive =
-    hasPermission(user.role, "goods.receive") && (po.status === "ORDERED" || po.status === "PARTLY_RECEIVED");
+    hasPermission(user, "goods.receive") && (po.status === "ORDERED" || po.status === "PARTLY_RECEIVED");
   const hidden = { id: po.id, version: po.version };
   return (
     <Page wide>

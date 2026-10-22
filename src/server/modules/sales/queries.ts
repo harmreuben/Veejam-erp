@@ -111,7 +111,7 @@ export async function getDocument(db: Db, actor: Actor, id: string) {
         })
       : null;
 
-  const shareLinks = hasPermission(actor.role, "documents.share")
+  const shareLinks = hasPermission(actor, "documents.share")
     ? await db.documentShareLink.findMany({
         where: { documentId: id },
         orderBy: { createdAt: "desc" },
@@ -230,7 +230,7 @@ export async function editorData(db: Db, actor: Actor) {
     prices,
     taxRates: Object.fromEntries(rates) as Record<string, string>,
     defaultPriceListId: defaultId,
-    canDiscount: hasPermission(actor.role, "sales.discount"),
+    canDiscount: hasPermission(actor, "sales.discount"),
   };
 }
 export type EditorData = Awaited<ReturnType<typeof editorData>>;

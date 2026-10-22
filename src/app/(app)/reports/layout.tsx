@@ -19,7 +19,7 @@ export default async function ReportsLayout({ children }: { children: ReactNode 
             { href: "/reports/collections", label: "Money received" },
             { href: "/reports/vat", label: "VAT" },
             { href: "/reports/profit", label: "Profit and loss" },
-            ...(hasPermission(user.role, "catalogue.costs")
+            ...(hasPermission(user, "catalogue.costs")
               ? [{ href: "/reports/stock", label: "Stock value" }]
               : []),
           ]}

@@ -35,7 +35,7 @@ export default async function PaymentsPage({
         title="Payments"
         description="Money received from customers. Each payment gets a receipt and is applied to their oldest invoices unless you choose otherwise."
         actions={
-          hasPermission(user.role, "payments.record") && (
+          hasPermission(user, "payments.record") && (
             <Button asChild>
               <Link href="/payments/new">
                 <Plus aria-hidden /> Record payment

@@ -22,7 +22,7 @@ export default async function AdjustmentsPage() {
         title="Stock adjustments"
         description="Opening balances, damages, expiries, losses and finds. Posting one needs an owner or administrator."
         actions={
-          hasPermission(user.role, "inventory.adjust") && (
+          hasPermission(user, "inventory.adjust") && (
             <Button asChild>
               <Link href="/inventory/adjustments/new">
                 <Plus aria-hidden /> New adjustment

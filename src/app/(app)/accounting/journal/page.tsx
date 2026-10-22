@@ -34,7 +34,7 @@ export default async function JournalPage({
         title="Journal"
         description="Every entry in date order. Entries can't be edited or deleted; mistakes are corrected with another entry."
         actions={
-          hasPermission(user.role, "accounting.journal") && (
+          hasPermission(user, "accounting.journal") && (
             <Button asChild>
               <Link href="/accounting/journal/new">
                 <Plus aria-hidden /> New journal entry

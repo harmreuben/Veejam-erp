@@ -5,7 +5,19 @@ import { z } from "zod";
 import type { User } from "@/generated/prisma/client";
 import { UserRole } from "@/generated/prisma/enums";
 import { writeAudit } from "@/server/audit/audit";
-import { assertCanManageUser, authorize, type Actor } from "@/server/auth/permissions";
+import {
+  assertCanManageUser,
+  authorize,
+  effectivePermissions,
+  isPermission,
+  NOT_GRANTABLE,
+  PERMISSION_INFO,
+  permissionsFor,
+  REQUIRES,
+  roleHasPermission,
+  type Actor,
+  type Permission,
+} from "@/server/auth/permissions";
 import type { Db, DbOrTx } from "@/server/db/client";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
 
@@ -40,11 +52,24 @@ type AuditContext = { ipAddress?: string | null; userAgent?: string | null };
 /** Optional hook to block or unblock sign-in at Supabase Auth as well. */
 export type AuthBanHook = (authUserId: string, banned: boolean) => Promise<void>;
 
-export async function listUsers(db: Db, actor: Actor): Promise<UserSummary[]> {
+export async function listUsers(
+  db: Db,
+  actor: Actor,
+): Promise<(UserSummary & { dutiesAdded: number; dutiesRemoved: number })[]> {
   authorize(actor, "users.view");
-  return db.user.findMany({
-    select: userSummarySelect,
+  const users = await db.user.findMany({
+    select: { ...userSummarySelect, dutyChanges: { select: { permission: true, granted: true } } },
     orderBy: [{ isActive: "desc" }, { role: "asc" }, { fullName: "asc" }],
+  });
+  return users.map(({ dutyChanges, ...u }) => {
+    // Count what actually differs from the role (owners ignore changes).
+    const effective = new Set(effectivePermissions(u.role, dutyChanges));
+    const defaults = new Set(permissionsFor(u.role));
+    return {
+      ...u,
+      dutiesAdded: [...effective].filter((p) => !defaults.has(p)).length,
+      dutiesRemoved: [...defaults].filter((p) => !effective.has(p)).length,
+    };
   });
 }
 
@@ -52,7 +77,14 @@ export async function listUsers(db: Db, actor: Actor): Promise<UserSummary[]> {
 export function findUserByAuthId(db: Db, authUserId: string) {
   return db.user.findUnique({
     where: { authUserId },
-    select: { id: true, email: true, fullName: true, role: true, isActive: true },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      role: true,
+      isActive: true,
+      dutyChanges: { select: { permission: true, granted: true } },
+    },
   });
 }
 
@@ -177,6 +209,8 @@ export async function changeUserRole(
     if (target.role === newRole) return pick(target);
     if (target.role === "OWNER" && target.isActive) await assertAnotherActiveOwner(tx, target.id);
 
+    // A new role starts from its own defaults: changes made for the old role no longer apply.
+    const cleared = await tx.userDutyChange.deleteMany({ where: { userId } });
     const updated = await tx.user.update({
       where: { id: userId },
       data: { role: newRole },
@@ -191,6 +225,7 @@ export async function changeUserRole(
       summary: `${target.email}: ${target.role} → ${newRole}`,
       before: { role: target.role },
       after: { role: newRole },
+      metadata: cleared.count ? { dutyChangesCleared: cleared.count } : undefined,
       ...context,
     });
     return updated;
@@ -246,6 +281,135 @@ export async function setUserActive(
     }
   }
   return result.user;
+}
+
+// ─── Duties (per-person permissions) ───────────────────────────────
+
+export type DutiesView = {
+  user: UserSummary;
+  /** What the person can do now. */
+  effective: Permission[];
+  /** What their role gives by default. */
+  roleDefaults: Permission[];
+  /** Whether the viewer may change them, and why not if they can't. */
+  editable: boolean;
+  readOnlyReason: string | null;
+};
+
+/** One person's duties, for the duties page. */
+export async function getUserDuties(db: Db, actor: Actor, userId: string): Promise<DutiesView> {
+  authorize(actor, "users.view");
+  const target = await db.user.findUnique({
+    where: { id: userId },
+    include: { dutyChanges: { select: { permission: true, granted: true } } },
+  });
+  if (!target) throw new NotFoundError("That user no longer exists.");
+  let readOnlyReason: string | null = null;
+  try {
+    assertCanManageUser(actor, target);
+  } catch (error) {
+    readOnlyReason =
+      error instanceof ForbiddenError ? error.message : "You can't change this person's duties.";
+  }
+  if (!readOnlyReason && target.role === "OWNER") readOnlyReason = "Owners always have every duty.";
+  if (!readOnlyReason && !target.isActive) readOnlyReason = "Reactivate this person to change their duties.";
+  return {
+    user: pick(target),
+    effective: effectivePermissions(target.role, target.dutyChanges),
+    roleDefaults: [...permissionsFor(target.role)],
+    editable: readOnlyReason === null,
+    readOnlyReason,
+  };
+}
+
+export const dutiesSchema = z.object({
+  userId: z.uuid(),
+  /** The full list of duties the person should have (the ticked boxes). */
+  permissions: z.array(z.string()).max(200),
+});
+
+/**
+ * Set exactly which duties a person has. Stored as changes from their role's
+ * defaults, so a later change to a role's defaults still reaches everyone who
+ * wasn't customised for that duty.
+ *
+ * Rules: owners and admins only (admins can't touch owners); not your own;
+ * owners always keep every duty; WhatsApp commands and managing users can't be
+ * switched on outside the roles that have them; a duty needs the duty it
+ * depends on (e.g. posting invoices needs preparing them).
+ */
+export async function setUserDuties(
+  db: Db,
+  actor: Actor,
+  input: unknown,
+  context: AuditContext = {},
+): Promise<{ user: UserSummary; added: Permission[]; removed: Permission[] }> {
+  const parsed = dutiesSchema.safeParse(input);
+  if (!parsed.success) throw new ValidationError({ permissions: ["Choose the duties again."] });
+  const unknown = parsed.data.permissions.filter((p) => !isPermission(p));
+  if (unknown.length) throw new ValidationError({ permissions: [`Unknown duty: ${unknown.join(", ")}`] });
+  const wanted = new Set(parsed.data.permissions as Permission[]);
+
+  return db.$transaction(async (tx) => {
+    // Lock the person so two people editing at once apply one after the other.
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${parsed.data.userId}::uuid FOR UPDATE`;
+    const target = await tx.user.findUnique({
+      where: { id: parsed.data.userId },
+      include: { dutyChanges: true },
+    });
+    if (!target) throw new NotFoundError("That user no longer exists.");
+    assertCanManageUser(actor, target);
+    if (target.role === "OWNER") throw new ConflictError("Owners always have every duty.");
+    if (!target.isActive) throw new ConflictError("Reactivate this person before changing their duties.");
+
+    const problems: string[] = [];
+    for (const p of wanted) {
+      if (NOT_GRANTABLE.includes(p) && !roleHasPermission(target.role, p)) {
+        problems.push(`"${PERMISSION_INFO[p].label}" comes only with a role. Change their role instead.`);
+      }
+      const need = REQUIRES[p];
+      if (need && !wanted.has(need)) {
+        problems.push(`"${PERMISSION_INFO[p].label}" also needs "${PERMISSION_INFO[need].label}".`);
+      }
+    }
+    if (problems.length) throw new ValidationError({ permissions: problems });
+
+    const defaults = new Set(permissionsFor(target.role));
+    const changes = [
+      ...[...wanted].filter((p) => !defaults.has(p)).map((permission) => ({ permission, granted: true })),
+      ...[...defaults].filter((p) => !wanted.has(p)).map((permission) => ({ permission, granted: false })),
+    ];
+    const before = effectivePermissions(target.role, target.dutyChanges);
+    const after = effectivePermissions(target.role, changes);
+    const added = after.filter((p) => !before.includes(p));
+    const removed = before.filter((p) => !after.includes(p));
+    if (!added.length && !removed.length) return { user: pick(target), added, removed };
+
+    await tx.userDutyChange.deleteMany({ where: { userId: target.id } });
+    if (changes.length) {
+      await tx.userDutyChange.createMany({ data: changes.map((c) => ({ userId: target.id, ...c })) });
+    }
+    const label = (ps: Permission[]) => ps.map((p) => PERMISSION_INFO[p].label).join("; ");
+    await writeAudit(tx, {
+      actorUserId: actor.id,
+      actorLabel: actor.email,
+      action: "USER_DUTIES_CHANGED",
+      entityType: "User",
+      entityId: target.id,
+      summary: [
+        `${target.email}:`,
+        added.length ? `added ${label(added)}` : null,
+        removed.length ? `${added.length ? "; " : ""}removed ${label(removed)}` : null,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      before: { permissions: before },
+      after: { permissions: after },
+      metadata: { role: target.role, changesFromRole: changes },
+      ...context,
+    });
+    return { user: pick(target), added, removed };
+  });
 }
 
 function pick(u: User): UserSummary {

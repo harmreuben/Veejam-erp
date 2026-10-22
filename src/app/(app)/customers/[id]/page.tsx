@@ -31,7 +31,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
     if (e instanceof NotFoundError) notFound();
     throw e;
   });
-  const lists = hasPermission(user.role, "catalogue.view") ? await listPriceLists(db, actor) : [];
+  const lists = hasPermission(user, "catalogue.view") ? await listPriceLists(db, actor) : [];
   const bal = await customerBalance(db, customer.id);
 
   return (
@@ -56,7 +56,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             <Button variant="outline" asChild>
               <Link href={`/customers/${customer.id}/statement`}>Statement</Link>
             </Button>
-            {hasPermission(user.role, "payments.record") && (
+            {hasPermission(user, "payments.record") && (
               <Button asChild>
                 <Link href={`/payments/new?customer=${customer.id}`}>Record payment</Link>
               </Button>
@@ -91,8 +91,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
         priceLists={lists
           .filter((l) => l.status === "ACTIVE" || l.id === customer.priceListId)
           .map((l) => ({ id: l.id, label: `${l.name} (${l.code})` }))}
-        canCredit={hasPermission(user.role, "customers.credit")}
-        canEdit={hasPermission(user.role, "customers.manage")}
+        canCredit={hasPermission(user, "customers.credit")}
+        canEdit={hasPermission(user, "customers.manage")}
         isNew={false}
       />
       <p className="text-muted-foreground text-sm">

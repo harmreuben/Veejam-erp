@@ -29,7 +29,7 @@ export default async function DeliveryNotePage({ params }: { params: Promise<{ i
     throw e;
   });
   const inv = note.invoice;
-  const canManage = hasPermission(user.role, "delivery.manage");
+  const canManage = hasPermission(user, "delivery.manage");
   const base = { id: note.id, version: note.version };
   const open = note.status === "PREPARED" || note.status === "DISPATCHED";
 

@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { DEFAULT_COMPANY_PROFILE } from "@/config/company";
-import { permissionsFor } from "@/server/auth/permissions";
 import { requireUser } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { getCompanyDisplayName } from "@/server/modules/settings/service";
@@ -18,7 +17,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
-      <AppSidebar companyName={companyName} user={user} permissions={permissionsFor(user.role)} />
+      <AppSidebar companyName={companyName} user={user} permissions={user.permissions} />
       <main className="min-w-0 flex-1">{children}</main>
     </div>
   );

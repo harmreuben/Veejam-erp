@@ -19,7 +19,7 @@ export default async function PriceListsPage() {
   const user = await pageUser("catalogue.view");
   if (!user) return <NoAccess what="price lists" />;
   const lists = await listPriceLists(getDb(), toActor(user));
-  const canManage = hasPermission(user.role, "pricing.manage");
+  const canManage = hasPermission(user, "pricing.manage");
 
   return (
     <Page>

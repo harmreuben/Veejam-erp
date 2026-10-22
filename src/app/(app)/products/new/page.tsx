@@ -18,8 +18,8 @@ export default async function NewProductPage() {
         action={createProductAction}
         values={EMPTY_PRODUCT}
         canEdit
-        canSeeCost={hasPermission(user.role, "catalogue.costs")}
-        withPrices={hasPermission(user.role, "pricing.manage")}
+        canSeeCost={hasPermission(user, "catalogue.costs")}
+        withPrices={hasPermission(user, "pricing.manage")}
       />
     </Page>
   );

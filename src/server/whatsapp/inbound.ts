@@ -1,7 +1,7 @@
 import "server-only";
 
 import { writeAudit } from "@/server/audit/audit";
-import { hasPermission } from "@/server/auth/permissions";
+import { effectivePermissions, hasPermission } from "@/server/auth/permissions";
 import type { Db } from "@/server/db/client";
 import { isUniqueViolation } from "@/server/modules/inventory/stock";
 import { hitLimit, LIMITS } from "@/server/security/rate-limit";
@@ -81,7 +81,7 @@ export async function handleInbound(
   const numberAllowed = opts.ownerNumber
     ? opts.ownerNumber === msg.from
     : opts.simulated && opts.provider.name === "mock";
-  const allowed = !!user && user.isActive && hasPermission(user.role, "whatsapp.use") && numberAllowed;
+  const allowed = !!user && user.isActive && hasPermission(user, "whatsapp.use") && numberAllowed;
 
   if (!allowed) {
     await db.whatsAppMessage.update({
@@ -105,7 +105,13 @@ export async function handleInbound(
     return { outcome: "refused", reply: REFUSAL };
   }
 
-  const actor = { id: user.id, email: user.email, role: user.role };
+  // Only owners get here, and owners always hold every duty.
+  const actor = {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    permissions: effectivePermissions(user.role),
+  };
   const command = msg.text === null ? null : parseCommand(msg.text);
   let reply: string;
   let failed = false;

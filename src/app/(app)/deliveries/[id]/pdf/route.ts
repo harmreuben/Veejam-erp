@@ -9,7 +9,7 @@ import { pdfResponse } from "@/server/modules/sales/pdf-response";
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (session.kind !== "user") return new Response("Sign in first", { status: 401 });
-  if (!hasPermission(session.user.role, "sales.view")) return new Response("Not allowed", { status: 403 });
+  if (!hasPermission(session.user, "sales.view")) return new Response("Not allowed", { status: 403 });
   try {
     const doc = await loadPrintableDeliveryNote(getDb(), (await params).id);
     return pdfResponse(await renderPdf(doc), `delivery-note-${doc.number}.pdf`);

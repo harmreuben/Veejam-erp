@@ -33,7 +33,7 @@ export default async function SupplierPaymentsPage({
         title="Supplier payments"
         description="Money paid to suppliers. Each payment goes to their oldest bills unless you choose otherwise."
         actions={
-          hasPermission(user.role, "supplier_payments.manage") && (
+          hasPermission(user, "supplier_payments.manage") && (
             <Button asChild>
               <Link href="/supplier-payments/new">
                 <Plus aria-hidden /> Pay a supplier

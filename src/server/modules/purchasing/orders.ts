@@ -300,7 +300,7 @@ export async function listPurchaseOrders(
   filter: { q?: string; status?: string; supplierId?: string } = {},
 ) {
   authorize(actor, "purchasing.view");
-  const showCosts = hasPermission(actor.role, "catalogue.costs");
+  const showCosts = hasPermission(actor, "catalogue.costs");
   const where: Prisma.PurchaseOrderWhereInput = {};
   if (filter.status === "OPEN") where.status = { in: [...OPEN_PO_STATUSES, "DRAFT"] };
   else if (filter.status && filter.status in PO_STATUS_LABELS)
@@ -336,7 +336,7 @@ export async function listPurchaseOrders(
 export async function getPurchaseOrder(db: Db, actor: Actor, id: string) {
   authorize(actor, "purchasing.view");
   if (!isUuid(id)) throw new NotFoundError();
-  const showCosts = hasPermission(actor.role, "catalogue.costs");
+  const showCosts = hasPermission(actor, "catalogue.costs");
   const po = await db.purchaseOrder.findUnique({
     where: { id },
     include: {

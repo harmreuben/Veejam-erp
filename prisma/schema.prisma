@@ -48,6 +48,7 @@ model User {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  dutyChanges           UserDutyChange[]
   auditEntries          AuditLog[]
   settingsUpdates       CompanySettings[]
   legacyImportBatches   LegacyImportBatch[]
@@ -81,6 +82,21 @@ model User {
   stockRevaluations     StockRevaluation[]
 
   @@map("users")
+}
+
+/// A duty an owner or admin switched on or off for one person, on top of their role's defaults.
+/// Owners ignore these (they always hold every duty). Cleared when the person's role changes.
+model UserDutyChange {
+  userId     String   @map("user_id") @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// A permission key, e.g. "payments.reverse".
+  permission String
+  /// true = switched on although the role doesn't include it; false = switched off.
+  granted    Boolean
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([userId, permission])
+  @@map("user_duty_changes")
 }
 
 // ─── Company settings ─────────────────────────────────────────────

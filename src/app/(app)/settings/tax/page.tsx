@@ -15,7 +15,7 @@ export default async function TaxRatesPage() {
   const user = await pageUser("settings.view");
   if (!user) return <NoAccess what="tax rates" />;
   const rates = await listTaxRates(getDb(), toActor(user));
-  const canEdit = hasPermission(user.role, "tax.manage");
+  const canEdit = hasPermission(user, "tax.manage");
   return (
     <Page>
       <PageHeader

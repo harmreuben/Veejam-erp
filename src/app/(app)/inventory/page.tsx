@@ -31,12 +31,12 @@ export default async function StockLevelsPage({
         description="Pieces on hand, with the carton and pack breakdown. Changes only through adjustments, transfers, counts and (from Phase 4) invoices."
         actions={
           <>
-            {hasPermission(user.role, "inventory.adjust") && (
+            {hasPermission(user, "inventory.adjust") && (
               <Button asChild variant="outline">
                 <Link href="/inventory/adjustments/new">Adjust stock</Link>
               </Button>
             )}
-            {hasPermission(user.role, "inventory.transfer") && warehouses.length > 1 && (
+            {hasPermission(user, "inventory.transfer") && warehouses.length > 1 && (
               <Button asChild variant="outline">
                 <Link href="/inventory/transfers/new">Transfer</Link>
               </Button>

@@ -21,7 +21,7 @@ export default async function TransfersPage() {
         title="Stock transfers"
         description="Moving stock between warehouses, for example from the main store to a delivery van."
         actions={
-          hasPermission(user.role, "inventory.transfer") && (
+          hasPermission(user, "inventory.transfer") && (
             <Button asChild>
               <Link href="/inventory/transfers/new">
                 <Plus aria-hidden /> New transfer

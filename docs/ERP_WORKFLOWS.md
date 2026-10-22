@@ -2,6 +2,17 @@
 
 > Agreed workflow design. Each section is filled in with exact screens and rules as its phase is built (Phases 3–4 so far).
 
+## People, roles and duties
+
+**Admin → Users & roles** lists everyone with access. Each person has a **role** (Owner, Administrator, Accountant, Sales, Storekeeper) that sets their starting duties. Click a name (or **Duties**) to tick or untick individual duties, for example let one salesperson give discounts, or stop another from recording payments. People marked **Customised** differ from their role.
+
+- Changes apply on the person's next click; everyone can see their own duties under **Your account**.
+- Owners always have every duty. Admins can change anyone except owners; nobody can change their own.
+- Running WhatsApp commands and managing users come only with a role (Owner, or Administrator for users).
+- Some duties need another: ticking _Post invoices_ also ticks _Prepare draft invoices_; unticking _See quotations, orders, invoices…_ unticks everything that depends on it.
+- Changing someone's role starts them again from that role's duties.
+- Every change is in the audit log (who, what was added and removed).
+
 ## Sales cycle
 
 ```

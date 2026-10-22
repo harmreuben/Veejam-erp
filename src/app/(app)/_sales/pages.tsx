@@ -52,7 +52,7 @@ export async function SalesListPage({
   const q = param(sp.q);
   const status = (param(sp.status) ?? "ALL") as SalesDocumentStatus | "ALL";
   const rows = await listDocuments(getDb(), toActor(user), kind, { q, status });
-  const canCreate = kind !== "CREDIT_NOTE" && hasPermission(user.role, MANAGE_PERMISSION[kind]);
+  const canCreate = kind !== "CREDIT_NOTE" && hasPermission(user, MANAGE_PERMISSION[kind]);
   const isInvoice = kind === "INVOICE";
 
   return (

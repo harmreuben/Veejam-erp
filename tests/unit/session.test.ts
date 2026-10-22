@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { permissionsFor } from "@/server/auth/permissions";
 import { isPublicPath, resolveSession, safeNextPath } from "@/server/auth/resolve";
 
 const row = { id: "u1", email: "a@veejam.test", fullName: "A", role: "SALES" as const, isActive: true };
@@ -29,7 +30,30 @@ describe("resolveSession", () => {
     const lookup = vi.fn().mockResolvedValue(row);
     const s = await resolveSession({ sub: "auth-123" }, lookup);
     expect(lookup).toHaveBeenCalledWith("auth-123");
-    expect(s).toEqual({ kind: "user", user: { id: "u1", email: row.email, fullName: "A", role: "SALES" } });
+    expect(s).toEqual({
+      kind: "user",
+      user: {
+        id: "u1",
+        email: row.email,
+        fullName: "A",
+        role: "SALES",
+        permissions: [...permissionsFor("SALES")],
+      },
+    });
+  });
+
+  it("the person's own duty changes are applied on every request", async () => {
+    const lookup = vi.fn().mockResolvedValue({
+      ...row,
+      dutyChanges: [
+        { permission: "payments.record", granted: false },
+        { permission: "sales.discount", granted: true },
+      ],
+    });
+    const s = await resolveSession({ sub: "auth-123" }, lookup);
+    if (s.kind !== "user") throw new Error("expected a user");
+    expect(s.user.permissions).not.toContain("payments.record");
+    expect(s.user.permissions).toContain("sales.discount");
   });
 });
 

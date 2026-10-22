@@ -69,7 +69,7 @@ export async function SalesDetailPage({
   });
   if (doc.kind !== kind) notFound();
 
-  const can = (p: Parameters<typeof hasPermission>[1]) => hasPermission(user.role, p);
+  const can = (p: Parameters<typeof hasPermission>[1]) => hasPermission(user, p);
   const canManage = can(MANAGE_PERMISSION[kind]);
   const editable = canManage && EDITABLE_STATUSES[kind].includes(doc.status);
   const title = doc.number ?? "Draft invoice";

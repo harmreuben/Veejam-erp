@@ -64,7 +64,7 @@ export default async function StatementPage({
           </>
         }
         actions={
-          hasPermission(user.role, "payments.record") && (
+          hasPermission(user, "payments.record") && (
             <Button asChild>
               <Link href={`/payments/new?customer=${id}`}>Record payment</Link>
             </Button>

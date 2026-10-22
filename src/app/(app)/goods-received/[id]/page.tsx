@@ -53,7 +53,7 @@ export default async function GoodsReceiptPage({
         }
         actions={
           !g.bill &&
-          hasPermission(user.role, "bills.manage") && (
+          hasPermission(user, "bills.manage") && (
             <Button asChild>
               <Link href={`/supplier-bills/new?supplier=${g.supplier.id}&grn=${g.id}`}>
                 Enter the supplier&apos;s bill
@@ -66,7 +66,7 @@ export default async function GoodsReceiptPage({
         <div role="status" className="border-warning/40 bg-warning-soft rounded-md border p-3 text-sm">
           <strong>Some of these products were already in stock with no cost.</strong> Their average cost now
           mixes this delivery with stock valued at nothing, so it&apos;s too low.{" "}
-          {hasPermission(user.role, "inventory.revalue") ? (
+          {hasPermission(user, "inventory.revalue") ? (
             <>
               Set the right cost per piece on{" "}
               <Link href="/reports/stock" className="underline">
@@ -156,7 +156,7 @@ export default async function GoodsReceiptPage({
             {
               label: "Bill",
               value: g.bill ? (
-                hasPermission(user.role, "payables.view") ? (
+                hasPermission(user, "payables.view") ? (
                   <Link href={`/supplier-bills/${g.bill.id}`} className="text-primary hover:underline">
                     {g.bill.number} (invoice {g.bill.supplierInvoiceNumber})
                   </Link>

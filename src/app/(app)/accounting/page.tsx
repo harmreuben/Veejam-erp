@@ -48,7 +48,7 @@ export default async function AccountingPage({
           </>
         }
         actions={
-          hasPermission(user.role, "accounting.journal") && (
+          hasPermission(user, "accounting.journal") && (
             <Button asChild>
               <Link href="/accounting/journal/new">New journal entry</Link>
             </Button>
@@ -70,7 +70,7 @@ export default async function AccountingPage({
               `Stock on hand worth ${formatKES(stockGap.abs().toFixed(2))} (at cost) isn't in the Inventory account yet; it goes in as an opening balance. `}
             Until then, the figures below are incomplete.
           </p>
-          {hasPermission(user.role, "accounting.close") ? (
+          {hasPermission(user, "accounting.close") ? (
             <StartAccountingButton />
           ) : (
             <p className="text-muted-foreground">An owner or administrator needs to do this.</p>

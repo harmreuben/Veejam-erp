@@ -21,8 +21,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ report: 
   const session = await getSession();
   if (session.kind !== "user") return new Response("Sign in first", { status: 401 });
   const user = session.user;
-  if (!hasPermission(user.role, "reports.view")) return new Response("Not allowed", { status: 403 });
-  const actor = { id: user.id, email: user.email, role: user.role };
+  if (!hasPermission(user, "reports.view")) return new Response("Not allowed", { status: 403 });
+  const actor = { id: user.id, email: user.email, role: user.role, permissions: user.permissions };
   const sp = new URL(req.url).searchParams;
   const db = getDb();
   const report = (await params).report;

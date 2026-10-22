@@ -20,9 +20,9 @@ export const metadata = { title: "Stock value" };
 
 export default async function StockValuePage() {
   const user = await pageUser("reports.view");
-  if (!user || !hasPermission(user.role, "catalogue.costs")) return <NoAccess what="cost prices" />;
+  if (!user || !hasPermission(user, "catalogue.costs")) return <NoAccess what="cost prices" />;
   const r = await stockValuation(getDb(), toActor(user));
-  const canRevalue = hasPermission(user.role, "inventory.revalue");
+  const canRevalue = hasPermission(user, "inventory.revalue");
   return (
     <Page wide>
       <PageHeader

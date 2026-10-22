@@ -131,7 +131,7 @@ export async function priceDocument(
   });
 
   const honoured = await honouredPrices(tx, args.sourceDocumentId);
-  const canDiscount = hasPermission(actor.role, "sales.discount");
+  const canDiscount = hasPermission(actor, "sales.discount");
   const errors: Record<string, string[]> = {};
 
   const lines: PricedLine[] = args.lines.map((input, i) => {

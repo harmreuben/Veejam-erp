@@ -1,5 +1,7 @@
 import type { UserRole } from "@/generated/prisma/enums";
 
+import { effectivePermissions, type DutyChange, type Permission } from "./permissions";
+
 /**
  * Pure session logic, separated from Supabase and the database so it can be tested.
  *
@@ -7,7 +9,14 @@ import type { UserRole } from "@/generated/prisma/enums";
  * to an active row in the `users` table, which carries the role.
  */
 
-export type AppUser = { id: string; email: string; fullName: string; role: UserRole };
+export type AppUser = {
+  id: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  /** Effective duties: the role's defaults plus this person's own changes. */
+  permissions: readonly Permission[];
+};
 
 export type SessionState =
   | { kind: "anonymous" }
@@ -23,6 +32,7 @@ export type UserLookup = (authUserId: string) => Promise<{
   fullName: string;
   role: UserRole;
   isActive: boolean;
+  dutyChanges?: DutyChange[];
 } | null>;
 
 export async function resolveSession(claims: VerifiedClaims, lookup: UserLookup): Promise<SessionState> {
@@ -30,7 +40,16 @@ export async function resolveSession(claims: VerifiedClaims, lookup: UserLookup)
   const row = await lookup(claims.sub);
   if (!row) return { kind: "no-access", email: claims.email ?? null };
   if (!row.isActive) return { kind: "deactivated", email: row.email };
-  return { kind: "user", user: { id: row.id, email: row.email, fullName: row.fullName, role: row.role } };
+  return {
+    kind: "user",
+    user: {
+      id: row.id,
+      email: row.email,
+      fullName: row.fullName,
+      role: row.role,
+      permissions: effectivePermissions(row.role, row.dutyChanges ?? []),
+    },
+  };
 }
 
 /** Paths reachable without signing in. Everything else requires a session. */

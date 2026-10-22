@@ -501,7 +501,7 @@ export async function dashboard(db: Db, actor: Actor, today = todayInNairobi()) 
     salesReport(db, actor, { from: monthStart, to: today }, "product"),
   ]);
   const r = receivables[0]!;
-  const stock = hasPermission(actor.role, "catalogue.costs") ? await stockValuation(db, actor) : null;
+  const stock = hasPermission(actor, "catalogue.costs") ? await stockValuation(db, actor) : null;
   return {
     today,
     todaySales,

@@ -16,10 +16,10 @@ const nairobiDateTime = new Intl.DateTimeFormat("en-KE", {
 
 export default async function CompanySettingsPage() {
   const user = await requireUser();
-  if (!hasPermission(user.role, "settings.view")) return <NoAccess what="company settings" />;
+  if (!hasPermission(user, "settings.view")) return <NoAccess what="company settings" />;
   const db = getDb();
   const settings = await getCompanySettings(db, toActor(user));
-  const canEdit = hasPermission(user.role, "settings.manage");
+  const canEdit = hasPermission(user, "settings.manage");
   const editor = settings.version > 1 ? await getSettingsLastEditor(db, toActor(user)) : null;
 
   return (

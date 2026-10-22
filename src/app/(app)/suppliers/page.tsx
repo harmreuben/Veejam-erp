@@ -35,7 +35,7 @@ export default async function SuppliersPage({
         title="Suppliers"
         description="Who VeeJam buys from. Purchase orders and goods received arrive in Phase 5."
         actions={
-          hasPermission(user.role, "suppliers.manage") && (
+          hasPermission(user, "suppliers.manage") && (
             <Button asChild>
               <Link href="/suppliers/new">
                 <Plus aria-hidden /> Add supplier

@@ -1,4 +1,4 @@
-import { ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/server/auth/permissions";
+import { DUTY_GROUPS, PERMISSION_INFO, ROLE_LABELS } from "@/server/auth/permissions";
 import { requireUser } from "@/server/auth/session";
 
 import { ChangePasswordForm } from "./change-password-form";
@@ -19,7 +19,27 @@ export default async function AccountPage() {
         <h2 id="role" className="text-sm font-semibold">
           Role: {ROLE_LABELS[user.role]}
         </h2>
-        <p className="text-muted-foreground text-sm">{ROLE_DESCRIPTIONS[user.role]}</p>
+        <p className="text-muted-foreground text-sm">
+          What you can do. Only an owner or administrator can change this.
+        </p>
+        <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+          {DUTY_GROUPS.map((group) => {
+            const mine = user.permissions.filter((p) => PERMISSION_INFO[p].group === group);
+            if (!mine.length) return null;
+            return (
+              <div key={group}>
+                <dt className="font-medium">{group}</dt>
+                <dd className="text-muted-foreground">
+                  <ul className="list-disc pl-5">
+                    {mine.map((p) => (
+                      <li key={p}>{PERMISSION_INFO[p].label}</li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
       </section>
       <section className="grid gap-4 border-t pt-6" aria-labelledby="password">
         <h2 id="password" className="text-sm font-semibold">

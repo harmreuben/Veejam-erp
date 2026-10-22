@@ -44,11 +44,11 @@ export async function requirePermission(permission: Permission): Promise<AppUser
 
 export async function can(permission: Permission): Promise<boolean> {
   const session = await getSession();
-  return session.kind === "user" && hasPermission(session.user.role, permission);
+  return session.kind === "user" && hasPermission(session.user, permission);
 }
 
 export function toActor(user: AppUser): Actor {
-  return { id: user.id, email: user.email, role: user.role };
+  return { id: user.id, email: user.email, role: user.role, permissions: user.permissions };
 }
 
 /** IP address and browser for audit records. */

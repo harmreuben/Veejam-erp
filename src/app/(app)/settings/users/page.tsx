@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
 import { NoAccess } from "@/components/no-access";
 import { UserRole } from "@/generated/prisma/enums";
@@ -19,10 +21,10 @@ const nairobiDate = new Intl.DateTimeFormat("en-KE", {
 
 export default async function UsersPage() {
   const me = await requireUser();
-  if (!hasPermission(me.role, "users.view")) return <NoAccess what="users and roles" />;
+  if (!hasPermission(me, "users.view")) return <NoAccess what="users and roles" />;
 
   const users = await listUsers(getDb(), toActor(me));
-  const canManage = hasPermission(me.role, "users.manage");
+  const canManage = hasPermission(me, "users.manage");
   // Only owners may assign the owner role.
   const assignable = Object.values(UserRole)
     .filter((r) => me.role === "OWNER" || r !== "OWNER")
@@ -33,8 +35,8 @@ export default async function UsersPage() {
       <header className="grid gap-1">
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Users &amp; roles</h1>
         <p className="text-muted-foreground max-w-[70ch] text-sm">
-          Each person signs in with their own email. Their role decides what they can see and change.
-          Deactivated users keep their history but can&apos;t sign in.
+          Each person signs in with their own email. Their role sets their starting duties; open a person to
+          switch individual duties on or off. Deactivated users keep their history but can&apos;t sign in.
         </p>
       </header>
 
@@ -68,17 +70,36 @@ export default async function UsersPage() {
                   <tr key={u.id} className={u.isActive ? undefined : "text-muted-foreground"}>
                     <td className="px-4 py-3">
                       <div className="font-medium">
-                        {u.fullName}{" "}
+                        <Link href={`/settings/users/${u.id}`} className="hover:underline">
+                          {u.fullName}
+                        </Link>{" "}
                         {isMe && <span className="text-muted-foreground font-normal">(you)</span>}
                       </div>
                       <div className="text-muted-foreground text-xs">{u.email}</div>
                     </td>
                     <td className="px-4 py-3">
-                      {editable && u.isActive ? (
-                        <RoleSelect userId={u.id} name={u.fullName} role={u.role} roles={assignable} />
-                      ) : (
-                        ROLE_LABELS[u.role]
-                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {editable && u.isActive ? (
+                          <RoleSelect userId={u.id} name={u.fullName} role={u.role} roles={assignable} />
+                        ) : (
+                          ROLE_LABELS[u.role]
+                        )}
+                        {u.dutiesAdded + u.dutiesRemoved > 0 && (
+                          <Badge
+                            variant="warning"
+                            title={`${u.dutiesAdded} added, ${u.dutiesRemoved} removed compared with the role`}
+                          >
+                            Customised
+                          </Badge>
+                        )}
+                        <Link
+                          href={`/settings/users/${u.id}`}
+                          className="text-muted-foreground hover:text-foreground text-xs underline"
+                          aria-label={`Duties for ${u.fullName}`}
+                        >
+                          Duties
+                        </Link>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       {u.isActive ? (

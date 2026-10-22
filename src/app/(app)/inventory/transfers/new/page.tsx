@@ -30,7 +30,7 @@ export default async function NewTransferPage() {
       {warehouses.length < 2 ? (
         <p className="text-muted-foreground text-sm">
           You need at least two active warehouses to transfer stock.{" "}
-          {hasPermission(user.role, "warehouses.manage") && (
+          {hasPermission(user, "warehouses.manage") && (
             <Link href="/inventory/warehouses" className="text-primary hover:underline">
               Add a warehouse
             </Link>

@@ -10,11 +10,11 @@ export async function GET(req: Request) {
   const session = await getSession();
   if (session.kind !== "user") return new Response("Sign in first", { status: 401 });
   const u = session.user;
-  if (!hasPermission(u.role, "audit.view")) return new Response("Not allowed", { status: 403 });
+  if (!hasPermission(u, "audit.view")) return new Response("Not allowed", { status: 403 });
   const sp = new URL(req.url).searchParams;
   const rows = await exportAudit(
     getDb(),
-    { id: u.id, email: u.email, role: u.role },
+    { id: u.id, email: u.email, role: u.role, permissions: u.permissions },
     {
       q: sp.get("q") ?? undefined,
       action: sp.get("action") || undefined,

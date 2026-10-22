@@ -11,5 +11,5 @@ import { requireUser } from "./session";
  */
 export async function pageUser(permission: Permission): Promise<AppUser | null> {
   const user = await requireUser();
-  return hasPermission(user.role, permission) ? user : null;
+  return hasPermission(user, permission) ? user : null;
 }

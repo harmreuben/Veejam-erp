@@ -28,7 +28,7 @@ export default async function ReportsPage() {
       text: "Output VAT by month and rate, for preparing the VAT return.",
     },
     { href: "/reports/profit", title: "Profit and loss", text: "Income less expenses from the ledger." },
-    ...(hasPermission(user.role, "catalogue.costs")
+    ...(hasPermission(user, "catalogue.costs")
       ? [{ href: "/reports/stock", title: "Stock value", text: "Stock on hand at cost price." }]
       : []),
     {

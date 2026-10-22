@@ -29,7 +29,7 @@ export default async function CountPage({
     throw e;
   });
   const open = c.status === "DRAFT";
-  const canCount = hasPermission(user.role, "inventory.count");
+  const canCount = hasPermission(user, "inventory.count");
   const countedLines = c.lines.filter((l) => l.countedQuantity !== null);
   const changedLines = countedLines.filter(
     (l) => l.countedQuantity !== (l.systemQuantityAtPost ?? l.expectedQuantity),
@@ -70,7 +70,7 @@ export default async function CountPage({
         <CountSheet
           countId={c.id}
           version={c.version}
-          canPost={hasPermission(user.role, "inventory.count.post")}
+          canPost={hasPermission(user, "inventory.count.post")}
           lines={c.lines.map((l) => ({
             productId: l.productId,
             sku: l.product.sku,

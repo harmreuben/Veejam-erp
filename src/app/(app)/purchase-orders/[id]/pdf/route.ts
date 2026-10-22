@@ -10,8 +10,8 @@ import { pdfResponse } from "@/server/modules/sales/pdf-response";
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (session.kind !== "user") return new Response("Sign in first", { status: 401 });
-  const role = session.user.role;
-  if (!hasPermission(role, "purchasing.view") || !hasPermission(role, "catalogue.costs")) {
+  const user = session.user;
+  if (!hasPermission(user, "purchasing.view") || !hasPermission(user, "catalogue.costs")) {
     return new Response("Not allowed", { status: 403 });
   }
   try {

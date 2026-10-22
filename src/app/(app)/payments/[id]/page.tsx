@@ -39,7 +39,7 @@ export default async function PaymentPage({
   });
   const reversed = p.status === "REVERSED";
   const canApply =
-    !reversed && hasPermission(user.role, "payments.record") && toDecimal(p.unapplied).greaterThan(0);
+    !reversed && hasPermission(user, "payments.record") && toDecimal(p.unapplied).greaterThan(0);
   return (
     <Page>
       <PageHeader
@@ -65,7 +65,7 @@ export default async function PaymentPage({
         }
         actions={
           <>
-            {!reversed && hasPermission(user.role, "payments.reverse") && (
+            {!reversed && hasPermission(user, "payments.reverse") && (
               <ConfirmButton
                 action={paymentAction}
                 variant="ghost"
@@ -126,7 +126,7 @@ export default async function PaymentPage({
             { label: "Credit not yet applied", value: <Money value={p.unapplied} /> },
             { label: "Recorded", value: `${formatDateTime(p.createdAt)} by ${p.receivedBy.fullName}` },
             ...(p.notes ? [{ label: "Notes", value: p.notes }] : []),
-            ...(p.journal.length && hasPermission(user.role, "accounting.view")
+            ...(p.journal.length && hasPermission(user, "accounting.view")
               ? [
                   {
                     label: "Journal",

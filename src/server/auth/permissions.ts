@@ -148,22 +148,197 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
     "Stock levels, transfers, stock counts, deliveries and receiving goods against purchase orders (posting a count needs an owner or admin).",
 };
 
-export type Actor = { id: string; email: string; role: UserRole };
+/**
+ * A person's duties: their role's defaults, plus any duties an owner or admin
+ * switched on or off for them (see users/service.ts setUserDuties).
+ * `permissions` is the effective list. Code that builds an actor from a
+ * signed-in user always fills it; it falls back to the role's defaults only for
+ * scripts and tests that act as a plain role.
+ */
+export type Actor = { id: string; email: string; role: UserRole; permissions?: readonly Permission[] };
 
-export function hasPermission(role: UserRole, permission: Permission): boolean {
+/** Anything that can hold permissions: an Actor or a signed-in AppUser. */
+export type PermissionHolder = { role: UserRole; permissions?: readonly Permission[] };
+
+/** What a role grants before any per-person changes. */
+export function roleHasPermission(role: UserRole, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role].includes(permission);
 }
 
+/** A role's default duties. */
 export function permissionsFor(role: UserRole): readonly Permission[] {
   return ROLE_PERMISSIONS[role];
 }
 
-/** Throws ForbiddenError unless the actor's role grants the permission. */
-export function authorize(actor: Actor, permission: Permission): void {
-  if (!hasPermission(actor.role, permission)) {
+/** Does this person hold the permission (role defaults plus their own changes)? */
+export function hasPermission(who: PermissionHolder, permission: Permission): boolean {
+  return (who.permissions ?? ROLE_PERMISSIONS[who.role]).includes(permission);
+}
+
+/** Throws ForbiddenError unless the actor holds the permission. */
+export function authorize(actor: PermissionHolder, permission: Permission): void {
+  if (!hasPermission(actor, permission)) {
     throw new ForbiddenError();
   }
 }
+
+// ─── Per-person duties ───────────────────────────────────────────────
+
+export const isPermission = (value: string): value is Permission =>
+  (PERMISSIONS as readonly string[]).includes(value);
+
+/**
+ * Duties that can't be switched on for someone outside the roles that have
+ * them: WhatsApp commands act with an owner's full authority, and managing
+ * users is what makes someone an administrator. Change the role instead.
+ */
+export const NOT_GRANTABLE: readonly Permission[] = ["whatsapp.use", "users.manage"];
+
+/** A duty only makes sense with the one it needs (you can't post invoices you can't see). */
+export const REQUIRES: Partial<Record<Permission, Permission>> = {
+  "settings.manage": "settings.view",
+  "tax.manage": "settings.view",
+  "users.manage": "users.view",
+  "customers.manage": "customers.view",
+  "customers.credit": "customers.view",
+  "catalogue.manage": "catalogue.view",
+  "catalogue.costs": "catalogue.view",
+  "pricing.manage": "catalogue.view",
+  "suppliers.manage": "suppliers.view",
+  "inventory.adjust": "inventory.view",
+  "inventory.transfer": "inventory.view",
+  "inventory.count": "inventory.view",
+  "inventory.count.post": "inventory.count",
+  "inventory.revalue": "inventory.view",
+  "warehouses.manage": "inventory.view",
+  "quotations.manage": "sales.view",
+  "orders.manage": "sales.view",
+  "invoices.manage": "sales.view",
+  "invoices.post": "invoices.manage",
+  "sales.discount": "sales.view",
+  "credit.override": "invoices.post",
+  "delivery.manage": "sales.view",
+  "documents.share": "sales.view",
+  "payments.record": "sales.view",
+  "payments.reverse": "payments.record",
+  "credit_notes.manage": "sales.view",
+  "accounting.journal": "accounting.view",
+  "accounting.close": "accounting.view",
+  "purchasing.manage": "purchasing.view",
+  "goods.receive": "purchasing.view",
+  "bills.manage": "payables.view",
+  "supplier_payments.manage": "payables.view",
+  "whatsapp.use": "whatsapp.view",
+};
+
+export type DutyChange = { permission: string; granted: boolean };
+
+/**
+ * Effective duties for a role plus per-person changes. Owners always have
+ * everything (so the business can never lock itself out). Unknown or
+ * ungrantable entries are ignored, and a duty whose prerequisite is missing
+ * is dropped, so the result is always consistent.
+ */
+export function effectivePermissions(role: UserRole, changes: readonly DutyChange[] = []): Permission[] {
+  if (role === "OWNER") return [...PERMISSIONS];
+  const set = new Set<Permission>(ROLE_PERMISSIONS[role]);
+  for (const c of changes) {
+    if (!isPermission(c.permission)) continue;
+    if (c.granted) {
+      if (!NOT_GRANTABLE.includes(c.permission) || roleHasPermission(role, c.permission))
+        set.add(c.permission);
+    } else set.delete(c.permission);
+  }
+  // Drop anything whose prerequisite chain is broken (repeat until stable).
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const p of [...set]) {
+      const need = REQUIRES[p];
+      if (need && !set.has(need)) {
+        set.delete(p);
+        changed = true;
+      }
+    }
+  }
+  return PERMISSIONS.filter((p) => set.has(p));
+}
+
+export type DutyGroup =
+  | "Selling"
+  | "Customers"
+  | "Payments and credit"
+  | "Products and prices"
+  | "Stock"
+  | "Buying"
+  | "Accounts"
+  | "Reports and WhatsApp"
+  | "Administration";
+
+/** Plain-English names for the duties page. Every permission must be listed (tested). */
+export const PERMISSION_INFO: Record<Permission, { group: DutyGroup; label: string }> = {
+  "sales.view": { group: "Selling", label: "See quotations, orders, invoices and deliveries" },
+  "quotations.manage": { group: "Selling", label: "Write quotations" },
+  "orders.manage": { group: "Selling", label: "Take sales orders (reserves stock)" },
+  "invoices.manage": { group: "Selling", label: "Prepare draft invoices" },
+  "invoices.post": { group: "Selling", label: "Post invoices (takes stock out)" },
+  "sales.discount": { group: "Selling", label: "Give discounts" },
+  "credit.override": { group: "Selling", label: "Sell past a customer's credit limit" },
+  "delivery.manage": { group: "Selling", label: "Dispatch and deliver goods" },
+  "documents.share": { group: "Selling", label: "Send customers links to documents" },
+  "customers.view": { group: "Customers", label: "See customers" },
+  "customers.manage": { group: "Customers", label: "Add and edit customers" },
+  "customers.credit": { group: "Customers", label: "Set credit limits and payment terms" },
+  "payments.record": { group: "Payments and credit", label: "Record customer payments" },
+  "payments.reverse": { group: "Payments and credit", label: "Reverse customer payments" },
+  "credit_notes.manage": { group: "Payments and credit", label: "Issue credit notes" },
+  "catalogue.view": { group: "Products and prices", label: "See products" },
+  "catalogue.manage": { group: "Products and prices", label: "Add and edit products" },
+  "catalogue.costs": { group: "Products and prices", label: "See and use cost prices" },
+  "pricing.manage": { group: "Products and prices", label: "Change selling prices" },
+  "tax.manage": { group: "Products and prices", label: "Change tax rates" },
+  "inventory.view": { group: "Stock", label: "See stock levels" },
+  "inventory.adjust": { group: "Stock", label: "Adjust stock (gains and write-offs)" },
+  "inventory.transfer": { group: "Stock", label: "Move stock between warehouses" },
+  "inventory.count": { group: "Stock", label: "Count stock" },
+  "inventory.count.post": { group: "Stock", label: "Post stock counts (changes stock)" },
+  "inventory.revalue": { group: "Stock", label: "Set what stock is worth" },
+  "warehouses.manage": { group: "Stock", label: "Manage warehouses" },
+  "suppliers.view": { group: "Buying", label: "See suppliers" },
+  "suppliers.manage": { group: "Buying", label: "Add and edit suppliers" },
+  "purchasing.view": { group: "Buying", label: "See purchase orders and goods received" },
+  "purchasing.manage": { group: "Buying", label: "Raise and cancel purchase orders" },
+  "goods.receive": { group: "Buying", label: "Receive goods into stock" },
+  "payables.view": { group: "Buying", label: "See supplier bills and what we owe" },
+  "bills.manage": { group: "Buying", label: "Enter supplier bills" },
+  "supplier_payments.manage": { group: "Buying", label: "Pay suppliers" },
+  "accounting.view": { group: "Accounts", label: "See the accounts and ledger" },
+  "accounting.journal": { group: "Accounts", label: "Post journal entries" },
+  "accounting.close": { group: "Accounts", label: "Start and close the books" },
+  "reports.view": { group: "Reports and WhatsApp", label: "See the dashboard and reports" },
+  "whatsapp.view": { group: "Reports and WhatsApp", label: "See the WhatsApp message log" },
+  "whatsapp.use": { group: "Reports and WhatsApp", label: "Run ERP commands from WhatsApp" },
+  "settings.view": { group: "Administration", label: "See company settings" },
+  "settings.manage": { group: "Administration", label: "Change company settings" },
+  "users.view": { group: "Administration", label: "See users" },
+  "users.manage": { group: "Administration", label: "Add users and change their access" },
+  "audit.view": { group: "Administration", label: "See the audit log" },
+  "imports.run": { group: "Administration", label: "Import customers and products from files" },
+  "legacy.import": { group: "Administration", label: "Import old-system data" },
+  "backups.view": { group: "Administration", label: "See backup history" },
+};
+
+export const DUTY_GROUPS: readonly DutyGroup[] = [
+  "Selling",
+  "Customers",
+  "Payments and credit",
+  "Products and prices",
+  "Stock",
+  "Buying",
+  "Accounts",
+  "Reports and WhatsApp",
+  "Administration",
+];
 
 /**
  * Rules for changing another user's role or access, apart from the

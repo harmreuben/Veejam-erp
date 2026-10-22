@@ -68,14 +68,14 @@ export default async function BillPage({
           <>
             {b.status === "POSTED" &&
               outstanding.greaterThan(0) &&
-              hasPermission(user.role, "supplier_payments.manage") && (
+              hasPermission(user, "supplier_payments.manage") && (
                 <Button asChild>
                   <Link href={`/supplier-payments/new?supplier=${b.supplier.id}&bill=${b.id}`}>
                     Pay this bill
                   </Link>
                 </Button>
               )}
-            {b.status === "POSTED" && hasPermission(user.role, "bills.manage") && (
+            {b.status === "POSTED" && hasPermission(user, "bills.manage") && (
               <ConfirmButton
                 action={billAction}
                 variant="ghost"

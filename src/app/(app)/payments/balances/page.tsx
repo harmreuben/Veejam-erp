@@ -26,7 +26,7 @@ export default async function BalancesPage() {
         title="Customer balances"
         description="Who owes what, by how long it's been overdue (counted from each invoice's due date)."
         actions={
-          hasPermission(user.role, "reports.view") && (
+          hasPermission(user, "reports.view") && (
             <Button asChild variant="ghost">
               {/* A file download from a route handler, not a page: a plain link is right here. */}
               {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}

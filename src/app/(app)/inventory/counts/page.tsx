@@ -27,7 +27,7 @@ export default async function CountsPage() {
         title="Stock counts"
         description="Count what's physically on the shelves; posting sets the system to match. Use this for the opening stock on cut-over day."
       />
-      {hasPermission(user.role, "inventory.count") && (
+      {hasPermission(user, "inventory.count") && (
         <Section title="Start a count">
           <StartCountForm warehouses={warehouses} />
         </Section>

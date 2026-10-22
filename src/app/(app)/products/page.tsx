@@ -30,7 +30,7 @@ export default async function ProductsPage({
   const q = param(sp.q);
   const status = (param(sp.status) ?? "ACTIVE") as RecordStatus | "ALL";
   const products = await listProducts(getDb(), toActor(user), { q, status });
-  const showCost = hasPermission(user.role, "catalogue.costs");
+  const showCost = hasPermission(user, "catalogue.costs");
 
   return (
     <Page wide>
@@ -38,7 +38,7 @@ export default async function ProductsPage({
         title="Products"
         description="Every sellable item (SKU) with its pack sizes. Stock is counted in pieces."
         actions={
-          hasPermission(user.role, "catalogue.manage") && (
+          hasPermission(user, "catalogue.manage") && (
             <Button asChild>
               <Link href="/products/new">
                 <Plus aria-hidden /> Add product

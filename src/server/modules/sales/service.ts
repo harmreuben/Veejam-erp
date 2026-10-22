@@ -558,12 +558,12 @@ export async function postInvoice(
       if (!values.creditOverrideReason) {
         throw new ConflictError(
           `Credit check failed for ${customer.name}. ${problem} ` +
-            (hasPermission(actor.role, "credit.override")
+            (hasPermission(actor, "credit.override")
               ? "To post anyway, give a reason for the override."
               : "Ask an owner or administrator to post it, or take payment first."),
         );
       }
-      if (!hasPermission(actor.role, "credit.override")) {
+      if (!hasPermission(actor, "credit.override")) {
         throw new ForbiddenError("Only an owner or administrator can override a credit limit.");
       }
       override = { reason: values.creditOverrideReason };

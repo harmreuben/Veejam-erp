@@ -179,7 +179,7 @@ export async function applyCustomerUpdate(
 export async function createCustomer(db: Db, actor: Actor, input: unknown, ctx: AuditContext = {}) {
   authorize(actor, "customers.manage");
   const { allowDuplicateName, ...values } = parseInput(createCustomerSchema, input);
-  if (creditChanged(values) && !hasPermission(actor.role, "customers.credit")) {
+  if (creditChanged(values) && !hasPermission(actor, "customers.credit")) {
     throw new ForbiddenError("Only an owner, administrator or accountant can give credit or payment terms.");
   }
   return db.$transaction(async (tx) => {
@@ -216,7 +216,7 @@ export async function updateCustomer(
         creditLimit: current.creditLimit.toFixed(2),
         paymentTermsDays: current.paymentTermsDays,
       }) &&
-      !hasPermission(actor.role, "customers.credit")
+      !hasPermission(actor, "customers.credit")
     ) {
       throw new ForbiddenError(
         "Only an owner, administrator or accountant can change credit limits or payment terms.",

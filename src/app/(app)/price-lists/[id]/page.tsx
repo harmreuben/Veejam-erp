@@ -24,7 +24,7 @@ export default async function PriceListPage({ params }: { params: Promise<{ id: 
     if (e instanceof NotFoundError) notFound();
     throw e;
   });
-  const canManage = hasPermission(user.role, "pricing.manage");
+  const canManage = hasPermission(user, "pricing.manage");
 
   return (
     <Page>

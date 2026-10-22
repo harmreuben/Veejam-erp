@@ -102,6 +102,14 @@ The browser tests sign in through `tests/e2e/support/mock-supabase-auth.mjs`, a 
 | `e2e/purchasing.spec.ts`         | Supplier → PO with PDF → storekeeper receives part without seeing costs → owner enters bill and pays it → books balance → opening cost set on Stock value                                                                                                                                                                                                                                                                                                                                      |
 | `e2e/pwa.spec.ts`                | Manifest, icons, service worker (never caches pages) and offline page load signed-out; CSP allows the worker                                                                                                                                                                                                                                                                                                                                                                                   |
 
+### Added with per-person duties
+
+| File                         | Checks                                                                                                                                                                                                                                                    |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit/permissions.test.ts`   | Every duty labelled; roles unchanged with no customisation; dependencies valid and loop-free; switching on/off; owners keep everything; role-only duties can't be granted; removing a duty removes its dependents                                         |
+| `integration/duties.test.ts` | Changes apply on the next request and are audited; no-op saves; dependency, role-only and unknown duties refused (and the database check); owners/admins/self rules; admin without user management loses it; role change resets; deactivated users locked |
+| `e2e/users-duties.spec.ts`   | Owner customises a sales person → they lose _Record payment_, see their new duties → reset to defaults; sales can't open the page                                                                                                                         |
+
 ## Required tests by later phases
 
 Phase 7: a real message from Meta's test number reaches the webhook and gets a reply.

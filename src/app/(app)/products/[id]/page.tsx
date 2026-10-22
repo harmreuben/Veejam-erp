@@ -32,7 +32,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       throw e;
     },
   );
-  const canSeeStock = hasPermission(user.role, "inventory.view");
+  const canSeeStock = hasPermission(user, "inventory.view");
   const movements = canSeeStock ? await listMovements(db, actor, { productId: id, take: 15 }) : [];
   const total = balances.reduce((s, b) => s + b.quantity, 0);
 
@@ -118,8 +118,8 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         <ProductForm
           action={updateProductAction}
           values={product}
-          canEdit={hasPermission(user.role, "catalogue.manage")}
-          canSeeCost={hasPermission(user.role, "catalogue.costs")}
+          canEdit={hasPermission(user, "catalogue.manage")}
+          canSeeCost={hasPermission(user, "catalogue.costs")}
           withPrices={false}
           hasStock={total > 0}
         />

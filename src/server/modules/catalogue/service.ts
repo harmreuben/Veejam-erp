@@ -24,7 +24,7 @@ export type ProductView = Omit<Product, "costPrice"> & { costPrice: string | nul
 function view(p: Product, actor: Actor): ProductView {
   return {
     ...p,
-    costPrice: hasPermission(actor.role, "catalogue.costs") ? (p.costPrice?.toFixed(2) ?? null) : null,
+    costPrice: hasPermission(actor, "catalogue.costs") ? (p.costPrice?.toFixed(2) ?? null) : null,
   };
 }
 
@@ -207,7 +207,7 @@ export async function applyProductUpdate(
 export async function createProduct(db: Db, actor: Actor, input: unknown, ctx: AuditContext = {}) {
   authorize(actor, "catalogue.manage");
   const { prices, ...values } = parseInput(createProductSchema, input);
-  if (values.costPrice !== null && !hasPermission(actor.role, "catalogue.costs")) {
+  if (values.costPrice !== null && !hasPermission(actor, "catalogue.costs")) {
     throw new ForbiddenError("Your role can't set cost prices.");
   }
   if (priceEntries("x", prices).length) authorize(actor, "pricing.manage");
@@ -226,7 +226,7 @@ export async function updateProduct(
   return db.$transaction(async (tx) => {
     const current = await tx.product.findUnique({ where: { id } });
     if (!current) throw new NotFoundError("That product no longer exists.");
-    if (!hasPermission(actor.role, "catalogue.costs")) {
+    if (!hasPermission(actor, "catalogue.costs")) {
       // Keep the stored cost: this role can't see it, so the form never sent it.
       values.costPrice = current.costPrice?.toFixed(2) ?? null;
     }

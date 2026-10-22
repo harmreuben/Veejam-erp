@@ -37,7 +37,7 @@ export default async function CustomersPage({
         title="Customers"
         description="Shops and businesses VeeJam sells to. Each has an account number used on every document."
         actions={
-          hasPermission(user.role, "customers.manage") && (
+          hasPermission(user, "customers.manage") && (
             <Button asChild>
               <Link href="/customers/new">
                 <Plus aria-hidden /> Add customer

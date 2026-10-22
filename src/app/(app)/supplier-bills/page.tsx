@@ -46,7 +46,7 @@ export default async function SupplierBillsPage({
           </>
         }
         actions={
-          hasPermission(user.role, "bills.manage") && (
+          hasPermission(user, "bills.manage") && (
             <Button asChild>
               <Link href="/supplier-bills/new">
                 <Plus aria-hidden /> Enter a bill

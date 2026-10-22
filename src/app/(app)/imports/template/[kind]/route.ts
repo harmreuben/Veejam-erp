@@ -7,7 +7,7 @@ import { templateCsv } from "@/server/modules/imports/definitions";
 export async function GET(_req: Request, { params }: { params: Promise<{ kind: string }> }) {
   const session = await getSession();
   if (session.kind !== "user") return new Response("Sign in first", { status: 401 });
-  if (!hasPermission(session.user.role, "imports.run")) return new Response("Not allowed", { status: 403 });
+  if (!hasPermission(session.user, "imports.run")) return new Response("Not allowed", { status: 403 });
   const kind = (await params).kind.toUpperCase();
   if (!(kind in ImportKind)) return new Response("Unknown template", { status: 404 });
   return new Response(`﻿${templateCsv(kind as ImportKind)}`, {
