@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type { ReactNode } from "react";
 import { Toaster } from "sonner";
 import "@fontsource-variable/public-sans";
@@ -7,6 +7,7 @@ import "./globals.css";
 
 import { ServiceWorkerRegister } from "@/components/pwa";
 import { DEFAULT_COMPANY_PROFILE } from "@/config/company";
+import { parseTheme, THEME_COOKIE } from "@/lib/theme";
 
 export const metadata: Metadata = {
   title: {
@@ -35,11 +36,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   // Reading the request makes every page render per request, which the
   // Content-Security-Policy nonce needs (a page built ahead of time has no nonce).
   await headers();
+  // The theme chosen on this device, drawn by the server so the page never flashes the wrong colours.
+  const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
   return (
-    <html lang="en-KE" className="h-full">
+    <html lang="en-KE" className="h-full" data-theme={theme === "system" ? undefined : theme}>
       <body className="min-h-full">
         {children}
-        <Toaster position="top-right" richColors closeButton />
+        <Toaster position="top-right" richColors closeButton theme={theme} />
         <ServiceWorkerRegister />
       </body>
     </html>

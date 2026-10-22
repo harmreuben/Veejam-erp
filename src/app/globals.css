@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /*
  * VeeJam design tokens.
@@ -46,8 +46,46 @@
   --chart-2: #eb6834;
 }
 
+/*
+ * Dark colours. The person's choice (Light / Dark / System, in the menu) is
+ * kept on <html data-theme="…">; with no choice, the device's setting decides.
+ */
+:root[data-theme="dark"] {
+  --background: #0e1714;
+  --foreground: #e3ece8;
+  --card: #15211d;
+  --card-foreground: #e3ece8;
+  --popover: #15211d;
+  --popover-foreground: #e3ece8;
+  --primary: #4cc3a5;
+  --primary-foreground: #06231c;
+  --secondary: #1b2e28;
+  --secondary-foreground: #cfe6de;
+  --muted: #18251f;
+  --muted-foreground: #98aea6;
+  --accent: #1b2e28;
+  --accent-foreground: #cfe6de;
+  --destructive: #f2786d;
+  --warning: #f0b54a;
+  --warning-soft: #33280f;
+  --success: #4cc3a5;
+  --success-soft: #133029;
+  --border: #263832;
+  --input: #2f453e;
+  --ring: #4cc3a5;
+
+  --sidebar: #0a2420;
+  --sidebar-foreground: #dcebe6;
+  --sidebar-muted: #86a69c;
+  --sidebar-border: #173a33;
+  --sidebar-accent: #12352e;
+
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #0e1714;
     --foreground: #e3ece8;
     --card: #15211d;
@@ -80,6 +118,17 @@
     --chart-1: #3987e5;
     --chart-2: #d95926;
   }
+}
+
+/* Native controls (dates, selects, scrollbars) follow the chosen theme. */
+:root {
+  color-scheme: light dark;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 @theme inline {

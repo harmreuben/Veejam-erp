@@ -36,7 +36,7 @@ export default defineConfig({
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
     // Phones: read-only smoke checks of layout and sign-in.
-    { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /smoke\.spec\.ts/ },
+    { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /(smoke|theme)\.spec\.ts/ },
   ],
   webServer: [
     {

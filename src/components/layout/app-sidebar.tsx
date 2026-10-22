@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { LogOut, Menu, UserRound } from "lucide-react";
+import { LogOut, Menu, UserRound, X } from "lucide-react";
 
 import { signOut } from "@/app/(auth)/login/actions";
 import { InstallAppButton } from "@/components/pwa";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { canSeeModule, ERP_MODULES, MODULE_GROUPS, type ErpModule } from "@/config/modules";
 import { ROLE_LABELS, type Permission } from "@/server/auth/permissions";
 import type { AppUser } from "@/server/auth/resolve";
+import type { ThemeChoice } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 import { NavLink } from "./nav-link";
@@ -60,7 +62,7 @@ function HomeLink({ companyName }: { companyName: string }) {
   );
 }
 
-function UserCard({ user }: { user: AppUser }) {
+function UserCard({ user, theme }: { user: AppUser; theme: ThemeChoice }) {
   return (
     <div className="border-sidebar-border grid gap-2 border-t px-3 pt-4">
       <div className="min-w-0">
@@ -88,6 +90,7 @@ function UserCard({ user }: { user: AppUser }) {
         </form>
         <InstallAppButton className="text-sidebar-muted hover:text-sidebar-foreground flex items-center gap-2 text-sm" />
       </div>
+      <ThemeToggle initial={theme} className="border-sidebar-border text-sidebar-muted mt-1" />
     </div>
   );
 }
@@ -96,10 +99,12 @@ export function AppSidebar({
   companyName,
   user,
   permissions,
+  theme,
 }: {
   companyName: string;
   user: AppUser;
   permissions: readonly Permission[];
+  theme: ThemeChoice;
 }) {
   return (
     <>
@@ -109,18 +114,23 @@ export function AppSidebar({
           <HomeLink companyName={companyName} />
         </div>
         <ModuleNav permissions={permissions} className="flex-1 content-start" />
-        <UserCard user={user} />
+        <UserCard user={user} theme={theme} />
       </aside>
 
       {/* Mobile: collapsible menu, works without JavaScript */}
-      <details className="bg-sidebar text-sidebar-foreground md:hidden">
-        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 [&::-webkit-details-marker]:hidden">
+      <details className="group bg-sidebar text-sidebar-foreground md:hidden">
+        <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+          {/* Menu button on the left, where the thumb and eye expect it. */}
+          <span className="hover:bg-sidebar-accent -ml-1 inline-flex size-9 items-center justify-center rounded-md">
+            <Menu className="size-5 group-open:hidden" aria-hidden />
+            <X className="hidden size-5 group-open:block" aria-hidden />
+            <span className="sr-only">Menu</span>
+          </span>
           <Wordmark companyName={companyName} />
-          <Menu className="size-5" aria-label="Open menu" />
         </summary>
         <div className="grid gap-4 px-2 pb-4">
           <ModuleNav permissions={permissions} />
-          <UserCard user={user} />
+          <UserCard user={user} theme={theme} />
         </div>
       </details>
     </>
