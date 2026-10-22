@@ -54,6 +54,7 @@ export async function proxy(request: NextRequest) {
   let response = forward();
 
   let signedIn = false;
+  let authMs: number | null = null;
   if (url && key) {
     const supabase = createServerClient(url, key, {
       cookieOptions: SESSION_COOKIE_OPTIONS,
@@ -66,7 +67,9 @@ export async function proxy(request: NextRequest) {
         },
       },
     });
+    const started = performance.now();
     const { data } = await supabase.auth.getClaims();
+    authMs = performance.now() - started;
     signedIn = !!data?.claims?.sub;
   }
 
@@ -81,6 +84,13 @@ export async function proxy(request: NextRequest) {
   }
 
   response.headers.set("Content-Security-Policy", policy);
+  // Timings for the browser's developer tools (Network → Timing): no secrets.
+  if (authMs !== null) {
+    response.headers.set(
+      "Server-Timing",
+      `signin;dur=${authMs.toFixed(0)};desc="Sign-in check (${process.env.VERCEL_REGION ?? "local"})"`,
+    );
+  }
   return response;
 }
 

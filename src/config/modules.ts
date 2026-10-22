@@ -211,6 +211,14 @@ export const ERP_MODULES: readonly ErpModule[] = [
     permission: "users.view",
   },
   {
+    slug: "speed",
+    name: "Speed check",
+    group: "Admin",
+    phase: 8,
+    href: "/settings/speed",
+    permission: "backups.view",
+  },
+  {
     slug: "backups",
     name: "Backup & recovery",
     group: "Admin",

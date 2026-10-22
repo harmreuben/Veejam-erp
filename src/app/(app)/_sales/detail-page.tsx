@@ -173,8 +173,8 @@ export async function SalesDetailPage({
             </p>
             {doc.creditProblem && (
               <p className="text-warning font-medium">
-                Over the credit limit: {doc.creditProblem} It will still be posted, and this is recorded on the
-                invoice.
+                Over the credit limit: {doc.creditProblem} It will still be posted, and this is recorded on
+                the invoice.
               </p>
             )}
           </>

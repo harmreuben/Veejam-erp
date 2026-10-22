@@ -12,8 +12,11 @@ export const dynamic = "force-dynamic";
 
 /** Every page in this group requires a signed-in, active ERP user. */
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  const user = await requireUser();
-  const companyName = await getCompanyDisplayName(getDb(), DEFAULT_COMPANY_PROFILE.name);
+  // Both at once: the sign-in check and the company name don't depend on each other.
+  const [user, companyName] = await Promise.all([
+    requireUser(),
+    getCompanyDisplayName(getDb(), DEFAULT_COMPANY_PROFILE.name),
+  ]);
 
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">

@@ -93,6 +93,17 @@ Once it is on Vercel (HTTPS), staff can install it like an app: its own icon, it
 
 The app always shows live data and stores nothing on the device: the service worker (`public/sw.js`) only shows an "offline" page when there's no connection. Updates arrive with each deploy; there is nothing to reinstall. Installing doesn't work on `http://localhost` from another device, only on the HTTPS Vercel address.
 
+## 6. If the app feels slow
+
+Open **Admin → Speed check** (owners and admins) on the device that feels slow. It measures the round trip from that device, where the app's server runs, each database step and the sign-in check, and says what to change. The usual fixes:
+
+- **Server far from the database.** Vercel → Settings → Functions → Function Regions → Dublin (`dub1`), next to the Supabase database in Ireland (`vercel.json` asks for this too), then redeploy.
+- **Older sign-in key (HS256).** Every click then asks Supabase over the internet. Supabase → Project Settings → JWT Keys → **Migrate JWT secret**, then **Rotate keys**. Nobody is signed out. (Don't revoke the legacy secret until at least 1 hour 15 minutes later, and only if nothing else uses it.)
+- **Cold starts.** The first click after a quiet spell starts a fresh server and takes a second or two longer; later clicks are fast.
+- **Connection.** Kenya to Europe is usually 150–300 ms per round trip on mobile data; a weak signal adds more.
+
+Every signed-in page also sends a `Server-Timing` header (browser developer tools → Network → Timing) with the sign-in check's time.
+
 ## Operational checks after each deploy
 
 - `/api/health` is OK.
