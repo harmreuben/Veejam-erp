@@ -12,13 +12,13 @@ test("the theme switch applies at once and is remembered on the next page", asyn
   await page.waitForURL(/\/dashboard$/);
   if (isMobile) {
     // The menu button sits on the left, before the company name.
-    const summary = page.locator("summary").first();
+    const bar = page.getByRole("banner").filter({ visible: true }).first();
     const [button, name] = await Promise.all([
-      summary.getByText("Menu").boundingBox(),
-      summary.getByText("VeeJam Limited").boundingBox(),
+      bar.getByRole("button", { name: "Open menu" }).boundingBox(),
+      bar.getByText("VeeJam Limited").boundingBox(),
     ]);
     expect(button!.x).toBeLessThan(name!.x);
-    await summary.click();
+    await bar.getByRole("button", { name: "Open menu" }).click();
   }
   const themes = page.getByRole("group", { name: "Colour theme" }).filter({ visible: true });
   const light = await background(page);
@@ -34,7 +34,7 @@ test("the theme switch applies at once and is remembered on the next page", asyn
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
   // System follows the device: this device is light.
-  if (isMobile) await page.locator("summary").first().click();
+  if (isMobile) await page.getByRole("button", { name: "Open menu" }).click();
   await page
     .getByRole("group", { name: "Colour theme" })
     .filter({ visible: true })

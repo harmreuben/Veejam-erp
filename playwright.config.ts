@@ -34,9 +34,9 @@ export default defineConfig({
     launchOptions: process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : {},
   },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    { name: "desktop", use: { ...devices["Desktop Chrome"] }, testIgnore: /mobile-menu\.spec\.ts/ },
     // Phones: read-only smoke checks of layout and sign-in.
-    { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /(smoke|theme)\.spec\.ts/ },
+    { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /(smoke|theme|mobile-menu)\.spec\.ts/ },
   ],
   webServer: [
     {

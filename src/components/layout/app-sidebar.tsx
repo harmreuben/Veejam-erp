@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogOut, Menu, UserRound, X } from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
 
 import { signOut } from "@/app/(auth)/login/actions";
 import { InstallAppButton } from "@/components/pwa";
@@ -10,6 +10,7 @@ import type { AppUser } from "@/server/auth/resolve";
 import type { ThemeChoice } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
+import { MobileNav } from "./mobile-nav";
 import { NavLink } from "./nav-link";
 
 function ModuleItem({ module, permissions }: { module: ErpModule; permissions: readonly Permission[] }) {
@@ -117,22 +118,11 @@ export function AppSidebar({
         <UserCard user={user} theme={theme} />
       </aside>
 
-      {/* Mobile: collapsible menu, works without JavaScript */}
-      <details className="group bg-sidebar text-sidebar-foreground md:hidden">
-        <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
-          {/* Menu button on the left, where the thumb and eye expect it. */}
-          <span className="hover:bg-sidebar-accent -ml-1 inline-flex size-9 items-center justify-center rounded-md">
-            <Menu className="size-5 group-open:hidden" aria-hidden />
-            <X className="hidden size-5 group-open:block" aria-hidden />
-            <span className="sr-only">Menu</span>
-          </span>
-          <Wordmark companyName={companyName} />
-        </summary>
-        <div className="grid gap-4 px-2 pb-4">
-          <ModuleNav permissions={permissions} />
-          <UserCard user={user} theme={theme} />
-        </div>
-      </details>
+      {/* Phone: a fixed top bar, and a menu that slides in over the page. */}
+      <MobileNav title={<Wordmark companyName={companyName} />}>
+        <ModuleNav permissions={permissions} />
+        <UserCard user={user} theme={theme} />
+      </MobileNav>
     </>
   );
 }

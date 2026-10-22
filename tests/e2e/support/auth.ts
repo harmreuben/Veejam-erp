@@ -8,7 +8,7 @@ export async function signIn(page: Page, email: string, password: string, next?:
 }
 
 export async function signOut(page: Page, isMobile = false) {
-  if (isMobile) await page.locator("summary").first().click();
+  if (isMobile) await page.getByRole("button", { name: "Open menu" }).click();
   await page.getByRole("button", { name: "Sign out" }).filter({ visible: true }).click();
   await expect(page).toHaveURL(/\/login$/);
 }
