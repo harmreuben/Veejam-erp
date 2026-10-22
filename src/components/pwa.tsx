@@ -28,10 +28,9 @@ export function InstallAppButton({ className }: { className?: string }) {
   const [prompt, setPrompt] = useState<InstallPromptEvent | null>(null);
 
   useEffect(() => {
-    const onPrompt = (e: Event) => {
-      e.preventDefault();
-      setPrompt(e as InstallPromptEvent);
-    };
+    // Keep the event for our own button, but don't call preventDefault(): Chrome
+    // still shows its own install banner, and doesn't log "Banner not shown".
+    const onPrompt = (e: Event) => setPrompt(e as InstallPromptEvent);
     const onInstalled = () => setPrompt(null);
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
@@ -47,8 +46,12 @@ export function InstallAppButton({ className }: { className?: string }) {
       type="button"
       className={className}
       onClick={async () => {
-        await prompt.prompt();
-        await prompt.userChoice;
+        try {
+          await prompt.prompt();
+          await prompt.userChoice;
+        } catch {
+          // Chrome already showed its own prompt for this event; it can't be shown twice.
+        }
         setPrompt(null);
       }}
     >
