@@ -122,9 +122,35 @@ export async function createDraft(
   kind: Exclude<SalesDocumentKind, "CREDIT_NOTE">,
   input: unknown,
   ctx: AuditContext = {},
-): Promise<{ id: string; number: string | null }> {
+  /** With a key, the same form submitted twice makes one document (returns the first). */
+  opts: { idempotencyKey?: string } = {},
+): Promise<{ id: string; number: string | null; existing?: boolean }> {
   authorize(actor, MANAGE_PERMISSION[kind]);
   const values = parseInput(draftSchema, input);
+  const key = opts.idempotencyKey;
+  if (key) {
+    const found = await db.salesDocument.findUnique({ where: { idempotencyKey: key } });
+    if (found) return { id: found.id, number: found.number, existing: true };
+  }
+  try {
+    return await createDraftTx(db, actor, kind, values, ctx, key);
+  } catch (error) {
+    if (key && (error as { code?: string })?.code === "P2002") {
+      const found = await db.salesDocument.findUnique({ where: { idempotencyKey: key } });
+      if (found) return { id: found.id, number: found.number, existing: true };
+    }
+    throw error;
+  }
+}
+
+function createDraftTx(
+  db: Db,
+  actor: Actor,
+  kind: Exclude<SalesDocumentKind, "CREDIT_NOTE">,
+  values: DraftValues,
+  ctx: AuditContext,
+  idempotencyKey: string | undefined,
+): Promise<{ id: string; number: string | null }> {
   return db.$transaction(async (tx) => {
     const customer = await activeCustomer(tx, values.customerId);
     await activeWarehouse(tx, values.warehouseId);
@@ -141,6 +167,7 @@ export async function createDraft(
         customerReference: values.customerReference,
         notes: values.notes,
         createdById: actor.id,
+        idempotencyKey: idempotencyKey ?? null,
         ...totalsData(priced),
         lines: { create: lineRows(priced) },
       },

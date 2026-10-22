@@ -110,6 +110,14 @@ The browser tests sign in through `tests/e2e/support/mock-supabase-auth.mjs`, a 
 | `integration/duties.test.ts` | Changes apply on the next request and are audited; no-op saves; dependency, role-only and unknown duties refused (and the database check); owners/admins/self rules; admin without user management loses it; role change resets; deactivated users locked |
 | `e2e/users-duties.spec.ts`   | Owner customises a sales person → they lose _Record payment_, see their new duties → reset to defaults; sales can't open the page                                                                                                                         |
 
+### Added with posting on creation and batches
+
+| File                               | Checks                                                                                                                                                                                                                                                                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `integration/quick-post.test.ts`   | Write-and-post numbers and takes stock; same form twice posts once; stock/credit problems keep a draft with the reason and use no number; bad forms save nothing; storekeepers can't; order → invoice → posted in one step; batch posts in order, keeps drafts, reports unsaved ones, skips empty cards, re-submission posts nothing twice |
+| `integration/my-dashboard.test.ts` | Own sales, credit notes on own invoices, money recorded, open work, overdue list; other people's sales excluded; permissions                                                                                                                                                                                                               |
+| `e2e/sales-batch.spec.ts`          | Sales posts a batch of three: two posted, one kept as a draft with the reason; LPO number kept                                                                                                                                                                                                                                             |
+
 ## Required tests by later phases
 
 Phase 7: a real message from Meta's test number reaches the webhook and gets a reply.

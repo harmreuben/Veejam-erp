@@ -231,6 +231,7 @@ export async function editorData(db: Db, actor: Actor) {
     taxRates: Object.fromEntries(rates) as Record<string, string>,
     defaultPriceListId: defaultId,
     canDiscount: hasPermission(actor, "sales.discount"),
+    canPost: hasPermission(actor, "invoices.post"),
   };
 }
 export type EditorData = Awaited<ReturnType<typeof editorData>>;

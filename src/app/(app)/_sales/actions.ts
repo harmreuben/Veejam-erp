@@ -8,7 +8,9 @@ import { formToObject } from "@/server/action-helpers";
 import { toActionResult, type ActionResult } from "@/server/action-result";
 import { requestContext, requireUser, toActor } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
+import { hasPermission } from "@/server/auth/permissions";
 import { ValidationError } from "@/server/errors";
+import { setFlash } from "@/server/flash";
 import {
   cancelDelivery,
   createDeliveryNote,
@@ -18,6 +20,14 @@ import {
   revokeShareLink,
   updateTaxRate,
 } from "@/server/modules/sales/extras";
+import {
+  createAndPostInvoice,
+  invoiceAndPost,
+  postDraftNow,
+  postInvoiceBatch,
+  type BatchItemResult,
+  type QuickPostResult,
+} from "@/server/modules/sales/quick-post";
 import { KIND_LABELS } from "@/server/modules/sales/schemas";
 import {
   cancelDocument,
@@ -44,25 +54,78 @@ async function session() {
   return { db: getDb(), actor: toActor(user), ctx: await requestContext() };
 }
 
-/** Create a draft (no id) or save changes to one (with id and version). */
+/** Where to go after an invoice was meant to post: posted, or its draft with the reason. */
+async function afterQuickPost(r: QuickPostResult): Promise<string> {
+  const path = `/invoices/${r.id}`;
+  if (r.posted) return `${path}?posted=1`;
+  await setFlash(path, r.problem ?? "It couldn't be posted.");
+  return path;
+}
+
+/**
+ * Create a document (no id) or save changes to one (with id and version).
+ * Invoices post straight away for people who may post them, unless they chose
+ * "Save as draft"; if posting is refused the draft is kept and the reason shown.
+ */
 export async function saveDraftAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const kind = field(formData, "kind") as Exclude<SalesDocumentKind, "CREDIT_NOTE">;
   let id = field(formData, "id");
+  let goTo: string | null = null;
   const result = await toActionResult(async () => {
     if (!KINDS.includes(kind)) throw new ValidationError({ form: ["Unknown document type"] });
     const { db, actor, ctx } = await session();
     const input = formToObject(formData);
+    const postNow =
+      kind === "INVOICE" && field(formData, "intent") !== "draft" && hasPermission(actor, "invoices.post");
+    if (postNow) {
+      let r: QuickPostResult;
+      if (id) {
+        await updateDraft(db, actor, id, input, ctx);
+        r = await postDraftNow(db, actor, id, ctx);
+      } else {
+        r = await createAndPostInvoice(db, actor, input, ctx, {
+          idempotencyKey: field(formData, "idempotencyKey") || undefined,
+        });
+      }
+      id = r.id;
+      refreshSales();
+      goTo = await afterQuickPost(r);
+      return r.posted ? `${r.number} posted` : "Saved as a draft: it couldn't be posted";
+    }
     if (id) {
       await updateDraft(db, actor, id, input, ctx);
       refreshSales();
       return "Saved";
     }
-    const created = await createDraft(db, actor, kind, input, ctx);
+    const created = await createDraft(db, actor, kind, input, ctx, {
+      idempotencyKey: field(formData, "idempotencyKey") || undefined,
+    });
     id = created.id;
     refreshSales();
     return created.number ? `${created.number} created` : "Draft invoice created";
   });
+  if (result.ok && goTo) redirect(goTo);
   if (result.ok && id) redirect(`${KIND_LABELS[kind].path}/${id}`);
+  return result;
+}
+
+/** Several customers' invoices from one screen, each posted straight away. */
+export async function batchInvoiceAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  let results: BatchItemResult[] = [];
+  const result = await toActionResult(async () => {
+    const { db, actor, ctx } = await session();
+    results = await postInvoiceBatch(db, actor, formToObject(formData), ctx);
+    refreshSales();
+    const posted = results.filter((r) => r.posted).length;
+    const failed = results.length - posted;
+    return {
+      message:
+        failed === 0
+          ? `${posted} invoice${posted === 1 ? "" : "s"} posted`
+          : `${posted} posted, ${failed} not posted: see below`,
+      data: { results: JSON.stringify(results) },
+    };
+  });
   return result;
 }
 
@@ -98,6 +161,13 @@ export async function documentAction(_prev: ActionResult, formData: FormData): P
       }
       case "to-order":
       case "to-invoice": {
+        if (intent === "to-invoice" && hasPermission(actor, "invoices.post")) {
+          const q = await invoiceAndPost(db, actor, id, ctx);
+          refreshSales();
+          goTo = await afterQuickPost(q);
+          return q.posted ? `${q.number} posted` : "Invoice saved as a draft: it couldn't be posted";
+        }
+        // Without posting rights, a draft invoice is made as before.
         const target = intent === "to-order" ? "SALES_ORDER" : "INVOICE";
         const r = await convertDocument(db, actor, id, target, ctx);
         refreshSales();

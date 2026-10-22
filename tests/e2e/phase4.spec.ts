@@ -77,13 +77,11 @@ test("sales: quotation → sales order (stock reserved) → invoice posted; stoc
   await page.getByRole("alertdialog").getByRole("button", { name: "Confirm and reserve stock" }).click();
   await expect(page.getByText(/Stock for this order is reserved/)).toBeVisible();
 
-  await page.getByRole("button", { name: "Make invoice" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: /Draft invoice/ })).toBeVisible();
-  await expect(page.getByText(/no invoice number yet/)).toBeVisible();
-  await page.getByRole("button", { name: "Post invoice…" }).click();
+  // Sales may post, so the order is invoiced and posted in one step.
+  await page.getByRole("button", { name: "Invoice and post…" }).click();
   const dialog = page.getByRole("alertdialog");
-  await expect(dialog).toContainText("KES 4,000.00");
-  await dialog.getByRole("button", { name: "Post invoice" }).click();
+  await expect(dialog).toContainText("posts it now");
+  await dialog.getByRole("button", { name: "Invoice and post" }).click();
 
   await expect(page.getByRole("heading", { level: 1, name: /INV-\d{6}/ })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "posted." })).toContainText(
@@ -106,13 +104,17 @@ test("a second invoice for more than is left is refused with the reason", async 
   await chooseCustomer(page);
   await chooseLine(page, "CARTON", "2");
   await expect(page.getByText(/not enough for this line/)).toBeVisible();
-  await page.getByRole("button", { name: "Save draft invoice" }).click();
+  // A new invoice posts straight away; when it can't, it's kept as a draft with the reason.
+  await page.getByRole("button", { name: "Post invoice", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Draft invoice" })).toBeVisible();
+  const banner = page.getByRole("status").filter({ hasText: "Saved as a draft, not posted." });
+  await expect(banner).toContainText("Not enough stock");
+  await expect(banner).toContainText("has 200 pcs (1 ctn), this needs 400 pcs (2 ctn)");
+  // Posting again from the draft gives the same answer.
   await page.getByRole("button", { name: "Post invoice…" }).click();
   const dialog = page.getByRole("alertdialog");
   await dialog.getByRole("button", { name: "Post invoice" }).click();
   await expect(dialog.getByRole("alert")).toContainText("Not enough stock");
-  await expect(dialog.getByRole("alert")).toContainText("has 200 pcs (1 ctn), this needs 400 pcs (2 ctn)");
 });
 
 test("owner shares the invoice; the link opens without signing in until revoked", async ({

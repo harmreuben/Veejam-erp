@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { selectClass } from "@/components/filters";
 import { SubmitBar, useActionForm } from "@/components/forms";
+import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,6 +43,8 @@ export type EditorProps = {
     taxRates: Record<string, string>;
     defaultPriceListId: string | null;
     canDiscount: boolean;
+    /** May post invoices: then saving a new invoice posts it straight away. */
+    canPost?: boolean;
   };
   initial?: {
     id: string;
@@ -57,7 +60,7 @@ export type EditorProps = {
     fromSource: boolean;
     pricesIncludeTax: boolean;
   };
-  defaults: { issueDate: string; validUntil: string };
+  defaults: { issueDate: string; validUntil: string; idempotencyKey?: string };
 };
 
 type Line = { key: number; productId: string; unit: Unit; quantity: string; discountPercent: string };
@@ -153,10 +156,14 @@ export function DocumentEditor({ kind, data, initial, defaults }: EditorProps) {
   });
   const totals = sumLines(rows.flatMap((r) => (r.totals ? [r.totals] : [])));
   const checksStock = kind !== "QUOTATION";
+  const postsNow = kind === "INVOICE" && !!data.canPost;
 
   return (
     <form onSubmit={submit} className="grid gap-6" noValidate>
       <input type="hidden" name="kind" value={kind} />
+      {!initial && defaults.idempotencyKey && (
+        <input type="hidden" name="idempotencyKey" value={defaults.idempotencyKey} />
+      )}
       {initial && (
         <>
           <input type="hidden" name="id" value={initial.id} />
@@ -401,13 +408,24 @@ export function DocumentEditor({ kind, data, initial, defaults }: EditorProps) {
         </p>
       </div>
 
-      <SubmitBar pending={pending} state={state} label={SUBMIT_LABEL[kind]} pendingLabel="Saving…">
-        {kind === "INVOICE" && (
+      {postsNow ? (
+        <SubmitBar pending={pending} state={state} label="Post invoice" pendingLabel="Posting…">
+          <Button type="submit" name="intent" value="draft" variant="outline" disabled={pending}>
+            Save as draft
+          </Button>
           <span className="text-muted-foreground text-sm">
-            Saving keeps it as a draft. You post it from the next page.
+            Posting gives it an INV- number, takes the stock out and can&apos;t be undone (use a credit note).
           </span>
-        )}
-      </SubmitBar>
+        </SubmitBar>
+      ) : (
+        <SubmitBar pending={pending} state={state} label={SUBMIT_LABEL[kind]} pendingLabel="Saving…">
+          {kind === "INVOICE" && (
+            <span className="text-muted-foreground text-sm">
+              Saving keeps it as a draft for someone who can post invoices.
+            </span>
+          )}
+        </SubmitBar>
+      )}
     </form>
   );
 }

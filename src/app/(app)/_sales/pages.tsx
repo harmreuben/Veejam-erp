@@ -1,6 +1,8 @@
+import { randomUUID } from "node:crypto";
+
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Layers, Plus } from "lucide-react";
 
 import { FilterBar, param } from "@/components/filters";
 import { formatDate, Money } from "@/components/format";
@@ -33,7 +35,7 @@ const DESCRIPTIONS: Record<SalesDocumentKind, string> = {
   QUOTATION: "Prices offered to a customer. Turn one into a sales order or an invoice without re-typing.",
   SALES_ORDER: "Confirmed orders reserve their stock, so nobody else can sell it before it's invoiced.",
   INVOICE:
-    "Drafts can be changed freely. Posting gives the INV- number, takes the stock out, and the invoice can't be changed after that.",
+    "New invoices post straight away: they get an INV- number, the stock goes out, and they can't be changed after that (use a credit note). Drafts are kept for invoices that couldn't be posted yet.",
   CREDIT_NOTE:
     "Credit notes reduce what a customer owes, for returned goods or mistakes on a posted invoice.",
 };
@@ -62,11 +64,20 @@ export async function SalesListPage({
         description={DESCRIPTIONS[kind]}
         actions={
           canCreate && (
-            <Button asChild>
-              <Link href={`${label.path}/new`}>
-                <Plus aria-hidden /> New {label.one.toLowerCase()}
-              </Link>
-            </Button>
+            <>
+              {isInvoice && hasPermission(user, "invoices.post") && (
+                <Button asChild variant="outline">
+                  <Link href="/invoices/batch">
+                    <Layers aria-hidden /> Batch of invoices
+                  </Link>
+                </Button>
+              )}
+              <Button asChild>
+                <Link href={`${label.path}/new`}>
+                  <Plus aria-hidden /> New {label.one.toLowerCase()}
+                </Link>
+              </Button>
+            </>
           )
         }
       />
@@ -154,7 +165,7 @@ export async function SalesNewPage({ kind }: { kind: Exclude<SalesDocumentKind, 
         <DocumentEditor
           kind={kind}
           data={serialisableEditorData(data)}
-          defaults={{ issueDate: today, validUntil: addDays(today, 14) }}
+          defaults={{ issueDate: today, validUntil: addDays(today, 14), idempotencyKey: randomUUID() }}
         />
       )}
     </Page>

@@ -17,6 +17,7 @@ import { hasPermission } from "@/server/auth/permissions";
 import { toActor } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { NotFoundError } from "@/server/errors";
+import { readFlash } from "@/server/flash";
 import { openInvoices } from "@/server/modules/payments/service";
 import { getDocument } from "@/server/modules/sales/queries";
 import { EDITABLE_STATUSES, KIND_LABELS } from "@/server/modules/sales/schemas";
@@ -63,6 +64,7 @@ export async function SalesDetailPage({
   const user = await pageUser("sales.view");
   if (!user) return <NoAccess what={label.many.toLowerCase()} />;
   const sp = await searchParams;
+  const flash = await readFlash();
   const doc = await getDocument(getDb(), toActor(user), id).catch((e: unknown) => {
     if (e instanceof NotFoundError) notFound();
     throw e;
@@ -85,6 +87,32 @@ export async function SalesDetailPage({
   const openForCredit =
     creditLeft && toDecimal(creditLeft).greaterThan(0) ? await openInvoices(getDb(), doc.customerId) : [];
 
+  // Quotation or confirmed order → invoice. People who may post get it posted in the same step.
+  const invoiceButton = (variant: "default" | "outline") =>
+    can("invoices.post") ? (
+      <ConfirmButton
+        key="to-i"
+        label="Invoice and post…"
+        variant={variant}
+        title={`Invoice ${doc.customer.name} and post it?`}
+        description={
+          <p>
+            Makes the invoice from this {label.one.toLowerCase()} and posts it now: it gets an INV- number and
+            the stock leaves {doc.warehouse.name}. If something stops it (stock or credit limit), it is saved
+            as a draft instead and you&apos;ll see why.
+          </p>
+        }
+        confirmLabel="Invoice and post"
+        hidden={{ id: doc.id, intent: "to-invoice" }}
+      />
+    ) : (
+      <ActionButton
+        key="to-i"
+        label="Make invoice"
+        variant={variant === "default" ? "default" : undefined}
+        hidden={{ id: doc.id, intent: "to-invoice" }}
+      />
+    );
   const actions: React.ReactNode[] = [];
   if (kind === "QUOTATION" && canManage) {
     if (doc.status === "DRAFT")
@@ -104,10 +132,7 @@ export async function SalesDetailPage({
           hidden={{ id: doc.id, intent: "to-order" }}
         />,
       );
-    if (can("invoices.manage"))
-      actions.push(
-        <ActionButton key="to-i" label="Make invoice" hidden={{ id: doc.id, intent: "to-invoice" }} />,
-      );
+    if (can("invoices.manage")) actions.push(invoiceButton("outline"));
   }
   if (kind === "SALES_ORDER" && doc.status === "DRAFT" && canManage) {
     actions.push(
@@ -128,14 +153,7 @@ export async function SalesDetailPage({
     );
   }
   if (kind === "SALES_ORDER" && doc.status === "CONFIRMED" && can("invoices.manage")) {
-    actions.push(
-      <ActionButton
-        key="to-i"
-        label="Make invoice"
-        variant="default"
-        hidden={{ id: doc.id, intent: "to-invoice" }}
-      />,
-    );
+    actions.push(invoiceButton("default"));
   }
   if (kind === "INVOICE" && doc.status === "DRAFT" && can("invoices.post")) {
     const canOverride = can("credit.override");
@@ -268,6 +286,12 @@ export async function SalesDetailPage({
         }
       />
 
+      {flash && kind === "INVOICE" && doc.status === "DRAFT" && (
+        <Banner tone="warning">
+          <strong>Saved as a draft, not posted.</strong> {flash} Fix it here and post again, or ask someone
+          who can.
+        </Banner>
+      )}
       {sp.posted && kind === "CREDIT_NOTE" && (
         <Banner tone="success">
           <strong>{doc.number} issued.</strong> It has been applied to {doc.sourceDocument?.number}

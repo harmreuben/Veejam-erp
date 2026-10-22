@@ -56,7 +56,11 @@ Quotation ──► Sales order ──confirm──► stock reserved ──► 
      └───────────────────────────────────────────────► Invoice (draft)   (a quote can skip the order)
 ```
 
-Any step can be skipped: a counter sale is just **Invoices → New invoice → Post**.
+Any step can be skipped: a counter sale is just **Invoices → New invoice → Post invoice**.
+
+**Invoices post as soon as they're written.** For anyone who may post invoices (sales, accountants, admins, owners), **Post invoice** on the new-invoice form saves it, gives it the next INV- number, takes the stock out and posts it to the accounts in one step. **Invoice and post…** on a quotation or confirmed order does the same. If posting is stopped (not enough stock, over the credit limit, prices changed), nothing is lost: the invoice is kept as a draft and the page says why, so it can be fixed and posted, or posted by an owner with a credit override. **Save as draft** is still there for invoices that aren't ready. Submitting the same form twice posts once.
+
+**Batch of invoices** (Invoices → Batch of invoices): enter several customers' invoices on one page, for example a day's route, all taken from one warehouse, and post them together. Each shows its price and warns when stock left after the invoices above it won't cover it. They post one after the other; any that can't post are kept as drafts with the reason, and any that couldn't be saved (no customer, no price) stay on the page to fix. Up to 40 at a time; sending the same batch twice posts nothing twice.
 
 **Prices.** Lines are priced on the server from the customer's price list, falling back to the default list. Nobody types a price. Prices on the Standard list include VAT (the old system's habit). Each line shows the unit sold (carton/pack/piece) and the pieces it takes from stock.
 
