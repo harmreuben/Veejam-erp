@@ -235,6 +235,70 @@ export async function SalesDetailPage({
     );
   }
 
+  // Owners and admins: undo and hide an invoice (see sales/delete-invoice.ts).
+  if (kind === "INVOICE" && !doc.deletedAt && can("invoices.delete")) {
+    const posted = doc.status === "POSTED";
+    const delivered = doc.deliveryNote?.status === "DELIVERED";
+    actions.push(
+      <ConfirmButton
+        key="delete"
+        label="Delete…"
+        variant="ghost"
+        destructive
+        title={`Delete ${title}?`}
+        description={
+          posted ? (
+            <>
+              <p>Everything this invoice did is undone, dated today:</p>
+              <ul className="list-disc pl-5">
+                <li>
+                  {doc.customer.name} no longer owes <Money value={doc.total} /> for it
+                  {toDecimal(doc.amountPaid).greaterThan(0) && (
+                    <>
+                      ; the <Money value={doc.amountPaid} /> paid on it becomes credit on their account
+                    </>
+                  )}
+                  .
+                </li>
+                {!doc.historical && <li>Sales, VAT and cost of sales are reversed in the accounts.</li>}
+                {doc.historical && <li>Its old-system balance is taken off the accounts.</li>}
+                <li>Its delivery note and share links are cancelled.</li>
+              </ul>
+              <p>
+                It disappears from lists, balances and reports, but is kept under &ldquo;Deleted&rdquo; with
+                your name and reason. This can&apos;t be undone.
+              </p>
+              {delivered && (
+                <p className="text-warning font-medium">
+                  These goods were delivered. Only tick &ldquo;back in stock&rdquo; if they came back.
+                </p>
+              )}
+            </>
+          ) : (
+            <p>
+              It disappears from the lists, but is kept under &ldquo;Deleted&rdquo; with your name and reason.
+            </p>
+          )
+        }
+        fields={[
+          { name: "reason", label: "Why is it being deleted?", required: true },
+          ...(posted && !doc.historical
+            ? [
+                {
+                  name: "returnsToStock",
+                  label: "The goods are back in stock (or never left)",
+                  checkbox: true,
+                  checked: !delivered,
+                },
+              ]
+            : []),
+        ]}
+        confirmLabel="Delete invoice"
+        hidden={{ ...base, intent: "delete" }}
+      />,
+    );
+  }
+
   return (
     <Page wide>
       <PageHeader
@@ -297,10 +361,18 @@ export async function SalesDetailPage({
           here.
         </Banner>
       )}
-      {doc.status === "CANCELLED" && (
-        <Banner>
-          Cancelled {formatDateTime(doc.cancelledAt)}: {doc.cancelReason}
+      {doc.deletedAt ? (
+        <Banner tone="warning">
+          <strong>Deleted</strong> {formatDateTime(doc.deletedAt)} by {doc.deletedBy?.fullName}.{" "}
+          {doc.cancelReason?.replace(/^Deleted: /, "Reason: ")}. Kept here for the record only: it counts
+          nowhere.
         </Banner>
+      ) : (
+        doc.status === "CANCELLED" && (
+          <Banner>
+            Cancelled {formatDateTime(doc.cancelledAt)}: {doc.cancelReason}
+          </Banner>
+        )
       )}
       {kind === "INVOICE" && doc.status === "DRAFT" && (
         <Banner tone={doc.creditProblem ? "warning" : "info"}>

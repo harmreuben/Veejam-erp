@@ -328,13 +328,44 @@ export async function reversePayment(
 ) {
   authorize(actor, "payments.reverse");
   const v = parseInput(reverseSchema, input);
-  await db.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM payments WHERE id = ${id}::uuid FOR UPDATE`;
-    const p = await tx.payment.findUnique({ where: { id }, include: { allocations: true, customer: true } });
-    if (!p) throw new NotFoundError();
-    if (p.version !== v.version)
-      throw new ConflictError(`${p.number} was changed by someone else. Reload the page.`);
-    if (p.status !== "POSTED") throw new ConflictError(`${p.number} is already reversed.`);
+  await db.$transaction((tx) => undoPayment(tx, actor, id, v, ctx, false));
+}
+
+/**
+ * Delete a payment (owners and admins): reversed in full like "Reverse", then
+ * hidden from lists and balances. The row stays, frozen, for the record. A
+ * payment that was already reversed is simply hidden.
+ */
+export async function deletePayment(
+  db: Db,
+  actor: Actor,
+  id: string,
+  input: unknown,
+  ctx: AuditContext = {},
+) {
+  authorize(actor, "payments.delete");
+  const v = parseInput(reverseSchema, input);
+  await db.$transaction((tx) => undoPayment(tx, actor, id, v, ctx, true));
+}
+
+async function undoPayment(
+  tx: DbOrTx,
+  actor: Actor,
+  id: string,
+  v: { version: number; reason: string },
+  ctx: AuditContext,
+  andDelete: boolean,
+) {
+  await tx.$queryRaw`SELECT id FROM payments WHERE id = ${id}::uuid FOR UPDATE`;
+  const p = await tx.payment.findUnique({ where: { id }, include: { allocations: true, customer: true } });
+  if (!p) throw new NotFoundError();
+  if (p.deletedAt) throw new ConflictError(`${p.number} was already deleted.`);
+  if (p.version !== v.version)
+    throw new ConflictError(`${p.number} was changed by someone else. Reload the page.`);
+  if (p.status !== "POSTED" && !andDelete) throw new ConflictError(`${p.number} is already reversed.`);
+  const amount = p.amount.toFixed(2);
+
+  if (p.status === "POSTED") {
     const today = todayInNairobi();
     for (const a of p.allocations.filter((x) => !x.reversedAt)) {
       await tx.$queryRaw`SELECT id FROM sales_documents WHERE id = ${a.invoiceId}::uuid FOR UPDATE`;
@@ -354,10 +385,9 @@ export async function reversePayment(
         version: { increment: 1 },
       },
     });
-    const amount = p.amount.toFixed(2);
     await postJournal(tx, {
       date: today,
-      description: `Reversal of payment ${p.number} (${p.customer.name}): ${v.reason}`,
+      description: `${andDelete ? "Deletion" : "Reversal"} of payment ${p.number} (${p.customer.name}): ${v.reason}`,
       sourceType: "PaymentReversal",
       sourceId: p.id,
       sourceNumber: p.number,
@@ -367,13 +397,35 @@ export async function reversePayment(
         { account: MONEY_ACCOUNT[p.method], credit: amount },
       ],
     });
-    await writeAudit(tx, {
-      ...auditBase(actor, ctx),
-      action: "PAYMENT_REVERSED",
-      entityType: "Payment",
-      entityId: id,
-      summary: `${p.number} (${formatKES(amount)}, ${p.customer.name}) reversed: ${v.reason}`,
+  }
+  if (andDelete) {
+    await tx.payment.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        deletedById: actor.id,
+        // Frees the M-Pesa code or cheque number to be entered again correctly.
+        reference: p.reference ? `${p.reference} (deleted ${p.number})` : null,
+        version: { increment: 1 },
+      },
     });
+  }
+  await writeAudit(tx, {
+    ...auditBase(actor, ctx),
+    action: andDelete ? "PAYMENT_DELETED" : "PAYMENT_REVERSED",
+    entityType: "Payment",
+    entityId: id,
+    summary: `${p.number} (${formatKES(amount)}, ${p.customer.name}) ${andDelete ? "deleted" : "reversed"}: ${v.reason}`,
+    before: {
+      status: p.status,
+      amount,
+      method: p.method,
+      reference: p.reference,
+      receivedOn: p.receivedOn.toISOString().slice(0, 10),
+      allocations: p.allocations
+        .filter((x) => !x.reversedAt)
+        .map((x) => ({ invoiceId: x.invoiceId, amount: x.amount.toFixed(2) })),
+    },
   });
 }
 
@@ -382,12 +434,14 @@ export async function reversePayment(
 export async function listPayments(
   db: Db,
   actor: Actor,
-  filter: { q?: string; method?: string; customerId?: string } = {},
+  filter: { q?: string; method?: string; customerId?: string; deleted?: boolean } = {},
 ) {
   authorize(actor, "sales.view");
   const q = filter.q?.trim();
   const rows = await db.payment.findMany({
     where: {
+      // Deleted payments only when asked for.
+      deletedAt: filter.deleted ? { not: null } : null,
       ...(filter.customerId ? { customerId: filter.customerId } : {}),
       ...(filter.method && filter.method in METHOD_LABELS ? { method: filter.method as PaymentMethod } : {}),
       ...(q
@@ -426,6 +480,7 @@ export async function getPayment(db: Db, actor: Actor, id: string) {
       customer: true,
       receivedBy: { select: { fullName: true } },
       reversedBy: { select: { fullName: true } },
+      deletedBy: { select: { fullName: true } },
       allocations: {
         orderBy: { createdAt: "asc" },
         include: {
@@ -484,7 +539,8 @@ export async function customerStatement(
       where: { customerId, kind: "INVOICE", status: "POSTED" },
       include: { allocationsReceived: { where: { reversedAt: null, paymentId: { not: null } } } },
     }),
-    db.payment.findMany({ where: { customerId } }),
+    // Deleted payments (and their reversal) are left off the statement altogether.
+    db.payment.findMany({ where: { customerId, deletedAt: null } }),
     db.salesDocument.findMany({ where: { customerId, kind: "CREDIT_NOTE", status: "POSTED" } }),
   ]);
   type Row = Omit<StatementLine, "balance"> & { order: number };

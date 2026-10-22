@@ -63,6 +63,9 @@ export const PERMISSIONS = [
   // Phase 8
   "reports.view", // dashboard and management reports
   "dashboard.own", // a personal dashboard of one's own sales
+  // Owners and admins only
+  "invoices.delete", // undo and hide an invoice (stock, ledger and payments are put right)
+  "payments.delete", // undo and hide a customer payment
   "backups.view", // see when backups were taken
 ] as const;
 
@@ -193,7 +196,13 @@ export const isPermission = (value: string): value is Permission =>
  * them: WhatsApp commands act with an owner's full authority, and managing
  * users is what makes someone an administrator. Change the role instead.
  */
-export const NOT_GRANTABLE: readonly Permission[] = ["whatsapp.use", "users.manage"];
+export const NOT_GRANTABLE: readonly Permission[] = [
+  "whatsapp.use",
+  "users.manage",
+  // Deleting invoices and payments stays with owners and admins.
+  "invoices.delete",
+  "payments.delete",
+];
 
 /** A duty only makes sense with the one it needs (you can't post invoices you can't see). */
 export const REQUIRES: Partial<Record<Permission, Permission>> = {
@@ -230,6 +239,8 @@ export const REQUIRES: Partial<Record<Permission, Permission>> = {
   "supplier_payments.manage": "payables.view",
   "whatsapp.use": "whatsapp.view",
   "dashboard.own": "sales.view",
+  "invoices.delete": "invoices.post",
+  "payments.delete": "payments.reverse",
 };
 
 export type DutyChange = { permission: string; granted: boolean };
@@ -292,6 +303,8 @@ export const PERMISSION_INFO: Record<Permission, { group: DutyGroup; label: stri
   "payments.record": { group: "Payments and credit", label: "Record customer payments" },
   "payments.reverse": { group: "Payments and credit", label: "Reverse customer payments" },
   "credit_notes.manage": { group: "Payments and credit", label: "Issue credit notes" },
+  "invoices.delete": { group: "Selling", label: "Delete invoices (owners and admins)" },
+  "payments.delete": { group: "Payments and credit", label: "Delete customer payments (owners and admins)" },
   "catalogue.view": { group: "Products and prices", label: "See products" },
   "catalogue.manage": { group: "Products and prices", label: "Add and edit products" },
   "catalogue.costs": { group: "Products and prices", label: "See and use cost prices" },

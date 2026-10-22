@@ -7,7 +7,7 @@ import { formToObject } from "@/server/action-helpers";
 import { toActionResult, type ActionResult } from "@/server/action-result";
 import { requestContext, requireUser, toActor } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
-import { applyCredit, recordPayment, reversePayment } from "@/server/modules/payments/service";
+import { applyCredit, deletePayment, recordPayment, reversePayment } from "@/server/modules/payments/service";
 import { createCreditNote } from "@/server/modules/sales/credit-notes";
 
 function refresh() {
@@ -44,6 +44,11 @@ export async function paymentAction(_prev: ActionResult, formData: FormData): Pr
       await reversePayment(db, actor, id, input, ctx);
       refresh();
       return "Payment reversed";
+    }
+    if (intent === "delete") {
+      await deletePayment(db, actor, id, input, ctx);
+      refresh();
+      return "Payment deleted";
     }
     const source =
       String(formData.get("source") ?? "") === "creditNote" ? { creditNoteId: id } : { paymentId: id };

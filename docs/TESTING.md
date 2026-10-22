@@ -124,6 +124,13 @@ The browser tests sign in through `tests/e2e/support/mock-supabase-auth.mjs`, a 
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `e2e/password-reset.spec.ts` | Same answer for unknown addresses (no email); link from the test outbox works on another device; mismatch refused; new password works, old doesn't; link works once; other devices signed out; new-password page refused without the link; owner's Reset password button; sign-out signs out this device only |
 
+### Added with deleting
+
+| File                         | Checks                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `integration/delete.test.ts` | Invoice deletion: stock back at cost, sales/VAT/COGS/stock back, payment becomes credit, books balance, hidden from lists and statements but kept under Deleted, frozen and never erasable; goods not returned; drafts; refused with credit notes, for other roles and as a duty; old-system invoice's opening balance. Payment deletion: invoices unpaid again, hidden, code reusable, frozen; reversed payments hidden once |
+| `e2e/sales-delete.spec.ts`   | Sales sees no Delete; owner deletes an invoice (reason required, stock box ticked) → gone from lists, under Deleted; owner deletes a payment and re-enters its M-Pesa code                                                                                                                                                                                                                                                    |
+
 ## Required tests by later phases
 
 Phase 7: a real message from Meta's test number reaches the webhook and gets a reply.

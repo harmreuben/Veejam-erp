@@ -1,5 +1,6 @@
 export const SOURCE_LABELS: Record<string, string> = {
   Invoice: "Invoice",
+  InvoiceDeletion: "Invoice deleted",
   Payment: "Payment",
   PaymentReversal: "Payment reversal",
   CreditNote: "Credit note",

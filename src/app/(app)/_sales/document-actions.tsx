@@ -83,7 +83,15 @@ export function ConfirmButton({
   description: React.ReactNode;
   confirmLabel: string;
   hidden: Hidden;
-  fields?: { name: string; label: string; required?: boolean; placeholder?: string }[];
+  fields?: {
+    name: string;
+    label: string;
+    required?: boolean;
+    placeholder?: string;
+    /** A tick box instead of a text box; `checked` is its starting state. */
+    checkbox?: boolean;
+    checked?: boolean;
+  }[];
   destructive?: boolean;
   variant?: "default" | "outline" | "ghost";
   delivery?: boolean;
@@ -115,20 +123,34 @@ export function ConfirmButton({
           <AlertDialogDescription asChild>
             <div className="grid gap-2 text-sm">{description}</div>
           </AlertDialogDescription>
-          {fields.map((f) => (
-            <div key={f.name} className="grid gap-1.5">
-              <Label htmlFor={`dlg-${f.name}`}>{f.label}</Label>
-              <Textarea
-                id={`dlg-${f.name}`}
-                name={f.name}
-                rows={2}
-                required={f.required}
-                placeholder={f.placeholder}
-                aria-invalid={errors(f.name) ? true : undefined}
-              />
-              {errors(f.name) && <p className="text-destructive text-xs">{errors(f.name)!.join(" ")}</p>}
-            </div>
-          ))}
+          {fields.map((f) =>
+            f.checkbox ? (
+              <label key={f.name} className="flex items-start gap-2 text-sm">
+                <input type="hidden" name={f.name} value="false" />
+                <input
+                  type="checkbox"
+                  name={f.name}
+                  value="true"
+                  defaultChecked={f.checked}
+                  className="accent-primary mt-0.5 size-4"
+                />
+                {f.label}
+              </label>
+            ) : (
+              <div key={f.name} className="grid gap-1.5">
+                <Label htmlFor={`dlg-${f.name}`}>{f.label}</Label>
+                <Textarea
+                  id={`dlg-${f.name}`}
+                  name={f.name}
+                  rows={2}
+                  required={f.required}
+                  placeholder={f.placeholder}
+                  aria-invalid={errors(f.name) ? true : undefined}
+                />
+                {errors(f.name) && <p className="text-destructive text-xs">{errors(f.name)!.join(" ")}</p>}
+              </div>
+            ),
+          )}
           {message && (
             <p role="alert" className="text-destructive text-sm">
               {message}

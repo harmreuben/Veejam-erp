@@ -23,7 +23,14 @@ export type StockChange = {
 };
 
 export type StockSource = {
-  type: "StockAdjustment" | "StockTransfer" | "StockCount" | "Invoice" | "CreditNote" | "GoodsReceipt";
+  type:
+    | "StockAdjustment"
+    | "StockTransfer"
+    | "StockCount"
+    | "Invoice"
+    | "InvoiceDeletion"
+    | "CreditNote"
+    | "GoodsReceipt";
   id: string;
   number: string;
   reason?: string | null;

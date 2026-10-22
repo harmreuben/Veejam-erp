@@ -52,7 +52,7 @@ export async function SalesListPage({
   if (!user) return <NoAccess what={label.many.toLowerCase()} />;
   const sp = await searchParams;
   const q = param(sp.q);
-  const status = (param(sp.status) ?? "ALL") as SalesDocumentStatus | "ALL";
+  const status = (param(sp.status) ?? "ALL") as SalesDocumentStatus | "ALL" | "DELETED";
   const rows = await listDocuments(getDb(), toActor(user), kind, { q, status });
   const canCreate = kind !== "CREDIT_NOTE" && hasPermission(user, MANAGE_PERMISSION[kind]);
   const isInvoice = kind === "INVOICE";
@@ -92,6 +92,7 @@ export async function SalesListPage({
             options: [
               { value: "ALL", label: "All" },
               ...STATUSES[kind].map((s) => ({ value: s, label: STATUS_LABELS[s] })),
+              ...(isInvoice ? [{ value: "DELETED", label: "Deleted" }] : []),
             ],
           },
         ]}

@@ -47,7 +47,9 @@ export default async function PaymentPage({
         title={
           <span className="flex flex-wrap items-center gap-3">
             {p.number}
-            {reversed ? (
+            {p.deletedAt ? (
+              <Badge variant="warning">Deleted</Badge>
+            ) : reversed ? (
               <Badge variant="secondary">Reversed</Badge>
             ) : (
               <Badge variant="success">Received</Badge>
@@ -84,6 +86,33 @@ export default async function PaymentPage({
                 hidden={{ id: p.id, version: p.version, intent: "reverse" }}
               />
             )}
+            {!p.deletedAt && hasPermission(user, "payments.delete") && (
+              <ConfirmButton
+                action={paymentAction}
+                variant="ghost"
+                destructive
+                label="Delete…"
+                title={`Delete ${p.number}?`}
+                description={
+                  <>
+                    {!reversed && (
+                      <p>
+                        It is reversed first: the invoices it paid become unpaid again and the accounts are
+                        put right, dated today.
+                      </p>
+                    )}
+                    <p>
+                      It then disappears from payment lists, statements and reports, and its{" "}
+                      {p.reference ? `reference ${p.reference}` : "reference"} can be entered again. It stays
+                      under &ldquo;Deleted&rdquo; with your name and reason. This can&apos;t be undone.
+                    </p>
+                  </>
+                }
+                fields={[{ name: "reason", label: "Why is it being deleted?", required: true }]}
+                confirmLabel="Delete payment"
+                hidden={{ id: p.id, version: p.version, intent: "delete" }}
+              />
+            )}
             <Button variant="outline" asChild>
               <a href={`/payments/${p.id}/pdf`} target="_blank" rel="noopener">
                 <FileDown aria-hidden /> Receipt
@@ -107,10 +136,17 @@ export default async function PaymentPage({
           )}
         </div>
       )}
-      {reversed && (
-        <div role="status" className="bg-muted rounded-md border p-3 text-sm">
-          Reversed {formatDateTime(p.reversedAt)} by {p.reversedBy?.fullName}: {p.reverseReason}
+      {p.deletedAt ? (
+        <div role="status" className="border-warning/40 bg-warning-soft rounded-md border p-3 text-sm">
+          <strong>Deleted</strong> {formatDateTime(p.deletedAt)} by {p.deletedBy?.fullName}: {p.reverseReason}
+          . Kept here for the record only: it counts nowhere.
         </div>
+      ) : (
+        reversed && (
+          <div role="status" className="bg-muted rounded-md border p-3 text-sm">
+            Reversed {formatDateTime(p.reversedAt)} by {p.reversedBy?.fullName}: {p.reverseReason}
+          </div>
+        )
       )}
       <Section title="Details">
         <DetailList

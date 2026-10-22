@@ -80,6 +80,8 @@ Rules Prisma can't express (check constraints, the audit trigger, RLS) are hand-
 
 `users` gained `whatsapp_number` (unique, digits only).
 
+**Deleting (owners and admins).** `sales_documents.deleted_at/deleted_by_id` and `payments.deleted_at/deleted_by_id`. A deleted invoice is `CANCELLED` with `deleted_at` set and keeps its number; the posted-invoice trigger allows exactly that one change (plus releasing the amounts paid/credited) and freezes the row afterwards; rows are never physically deleted. A deleted payment is `REVERSED` with `deleted_at`, its reference renamed "CODE (deleted RCT-…)" so the code can be reused, then frozen.
+
 ## Roles
 
 Fixed roles in the `UserRole` enum: `OWNER`, `ADMIN`, `ACCOUNTANT`, `SALES`, `STOREKEEPER`. Each role's default duties are defined in code (`src/server/auth/permissions.ts`). An owner or admin can switch individual duties on or off per person; those changes are stored in `user_duty_changes` (user, permission, granted), cleared when the person's role changes, and ignored for owners. The effective duties are worked out on every request and checked on the server for every action. The database refuses granting WhatsApp commands to anyone. The system always keeps at least one active owner; this is enforced with a row lock, so two owners acting at the same moment can't both be removed.

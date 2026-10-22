@@ -49,6 +49,8 @@ model User {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   dutyChanges           UserDutyChange[]
+  salesDocumentsDeleted SalesDocument[]        @relation("SalesDocumentDeletedBy")
+  paymentsDeleted       Payment[]              @relation("PaymentDeletedBy")
   auditEntries          AuditLog[]
   settingsUpdates       CompanySettings[]
   legacyImportBatches   LegacyImportBatch[]
@@ -753,6 +755,10 @@ model SalesDocument {
   postedBy             User?               @relation("SalesDocumentPostedBy", fields: [postedById], references: [id], onDelete: Restrict)
   cancelledAt          DateTime?           @map("cancelled_at") @db.Timestamptz(3)
   cancelReason         String?             @map("cancel_reason")
+  /// Invoices deleted by an owner or admin: everything they did was undone; kept (hidden) for the record.
+  deletedAt            DateTime?           @map("deleted_at") @db.Timestamptz(3)
+  deletedById          String?             @map("deleted_by_id") @db.Uuid
+  deletedBy            User?               @relation("SalesDocumentDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
 
   lines               SalesDocumentLine[]
   reservations        StockReservation[]
@@ -963,6 +969,10 @@ model Payment {
   reversedAt     DateTime?           @map("reversed_at") @db.Timestamptz(3)
   reversedById   String?             @map("reversed_by_id") @db.Uuid
   reversedBy     User?               @relation("PaymentReversedBy", fields: [reversedById], references: [id], onDelete: Restrict)
+  /// Deleted by an owner or admin: reversed in full and hidden from lists; kept for the record.
+  deletedAt      DateTime?           @map("deleted_at") @db.Timestamptz(3)
+  deletedById    String?             @map("deleted_by_id") @db.Uuid
+  deletedBy      User?               @relation("PaymentDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
   reverseReason  String?             @map("reverse_reason")
   version        Int                 @default(1)
   allocations    PaymentAllocation[]

@@ -16,14 +16,20 @@ export async function listDocuments(
   db: Db,
   actor: Actor,
   kind: SalesDocumentKind,
-  filter: { q?: string; status?: SalesDocumentStatus | "ALL" } = {},
+  filter: { q?: string; status?: SalesDocumentStatus | "ALL" | "DELETED" } = {},
 ) {
   authorize(actor, "sales.view");
   const q = filter.q?.trim();
   const rows = await db.salesDocument.findMany({
     where: {
       kind,
-      ...(filter.status && filter.status !== "ALL" ? { status: filter.status } : {}),
+      // Deleted invoices only under the "Deleted" filter.
+      ...(filter.status === "DELETED"
+        ? { deletedAt: { not: null } }
+        : {
+            deletedAt: null,
+            ...(filter.status && filter.status !== "ALL" ? { status: filter.status } : {}),
+          }),
       ...(q
         ? {
             OR: [
@@ -76,6 +82,7 @@ export async function getDocument(db: Db, actor: Actor, id: string) {
       createdBy: { select: { fullName: true } },
       postedBy: { select: { fullName: true } },
       creditOverrideBy: { select: { fullName: true } },
+      deletedBy: { select: { fullName: true } },
       reservations: true,
       allocationsReceived: {
         where: { reversedAt: null },

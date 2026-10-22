@@ -28,7 +28,8 @@ export default async function PaymentsPage({
   const sp = await searchParams;
   const q = param(sp.q);
   const method = param(sp.method) ?? "ALL";
-  const rows = await listPayments(getDb(), toActor(user), { q, method });
+  const show = param(sp.show) ?? "CURRENT";
+  const rows = await listPayments(getDb(), toActor(user), { q, method, deleted: show === "DELETED" });
   return (
     <Page wide>
       <PageHeader
@@ -55,6 +56,15 @@ export default async function PaymentsPage({
             options: [
               { value: "ALL", label: "All" },
               ...Object.entries(METHOD_LABELS).map(([value, label]) => ({ value, label })),
+            ],
+          },
+          {
+            name: "show",
+            label: "Show",
+            value: show,
+            options: [
+              { value: "CURRENT", label: "Payments" },
+              { value: "DELETED", label: "Deleted" },
             ],
           },
         ]}

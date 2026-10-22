@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import type { SalesDocumentKind } from "@/generated/prisma/enums";
+import { formatKES, toDecimal } from "@/lib/money";
 import { formToObject } from "@/server/action-helpers";
 import { toActionResult, type ActionResult } from "@/server/action-result";
 import { requestContext, requireUser, toActor } from "@/server/auth/session";
@@ -28,6 +29,7 @@ import {
   type BatchItemResult,
   type QuickPostResult,
 } from "@/server/modules/sales/quick-post";
+import { deleteInvoice } from "@/server/modules/sales/delete-invoice";
 import { KIND_LABELS } from "@/server/modules/sales/schemas";
 import {
   cancelDocument,
@@ -173,6 +175,17 @@ export async function documentAction(_prev: ActionResult, formData: FormData): P
         refreshSales();
         goTo = `${KIND_LABELS[r.kind].path}/${r.id}`;
         return r.alreadyConverted ? "Opened the document made earlier" : "Converted";
+      }
+      case "delete": {
+        const r = await deleteInvoice(db, actor, id, input, ctx);
+        refreshSales();
+        revalidatePath("/payments", "layout");
+        return (
+          `${r.number ?? "Draft invoice"} deleted` +
+          (toDecimal(r.creditFreed).greaterThan(0)
+            ? `; ${formatKES(r.creditFreed)} paid on it is now credit on the customer's account`
+            : "")
+        );
       }
       case "cancel": {
         await cancelDocument(db, actor, id, input, ctx);

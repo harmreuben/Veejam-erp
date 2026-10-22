@@ -22,6 +22,7 @@ export function sourceHref(sourceType: string, sourceId: string): string | null 
     case "StockCount":
       return `/inventory/counts/${sourceId}`;
     case "Invoice":
+    case "InvoiceDeletion":
       return `/invoices/${sourceId}`;
     case "CreditNote":
       return `/credit-notes/${sourceId}`;

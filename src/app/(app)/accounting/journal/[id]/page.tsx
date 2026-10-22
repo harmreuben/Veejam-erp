@@ -18,7 +18,7 @@ export const metadata = { title: "Journal entry" };
 
 function sourceHref(type: string, id: string | null) {
   if (!id) return null;
-  if (type === "Invoice") return `/invoices/${id}`;
+  if (type === "Invoice" || type === "InvoiceDeletion") return `/invoices/${id}`;
   if (type === "Payment" || type === "PaymentReversal") return `/payments/${id}`;
   if (type === "CreditNote") return `/credit-notes/${id}`;
   if (type === "GoodsReceipt") return `/goods-received/${id}`;

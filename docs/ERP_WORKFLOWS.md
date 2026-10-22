@@ -146,6 +146,14 @@ On a posted invoice, **Credit note…**: choose quantities per line (never more 
 - **Close the books** up to a date: nothing can be posted on or before it afterwards.
 - Cheques post straight to Bank.
 
+## Deleting invoices and payments (owners and admins)
+
+Mistakes are normally corrected with a credit note (invoices) or **Reverse** (payments). Owners and admins can also **Delete…**. That button can't be given to anyone else under Duties.
+
+- **Deleting an invoice** undoes everything it did, dated today: stock comes back at what it cost (untick "The goods are back in stock" if they were delivered and aren't coming back: then they stay sold); sales, VAT and cost of sales are reversed in the accounts (an old-system invoice's opening balance comes off); money paid on it becomes credit on the customer's account; its delivery note, share links and the sales order it came from are cancelled. Drafts can be deleted too. An invoice with credit notes can't be deleted.
+- **Deleting a payment** reverses it (the invoices it paid become unpaid again) and its M-Pesa code or cheque number can be entered again correctly. Already reversed payments can be deleted to tidy the list.
+- Deleted items vanish from lists, balances, statements and reports, but are kept: Invoices → Status **Deleted**, Payments → Show **Deleted**, each with who deleted it, when and why. Invoice numbers stay with the deleted invoice, so there are no gaps. The database freezes them and refuses ever to erase them; the audit log keeps a copy of what was deleted.
+
 ## Buying stock (Phase 5b)
 
 1. **Purchase orders** (PO-): choose the supplier, products, units and the cost per unit **excluding VAT**. Save as a draft, download the PDF to send, then **Mark as ordered**. Owners, admins and accountants.
