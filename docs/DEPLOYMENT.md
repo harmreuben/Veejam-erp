@@ -83,6 +83,16 @@ Commit `certs/supabase-ca.crt` so the deployed app can verify the database too.
 
 6. Deploy, then confirm `https://<your-app>/api/health` returns `{"status":"ok"}`.
 
+## 5. Installing the ERP as an app
+
+Once it is on Vercel (HTTPS), staff can install it like an app: its own icon, its own window, no browser bars.
+
+- **Android (Chrome):** open the site → menu ⋮ → **Install app** (or the **Install app** link at the bottom of the menu in the ERP).
+- **Windows / Mac (Chrome or Edge):** the install icon at the right of the address bar, or **Install app** in the ERP's sidebar.
+- **iPhone / iPad (Safari):** Share → **Add to Home Screen**.
+
+The app always shows live data and stores nothing on the device: the service worker (`public/sw.js`) only shows an "offline" page when there's no connection. Updates arrive with each deploy; there is nothing to reinstall. Installing doesn't work on `http://localhost` from another device, only on the HTTPS Vercel address.
+
 ## Operational checks after each deploy
 
 - `/api/health` is OK.

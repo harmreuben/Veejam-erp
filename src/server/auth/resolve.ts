@@ -35,7 +35,16 @@ export async function resolveSession(claims: VerifiedClaims, lookup: UserLookup)
 
 /** Paths reachable without signing in. Everything else requires a session. */
 /** "/d/…" is a customer's share link: the token itself is the permission (see sales/extras.ts). */
-const PUBLIC_PATHS = ["/login", "/api/health", "/api/whatsapp/webhook", "/d"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/health",
+  "/api/whatsapp/webhook",
+  "/d",
+  // Installable web app: browsers fetch these without the session cookie.
+  "/manifest.webmanifest",
+  "/sw.js",
+  "/offline.html",
+];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import { Toaster } from "sonner";
 import "@fontsource-variable/public-sans";
 import "./globals.css";
 
+import { ServiceWorkerRegister } from "@/components/pwa";
 import { DEFAULT_COMPANY_PROFILE } from "@/config/company";
 
 export const metadata: Metadata = {
@@ -14,6 +15,20 @@ export const metadata: Metadata = {
   },
   description: "Distribution, invoicing and accounting for VeeJam Limited.",
   robots: { index: false, follow: false },
+  applicationName: "VeeJam ERP",
+  appleWebApp: { capable: true, title: "VeeJam ERP", statusBarStyle: "default" },
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
+  formatDetection: { telephone: false },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#0b6e5b" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e1714" },
+  ],
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
@@ -25,6 +40,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className="min-h-full">
         {children}
         <Toaster position="top-right" richColors closeButton />
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

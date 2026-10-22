@@ -18,6 +18,8 @@ export function contentSecurityPolicy(nonce: string, dev: boolean): string {
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     `connect-src 'self'${dev ? " ws: wss:" : ""}`,
+    "worker-src 'self'",
+    "manifest-src 'self'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

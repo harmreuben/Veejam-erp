@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LayoutGrid, LogOut, Menu, UserRound } from "lucide-react";
 
 import { signOut } from "@/app/(auth)/login/actions";
+import { InstallAppButton } from "@/components/pwa";
 import { ERP_MODULES, MODULE_GROUPS, type ErpModule } from "@/config/modules";
 import { ROLE_LABELS, type Permission } from "@/server/auth/permissions";
 import type { AppUser } from "@/server/auth/resolve";
@@ -80,6 +81,7 @@ function UserCard({ user }: { user: AppUser }) {
             Sign out
           </button>
         </form>
+        <InstallAppButton className="text-sidebar-muted hover:text-sidebar-foreground flex items-center gap-2 text-sm" />
       </div>
     </div>
   );

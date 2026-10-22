@@ -43,6 +43,11 @@ describe("public paths", () => {
     expect(isPublicPath("/api/healthy")).toBe(false);
     // Share links are public; everything else about documents is not.
     expect(isPublicPath("/d/abc")).toBe(true);
+    // The installable web app's files are fetched without a session.
+    expect(isPublicPath("/manifest.webmanifest")).toBe(true);
+    expect(isPublicPath("/sw.js")).toBe(true);
+    expect(isPublicPath("/offline.html")).toBe(true);
+    expect(isPublicPath("/sw.jsx")).toBe(false);
     expect(isPublicPath("/documents/abc/pdf")).toBe(false);
     expect(isPublicPath("/deliveries")).toBe(false);
   });
