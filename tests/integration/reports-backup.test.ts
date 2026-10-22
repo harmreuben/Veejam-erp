@@ -134,9 +134,10 @@ describe("reports", () => {
     const pl = await profitAndLoss(db, s.accountant, range);
     expect(pl).toMatchObject({
       totalIncome: "2000.00",
-      totalExpenses: "500.00",
-      result: "1500.00",
-      cogsPosted: false,
+      // Rent 500 + cost of the 200 pieces sold net of returns at 8.50 = 1,700.
+      totalExpenses: "2200.00",
+      result: "-200.00",
+      cogsPosted: true,
     });
 
     const stock = await stockValuation(db, s.accountant);

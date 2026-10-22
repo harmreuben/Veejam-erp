@@ -35,18 +35,27 @@ export default async function VatPage({
         title="VAT"
         description={
           <>
-            Output VAT on posted invoices less credit notes, by month and rate. Input VAT on purchases arrives
-            with purchasing (Phase 5b). Check figures against iTax before filing; this is a management report,
-            not a return. Current month so far: {formatMonth(startOfMonth(today))}.
+            Output VAT on posted invoices less credit notes, by month and rate, and input VAT on supplier
+            bills by bill date. Check figures against iTax before filing; this is a management report, not a
+            return. Current month so far: {formatMonth(startOfMonth(today))}.
           </>
         }
       />
       <RangeFilter path="/reports/vat" range={range} csv="vat" />
       <RangeError message={error} />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Taxable sales (excl. VAT)" value={formatKES(r.totals.salesNet)} />
-        <Stat label="VAT on credit notes" value={formatKES(r.totals.returnsVat)} />
-        <Stat label="Net output VAT" value={formatKES(r.totals.netVat)} />
+        <Stat label="Net output VAT" value={formatKES(r.totals.netVat)} note="After credit notes" />
+        <Stat
+          label="Input VAT"
+          value={formatKES(r.input.vat)}
+          note={`On ${formatKES(r.input.net)} of supplier bills`}
+        />
+        <Stat
+          label={r.payable.startsWith("-") ? "VAT credit" : "VAT payable"}
+          value={formatKES(r.payable.replace("-", ""))}
+          note="Output less input"
+        />
       </div>
       <Table minWidth={820}>
         <THead>
@@ -82,6 +91,29 @@ export default async function VatPage({
               </TD>
               <TD numeric className="font-medium">
                 <Money value={row.netVat} />
+              </TD>
+            </tr>
+          ))}
+        </TBody>
+      </Table>
+      <Table minWidth={480}>
+        <THead>
+          <tr>
+            <TH>Month</TH>
+            <TH numeric>Supplier bills excl. VAT</TH>
+            <TH numeric>Input VAT</TH>
+          </tr>
+        </THead>
+        <TBody>
+          {r.input.rows.length === 0 && <EmptyRow colSpan={3}>No supplier bills in this period.</EmptyRow>}
+          {r.input.rows.map((row) => (
+            <tr key={row.month}>
+              <TD>{formatMonth(row.month)}</TD>
+              <TD numeric>
+                <Money value={row.net} />
+              </TD>
+              <TD numeric>
+                <Money value={row.vat} />
               </TD>
             </tr>
           ))}

@@ -2,7 +2,7 @@
 
 Distribution, invoicing, inventory and accounting system for **VeeJam Limited**, a Wrigley products distributor in Kenya. The business owner can also query and operate the ERP over the official WhatsApp Business Cloud API.
 
-> **Status: Phases 1–4, 5a, 6 and 8 done.** Selling, payments and double-entry accounting (Phase 5a) are joined by WhatsApp owner commands with a built-in simulator (Phase 6) and a dashboard, reports with CSV export, an audit log viewer, rate limiting, a Content-Security-Policy and encrypted backups with a verified restore drill (Phase 8). Still to come: purchasing (5b), the live Meta WhatsApp connection (7) and production go-live (9). See [Build plan](#build-plan).
+> **Status: Phases 1–6 and 8 done.** Selling, purchasing (orders, goods received at cost, supplier bills and payments), weighted-average stock cost with cost of goods sold, payments and double-entry accounting, WhatsApp owner commands with a built-in simulator, a dashboard and reports, an audit log viewer, security hardening and encrypted backups. The ERP installs as an app on phones and PCs. Still to come: the live Meta WhatsApp connection (7) and production go-live (9). See [Build plan](#build-plan).
 
 ## Tech stack
 
@@ -109,17 +109,17 @@ docs/                  Architecture, schema, workflows, security, deployment, te
 
 ## Build plan
 
-| Phase | Scope                                                   | Status                        |
-| ----- | ------------------------------------------------------- | ----------------------------- |
-| 1     | Foundation, tooling, docs, env template                 | Done                          |
-| 2     | Supabase, Prisma schema, migrations, auth, roles, seed  | Done                          |
-| 3     | Customers, products/SKUs, imports, pricing, inventory   | Done                          |
-| 4     | Quotations, sales orders, invoices, PDFs, stock posting | Done                          |
-| 5     | Payments, receipts, double-entry accounting; purchasing | 5a done; 5b (purchasing) next |
-| 6     | WhatsApp mock provider, command parser, confirmations   | Done                          |
-| 7     | Meta Cloud API on a test number with verified webhook   |                               |
-| 8     | Reports, audit tools, security hardening, backups       | Done                          |
-| 9     | Production deployment and full workflow test            |                               |
+| Phase | Scope                                                   | Status |
+| ----- | ------------------------------------------------------- | ------ |
+| 1     | Foundation, tooling, docs, env template                 | Done   |
+| 2     | Supabase, Prisma schema, migrations, auth, roles, seed  | Done   |
+| 3     | Customers, products/SKUs, imports, pricing, inventory   | Done   |
+| 4     | Quotations, sales orders, invoices, PDFs, stock posting | Done   |
+| 5     | Payments, receipts, double-entry accounting; purchasing | Done   |
+| 6     | WhatsApp mock provider, command parser, confirmations   | Done   |
+| 7     | Meta Cloud API on a test number with verified webhook   |        |
+| 8     | Reports, audit tools, security hardening, backups       | Done   |
+| 9     | Production deployment and full workflow test            |        |
 
 ## Ground rules
 

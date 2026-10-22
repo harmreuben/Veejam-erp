@@ -3,6 +3,7 @@ import { Page, PageHeader } from "@/components/page";
 import { todayInNairobi } from "@/lib/dates";
 import { pageUser } from "@/server/auth/guard";
 import { getDb } from "@/server/db/client";
+import { SUBLEDGER_ACCOUNTS } from "@/server/modules/accounting/journal";
 
 import { JournalForm } from "../../forms";
 
@@ -12,7 +13,10 @@ export default async function NewJournalPage() {
   const user = await pageUser("accounting.journal");
   if (!user) return <NoAccess what="journal entries" />;
   const accounts = await getDb().account.findMany({
-    where: { status: "ACTIVE", OR: [{ systemKey: null }, { systemKey: { not: "AR" } }] },
+    where: {
+      status: "ACTIVE",
+      OR: [{ systemKey: null }, { systemKey: { notIn: [...SUBLEDGER_ACCOUNTS] } }],
+    },
     orderBy: { code: "asc" },
     select: { id: true, code: true, name: true },
   });

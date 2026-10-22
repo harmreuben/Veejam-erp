@@ -92,7 +92,18 @@ Fixed roles in the `UserRole` enum: `OWNER`, `ADMIN`, `ACCOUNTANT`, `SALES`, `ST
 
 **Phase 5a — built** (see above).
 
-**Phase 5b — purchasing:** `PurchaseOrder`, `GoodsReceipt`, `SupplierInvoice`, supplier payments, cost layers for cost of goods sold.
+**Phase 5b — built:**
+
+| Table                               | Purpose                                                                | Key rules                                                                                                              |
+| ----------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `inventory_valuations`              | Each product's stock quantity and value at cost (weighted average)     | Quantity matches stock balances; value ≥ 0 and 0 when nothing is in stock                                              |
+| `stock_revaluations`                | Owner-set costs, e.g. opening stock (REV-)                             | Immutable                                                                                                              |
+| `purchase_orders` (+ lines)         | PO-: draft → ordered → partly received → received, or closed/cancelled | Received ≤ ordered per line; status/amount checks                                                                      |
+| `goods_receipts` (+ lines)          | GRN-: stock in at cost                                                 | Lines immutable; idempotency key unique; linked to at most one bill                                                    |
+| `supplier_bills` (+ lines)          | BILL-: goods (against GRNs) and expense lines                          | Immutable once posted except paid amount; cancel only while unpaid; a supplier's invoice number can't be entered twice |
+| `supplier_payments` (+ allocations) | SPAY-: money paid to suppliers                                         | Amount > 0; allocations ≤ bill balance; reversal needs reason                                                          |
+
+`stock_movements.cost_value` records the cost of every costed movement; `PURCHASE_IN` is a new movement type.
 
 **Phases 6 and 8 — built** (see above). Phase 7 connects the Meta Cloud API to the same tables.
 

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TBody, TD, TH, THead, Table } from "@/components/ui/table";
 import { toDbDate, todayInNairobi } from "@/lib/dates";
-import { toDecimal } from "@/lib/money";
+import { formatKES, toDecimal } from "@/lib/money";
 import { NoAccess } from "@/components/no-access";
 import { pageUser } from "@/server/auth/guard";
 import { hasPermission } from "@/server/auth/permissions";
@@ -30,7 +30,8 @@ export default async function AccountingPage({
   const asOfParam = param((await searchParams).asOf);
   const asOf = asOfParam && /^\d{4}-\d{2}-\d{2}$/.test(asOfParam) ? asOfParam : todayInNairobi();
   const [status, tb] = await Promise.all([accountingStatus(db), trialBalance(db, toActor(user), asOf)]);
-  const needsStart = status.openingNeeded || status.invoicesWithoutJournal > 0;
+  const stockGap = toDecimal(status.inventoryNotInBooks);
+  const needsStart = status.openingNeeded || status.invoicesWithoutJournal > 0 || !stockGap.isZero();
   const groups = (["ASSET", "LIABILITY", "EQUITY", "INCOME", "EXPENSE"] as const).map((t) => ({
     type: t,
     rows: tb.rows.filter((r) => r.type === t),
@@ -41,8 +42,9 @@ export default async function AccountingPage({
         title="Trial balance"
         description={
           <>
-            Every account&apos;s balance at the end of {formatDate(toDbDate(asOf))}. Invoices, payments and
-            credit notes post here automatically; other income and expenses go in as journal entries.
+            Every account&apos;s balance at the end of {formatDate(toDbDate(asOf))}. Sales, purchases,
+            payments and stock movements post here automatically; other income and expenses go in as journal
+            entries.
           </>
         }
         actions={
@@ -64,7 +66,9 @@ export default async function AccountingPage({
               "What customers still owed on the old system's invoices goes in as one opening entry. "}
             {status.invoicesWithoutJournal > 0 &&
               `${status.invoicesWithoutJournal} invoice(s) posted before accounting was set up will be added to the journal. `}
-            Until then, the receivables figure below is incomplete.
+            {!stockGap.isZero() &&
+              `Stock on hand worth ${formatKES(stockGap.abs().toFixed(2))} (at cost) isn't in the Inventory account yet; it goes in as an opening balance. `}
+            Until then, the figures below are incomplete.
           </p>
           {hasPermission(user.role, "accounting.close") ? (
             <StartAccountingButton />
@@ -110,7 +114,7 @@ export default async function AccountingPage({
         <strong className={toDecimal(tb.profit).lessThan(0) ? "text-destructive" : undefined}>
           <Money value={tb.profit} />
         </strong>
-        . Cost of goods sold is not recorded yet; it arrives with purchasing and cost prices.
+        . Cost of goods sold is taken at average cost with every sale.
       </p>
     </Page>
   );

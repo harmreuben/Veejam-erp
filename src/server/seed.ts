@@ -22,6 +22,9 @@ export const DEFAULT_SEQUENCES: Record<DocumentType, string> = {
   SUPPLIER: "SUP-",
   STOCK_TRANSFER: "TRF-",
   STOCK_COUNT: "CNT-",
+  SUPPLIER_BILL: "BILL-",
+  SUPPLIER_PAYMENT: "SPAY-",
+  STOCK_REVALUATION: "REV-",
 };
 
 /** Structural starting points (renameable). Not business data: no products, customers or prices. */

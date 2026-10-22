@@ -122,7 +122,7 @@ export default async function DashboardPage() {
             value={formatKES(d.stockValue.total)}
             note={
               d.stockValue.missing
-                ? `${d.stockValue.missing} product${d.stockValue.missing === 1 ? " has" : "s have"} no cost price`
+                ? `${d.stockValue.missing} product${d.stockValue.missing === 1 ? " has" : "s have"} stock with no cost`
                 : "all products costed"
             }
             href="/reports/stock"

@@ -1,6 +1,9 @@
 import "server-only";
 
+import type Decimal from "decimal.js";
+
 import type { StockMovementType } from "@/generated/prisma/enums";
+import { roundMoney, toDecimal } from "@/lib/money";
 import { formatQuantity } from "@/lib/units";
 import type { DbOrTx } from "@/server/db/client";
 import { ConflictError } from "@/server/errors";
@@ -11,10 +14,16 @@ export type StockChange = {
   /** Pieces; positive adds stock, negative removes it. */
   quantity: number;
   type: StockMovementType;
+  /**
+   * Cost of the pieces added, KES excl. VAT. Purchases always give it; returns
+   * give the cost they left at. Otherwise additions come in at the current
+   * average cost (or the product's cost price when there's no stock to average).
+   */
+  value?: string;
 };
 
 export type StockSource = {
-  type: "StockAdjustment" | "StockTransfer" | "StockCount" | "Invoice" | "CreditNote";
+  type: "StockAdjustment" | "StockTransfer" | "StockCount" | "Invoice" | "CreditNote" | "GoodsReceipt";
   id: string;
   number: string;
   reason?: string | null;
@@ -94,27 +103,78 @@ async function shortageError(
   return new ConflictError(`${prefix}. ${lines.join("; ")}. Nothing was changed.`);
 }
 
+/** What a posting did to the value of stock. Costs are signed like the quantities. */
+export type StockCostResult = {
+  /** Net change in stock value (transfers excluded): positive added, negative removed. */
+  total: Decimal;
+  /** Per change, in the order given; null for transfers. */
+  costs: (Decimal | null)[];
+};
+
+const isTransfer = (t: StockMovementType) => t === "TRANSFER_IN" || t === "TRANSFER_OUT";
+
+/**
+ * Lock each product's valuation row (creating it if missing) in product order,
+ * and read the true total on hand across all warehouses. Every stock change
+ * takes these locks first, so the totals can't move underneath us.
+ */
+export async function lockValuations(
+  tx: DbOrTx,
+  productIds: string[],
+): Promise<Map<string, { quantity: number; value: Decimal; costPrice: Decimal | null }>> {
+  const ids = [...new Set(productIds)].sort();
+  await tx.$executeRaw`
+    INSERT INTO inventory_valuations (product_id, quantity, value, updated_at)
+    SELECT p.id, 0, 0, now() FROM products p WHERE p.id = ANY(${ids}::uuid[])
+    ON CONFLICT (product_id) DO NOTHING`;
+  const out = new Map<string, { quantity: number; value: Decimal; costPrice: Decimal | null }>();
+  for (const id of ids) {
+    const rows = await tx.$queryRaw<{ value: string; on_hand: number; cost_price: string | null }[]>`
+      SELECT v.value::text AS value,
+             (SELECT COALESCE(SUM(b.quantity), 0)::int FROM stock_balances b WHERE b.product_id = v.product_id) AS on_hand,
+             (SELECT p.cost_price::text FROM products p WHERE p.id = v.product_id) AS cost_price
+        FROM inventory_valuations v WHERE v.product_id = ${id}::uuid FOR UPDATE OF v`;
+    const r = rows[0]!;
+    out.set(id, {
+      quantity: r.on_hand,
+      value: r.on_hand > 0 ? toDecimal(r.value) : toDecimal(0),
+      costPrice: r.cost_price === null ? null : toDecimal(r.cost_price),
+    });
+  }
+  return out;
+}
+
 /**
  * The only way stock changes. Inside the caller's transaction it:
  *  1. makes sure a balance row exists for every product/warehouse touched;
  *  2. locks those rows (always in the same order, so two postings can't deadlock);
  *  3. applies every change, refusing the whole posting if any balance would go below zero;
- *  4. writes one ledger row per change with the resulting balance.
+ *  4. values every change at weighted-average cost and keeps each product's
+ *     total stock value in step (inventory_valuations);
+ *  5. writes one ledger row per change with the resulting balance and its cost.
  * Two people selling or adjusting the same product at the same moment are
  * therefore applied one after the other, never on top of each other.
+ * Returns the cost of what moved, so the caller can post it to the ledger.
  */
 export async function applyStockChanges(
   tx: DbOrTx,
   changes: StockChange[],
   source: StockSource,
   options: StockOptions = {},
-): Promise<void> {
+): Promise<StockCostResult> {
   const effective = changes.filter((c) => c.quantity !== 0);
-  if (!effective.length) return;
+  if (!effective.length) return { total: toDecimal(0), costs: [] };
   for (const c of effective) {
     if (!Number.isSafeInteger(c.quantity)) throw new RangeError("Stock quantities must be whole pieces");
+    if (c.value !== undefined && (c.quantity < 0 || toDecimal(c.value).isNegative())) {
+      throw new RangeError("A cost can only be given for stock coming in, and can't be negative");
+    }
   }
 
+  const valuations = await lockValuations(
+    tx,
+    effective.map((c) => c.productId),
+  );
   const { pairs, onHand } = await lockBalances(tx, effective);
   const reserved = options.respectReservations ? await reservedFor(tx, pairs) : new Map<string, number>();
   const balances = new Map(onHand);
@@ -148,6 +208,35 @@ export async function applyStockChanges(
 
   if (short.size) throw await shortageError(tx, [...short.values()]);
 
+  // Weighted-average costing, change by change.
+  const costs: (Decimal | null)[] = [];
+  let total = toDecimal(0);
+  for (const c of effective) {
+    if (isTransfer(c.type)) {
+      costs.push(null);
+      continue;
+    }
+    const v = valuations.get(c.productId)!;
+    let cost: Decimal;
+    if (c.quantity > 0) {
+      if (c.value !== undefined) cost = roundMoney(c.value);
+      else if (v.quantity > 0 && v.value.greaterThan(0))
+        cost = roundMoney(v.value.times(c.quantity).dividedBy(v.quantity));
+      else cost = roundMoney((v.costPrice ?? toDecimal(0)).times(c.quantity));
+      v.quantity += c.quantity;
+      v.value = v.value.plus(cost);
+    } else {
+      const out = -c.quantity;
+      // Taking the last pieces takes all the remaining value, so nothing is left over from rounding.
+      const taken = out >= v.quantity ? v.value : roundMoney(v.value.times(out).dividedBy(v.quantity));
+      v.quantity -= out;
+      v.value = v.value.minus(taken);
+      cost = taken.negated();
+    }
+    costs.push(cost);
+    total = total.plus(cost);
+  }
+
   for (const p of pairs) {
     await tx.stockBalance.update({
       where: { productId_warehouseId: { productId: p.productId, warehouseId: p.warehouseId } },
@@ -155,9 +244,21 @@ export async function applyStockChanges(
     });
   }
 
+  for (const [productId, v] of valuations) {
+    await tx.inventoryValuation.update({
+      where: { productId },
+      data: { quantity: v.quantity, value: v.quantity > 0 ? v.value.toFixed(2) : "0" },
+    });
+  }
+
   await tx.stockMovement.createMany({
-    data: movements.map((m) => ({
-      ...m,
+    data: movements.map((m, i) => ({
+      productId: m.productId,
+      warehouseId: m.warehouseId,
+      type: m.type,
+      quantity: m.quantity,
+      balanceAfter: m.balanceAfter,
+      costValue: costs[i]?.toFixed(2) ?? null,
       sourceType: source.type,
       sourceId: source.id,
       sourceNumber: source.number,
@@ -165,6 +266,7 @@ export async function applyStockChanges(
       createdById: source.actorId,
     })),
   });
+  return { total, costs };
 }
 
 /** True for Postgres unique violations, however the driver adapter wraps them. */

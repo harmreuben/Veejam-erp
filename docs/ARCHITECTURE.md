@@ -44,7 +44,7 @@ Both the web dashboard and the WhatsApp command handler call the **same services
 | `catalogue`                    | Products (SKUs), pack sizes, cost prices                                                                                                                            | 3     |
 | `pricing`                      | Price lists, prices per unit, price resolution for documents                                                                                                        | 3     |
 | `customers`                    | Customers, credit limits and terms (statements in Phase 4)                                                                                                          | 3     |
-| `suppliers`                    | Supplier master (purchase orders and goods received in Phase 5)                                                                                                     | 3 / 5 |
+| `suppliers`                    | Supplier master; purchase orders, goods received, bills and payments                                                                                                | 3 / 5 |
 | `inventory`                    | Warehouses, stock ledger, adjustments, transfers, counts                                                                                                            | 3     |
 | `imports`                      | CSV upload → validate → review → commit for customers, products, suppliers                                                                                          | 3     |
 | `sales`                        | Quotations, sales orders (reservations), invoices (draft → posted), pricing and VAT per line, credit checks, delivery notes, PDFs (pdf-lib), share links, tax rates | 4     |

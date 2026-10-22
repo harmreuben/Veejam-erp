@@ -72,6 +72,13 @@ model User {
   allocationsMade       PaymentAllocation[]
   whatsappMessages      WhatsAppMessage[]
   whatsappConfirmations WhatsAppConfirmation[]
+  purchaseOrdersCreated PurchaseOrder[]
+  goodsReceiptsPosted   GoodsReceipt[]
+  billsPosted           SupplierBill[]         @relation("SupplierBillPostedBy")
+  billsCancelled        SupplierBill[]         @relation("SupplierBillCancelledBy")
+  supplierPaymentsMade  SupplierPayment[]      @relation("SupplierPaymentPaidBy")
+  supplierPaymentsRev   SupplierPayment[]      @relation("SupplierPaymentReversedBy")
+  stockRevaluations     StockRevaluation[]
 
   @@map("users")
 }
@@ -132,6 +139,9 @@ enum DocumentType {
   SUPPLIER
   STOCK_TRANSFER
   STOCK_COUNT
+  SUPPLIER_BILL
+  SUPPLIER_PAYMENT
+  STOCK_REVALUATION
 }
 
 /// Next number per document type. Incremented with a row lock inside the
@@ -257,6 +267,10 @@ model Product {
   countLines      StockCountLine[]
   salesLines      SalesDocumentLine[]
   reservations    StockReservation[]
+  valuation       InventoryValuation?
+  revaluations    StockRevaluation[]
+  orderLines      PurchaseOrderLine[]
+  receiptLines    GoodsReceiptLine[]
 
   @@index([status, name])
   @@map("products")
@@ -363,6 +377,11 @@ model Supplier {
   createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  purchaseOrders PurchaseOrder[]
+  goodsReceipts  GoodsReceipt[]
+  bills          SupplierBill[]
+  payments       SupplierPayment[]
+
   @@index([status, name])
   @@map("suppliers")
 }
@@ -386,6 +405,8 @@ model Warehouse {
   counts         StockCount[]
   salesDocuments SalesDocument[]
   reservations   StockReservation[]
+  purchaseOrders PurchaseOrder[]
+  goodsReceipts  GoodsReceipt[]
 
   @@map("warehouses")
 }
@@ -414,6 +435,7 @@ enum StockMovementType {
   COUNT_LOSS
   SALE
   RETURN_IN
+  PURCHASE_IN
 }
 
 /// The stock ledger. Append-only: a trigger rejects UPDATE and DELETE.
@@ -428,6 +450,8 @@ model StockMovement {
   /// Pieces; positive adds stock, negative removes it.
   quantity     Int
   balanceAfter Int               @map("balance_after")
+  /// Cost of the pieces moved, KES excl. VAT, same sign as quantity. Null for transfers and movements before costing.
+  costValue    Decimal?          @map("cost_value") @db.Decimal(18, 2)
   sourceType   String            @map("source_type")
   sourceId     String            @map("source_id") @db.Uuid
   sourceNumber String            @map("source_number")
@@ -844,7 +868,8 @@ model Account {
   createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  lines JournalLine[]
+  lines     JournalLine[]
+  billLines SupplierBillLine[]
 
   @@map("accounts")
 }
@@ -1052,4 +1077,273 @@ model BackupRun {
 
   @@index([takenAt])
   @@map("backup_runs")
+}
+
+// ─── Phase 5b: purchasing, payables and stock costing ─────────────────
+
+/// Running total cost of each product's stock (all warehouses), for weighted-average costing.
+/// Kept in step with stock_balances by applyStockChanges, under the same locks.
+model InventoryValuation {
+  productId String   @id @map("product_id") @db.Uuid
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  /// Pieces on hand across all warehouses.
+  quantity  Int      @default(0)
+  /// What those pieces cost, KES excl. VAT. Average cost per piece = value ÷ quantity.
+  value     Decimal  @default(0) @db.Decimal(18, 2)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("inventory_valuations")
+}
+
+/// Setting what stock on hand is worth, e.g. the opening cost of stock brought from the old system.
+model StockRevaluation {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number         String   @unique
+  productId      String   @map("product_id") @db.Uuid
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity       Int
+  oldValue       Decimal  @map("old_value") @db.Decimal(18, 2)
+  newValue       Decimal  @map("new_value") @db.Decimal(18, 2)
+  /// True: the difference goes to Opening balances (setting up). False: to Stock gains and losses.
+  againstOpening Boolean  @map("against_opening")
+  reason         String
+  createdById    String   @map("created_by_id") @db.Uuid
+  createdBy      User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([productId, createdAt])
+  @@map("stock_revaluations")
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTLY_RECEIVED
+  RECEIVED
+  CLOSED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number       String              @unique
+  status       PurchaseOrderStatus @default(DRAFT)
+  supplierId   String              @map("supplier_id") @db.Uuid
+  supplier     Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  /// Where the goods will be delivered.
+  warehouseId  String              @map("warehouse_id") @db.Uuid
+  warehouse    Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  orderDate    DateTime            @map("order_date") @db.Date
+  expectedDate DateTime?           @map("expected_date") @db.Date
+  notes        String?
+  /// Totals excluding VAT, VAT and total. Worked out on the server only.
+  subtotal     Decimal             @default(0) @db.Decimal(18, 2)
+  taxTotal     Decimal             @default(0) @map("tax_total") @db.Decimal(18, 2)
+  total        Decimal             @default(0) @db.Decimal(18, 2)
+  version      Int                 @default(1)
+  createdById  String              @map("created_by_id") @db.Uuid
+  createdBy    User                @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  orderedAt    DateTime?           @map("ordered_at") @db.Timestamptz(3)
+  closedAt     DateTime?           @map("closed_at") @db.Timestamptz(3)
+  cancelledAt  DateTime?           @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason String?             @map("cancel_reason")
+
+  lines    PurchaseOrderLine[]
+  receipts GoodsReceipt[]
+
+  @@index([status, orderDate])
+  @@index([supplierId, status])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId        String        @map("order_id") @db.Uuid
+  order          PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  position       Int
+  productId      String        @map("product_id") @db.Uuid
+  product        Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  sku            String
+  description    String
+  unit           SellUnit
+  quantity       Int
+  piecesPerUnit  Int           @map("pieces_per_unit")
+  pieces         Int
+  /// Cost of one unit (e.g. one carton), excluding VAT.
+  unitCost       Decimal       @map("unit_cost") @db.Decimal(18, 2)
+  taxRate        Decimal       @map("tax_rate") @db.Decimal(9, 4)
+  netAmount      Decimal       @map("net_amount") @db.Decimal(18, 2)
+  taxAmount      Decimal       @map("tax_amount") @db.Decimal(18, 2)
+  grossAmount    Decimal       @map("gross_amount") @db.Decimal(18, 2)
+  receivedPieces Int           @default(0) @map("received_pieces")
+
+  receiptLines GoodsReceiptLine[]
+
+  @@unique([orderId, position])
+  @@index([productId])
+  @@map("purchase_order_lines")
+}
+
+/// Goods received (GRN-). Posting puts the stock in at cost. Immutable once posted.
+model GoodsReceipt {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number            String         @unique
+  supplierId        String         @map("supplier_id") @db.Uuid
+  supplier          Supplier       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  warehouseId       String         @map("warehouse_id") @db.Uuid
+  warehouse         Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  purchaseOrderId   String?        @map("purchase_order_id") @db.Uuid
+  purchaseOrder     PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  receivedOn        DateTime       @map("received_on") @db.Date
+  /// The supplier's delivery note or invoice number.
+  supplierReference String?        @map("supplier_reference")
+  notes             String?
+  /// Cost of everything received, excluding VAT.
+  totalCost         Decimal        @map("total_cost") @db.Decimal(18, 2)
+  /// VAT the supplier is expected to charge on it (a default for the bill).
+  expectedTax       Decimal        @default(0) @map("expected_tax") @db.Decimal(18, 2)
+  /// Set when the supplier's bill for these goods is entered.
+  billId            String?        @map("bill_id") @db.Uuid
+  bill              SupplierBill?  @relation(fields: [billId], references: [id], onDelete: Restrict)
+  idempotencyKey    String         @unique @map("idempotency_key")
+  postedById        String         @map("posted_by_id") @db.Uuid
+  postedBy          User           @relation(fields: [postedById], references: [id], onDelete: Restrict)
+  postedAt          DateTime       @default(now()) @map("posted_at") @db.Timestamptz(3)
+
+  lines     GoodsReceiptLine[]
+  billLines SupplierBillLine[]
+
+  @@index([supplierId, billId])
+  @@index([receivedOn])
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptLine {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receiptId   String             @map("receipt_id") @db.Uuid
+  receipt     GoodsReceipt       @relation(fields: [receiptId], references: [id], onDelete: Restrict)
+  productId   String             @map("product_id") @db.Uuid
+  product     Product            @relation(fields: [productId], references: [id], onDelete: Restrict)
+  orderLineId String?            @map("order_line_id") @db.Uuid
+  orderLine   PurchaseOrderLine? @relation(fields: [orderLineId], references: [id], onDelete: Restrict)
+  unit        SellUnit
+  quantity    Int
+  pieces      Int
+  /// Cost of one unit as received, excluding VAT.
+  unitCost    Decimal            @map("unit_cost") @db.Decimal(18, 2)
+  lineCost    Decimal            @map("line_cost") @db.Decimal(18, 2)
+  taxRate     Decimal            @map("tax_rate") @db.Decimal(9, 4)
+
+  @@index([receiptId])
+  @@index([productId])
+  @@map("goods_receipt_lines")
+}
+
+enum SupplierBillStatus {
+  POSTED
+  CANCELLED
+}
+
+enum BillLineKind {
+  GOODS
+  EXPENSE
+}
+
+/// A supplier's invoice (BILL-), entered when it arrives. Immutable once posted; cancelled only while unpaid.
+model SupplierBill {
+  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number                String             @unique
+  supplierId            String             @map("supplier_id") @db.Uuid
+  supplier              Supplier           @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  /// The number printed on the supplier's invoice.
+  supplierInvoiceNumber String             @map("supplier_invoice_number")
+  billDate              DateTime           @map("bill_date") @db.Date
+  dueDate               DateTime           @map("due_date") @db.Date
+  subtotal              Decimal            @db.Decimal(18, 2)
+  taxTotal              Decimal            @map("tax_total") @db.Decimal(18, 2)
+  total                 Decimal            @db.Decimal(18, 2)
+  amountPaid            Decimal            @default(0) @map("amount_paid") @db.Decimal(18, 2)
+  status                SupplierBillStatus @default(POSTED)
+  notes                 String?
+  idempotencyKey        String             @unique @map("idempotency_key")
+  postedById            String             @map("posted_by_id") @db.Uuid
+  postedBy              User               @relation("SupplierBillPostedBy", fields: [postedById], references: [id], onDelete: Restrict)
+  postedAt              DateTime           @default(now()) @map("posted_at") @db.Timestamptz(3)
+  cancelledAt           DateTime?          @map("cancelled_at") @db.Timestamptz(3)
+  cancelledById         String?            @map("cancelled_by_id") @db.Uuid
+  cancelledBy           User?              @relation("SupplierBillCancelledBy", fields: [cancelledById], references: [id], onDelete: Restrict)
+  cancelReason          String?            @map("cancel_reason")
+  version               Int                @default(1)
+
+  lines       SupplierBillLine[]
+  receipts    GoodsReceipt[]
+  allocations SupplierPaymentAllocation[]
+
+  @@index([supplierId, status])
+  @@index([dueDate])
+  @@map("supplier_bills")
+}
+
+model SupplierBillLine {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billId         String        @map("bill_id") @db.Uuid
+  bill           SupplierBill  @relation(fields: [billId], references: [id], onDelete: Restrict)
+  position       Int
+  kind           BillLineKind
+  goodsReceiptId String?       @map("goods_receipt_id") @db.Uuid
+  goodsReceipt   GoodsReceipt? @relation(fields: [goodsReceiptId], references: [id], onDelete: Restrict)
+  accountId      String?       @map("account_id") @db.Uuid
+  account        Account?      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  description    String
+  netAmount      Decimal       @map("net_amount") @db.Decimal(18, 2)
+  taxAmount      Decimal       @map("tax_amount") @db.Decimal(18, 2)
+  grossAmount    Decimal       @map("gross_amount") @db.Decimal(18, 2)
+
+  @@unique([billId, position])
+  @@index([goodsReceiptId])
+  @@map("supplier_bill_lines")
+}
+
+/// Money paid to a supplier (SPAY-). Mistakes are reversed, never deleted.
+model SupplierPayment {
+  id             String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number         String                      @unique
+  supplierId     String                      @map("supplier_id") @db.Uuid
+  supplier       Supplier                    @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  paidOn         DateTime                    @map("paid_on") @db.Date
+  method         PaymentMethod
+  reference      String?
+  amount         Decimal                     @db.Decimal(18, 2)
+  notes          String?
+  status         PaymentStatus               @default(POSTED)
+  idempotencyKey String                      @unique @map("idempotency_key")
+  paidById       String                      @map("paid_by_id") @db.Uuid
+  paidBy         User                        @relation("SupplierPaymentPaidBy", fields: [paidById], references: [id], onDelete: Restrict)
+  createdAt      DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  reversedAt     DateTime?                   @map("reversed_at") @db.Timestamptz(3)
+  reversedById   String?                     @map("reversed_by_id") @db.Uuid
+  reversedBy     User?                       @relation("SupplierPaymentReversedBy", fields: [reversedById], references: [id], onDelete: Restrict)
+  reverseReason  String?                     @map("reverse_reason")
+  version        Int                         @default(1)
+  allocations    SupplierPaymentAllocation[]
+
+  @@index([supplierId, paidOn])
+  @@map("supplier_payments")
+}
+
+model SupplierPaymentAllocation {
+  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paymentId  String          @map("payment_id") @db.Uuid
+  payment    SupplierPayment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  billId     String          @map("bill_id") @db.Uuid
+  bill       SupplierBill    @relation(fields: [billId], references: [id], onDelete: Restrict)
+  amount     Decimal         @db.Decimal(18, 2)
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  reversedAt DateTime?       @map("reversed_at") @db.Timestamptz(3)
+
+  @@index([paymentId])
+  @@index([billId])
+  @@map("supplier_payment_allocations")
 }

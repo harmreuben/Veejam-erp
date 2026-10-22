@@ -127,20 +127,40 @@ On a posted invoice, **Credit note…**: choose quantities per line (never more 
 - **Start the books** (owner/admin, once): posts each customer's balance from the old system (Dr receivables, Cr opening balances) and journals any invoices posted before accounting existed.
 - **Trial balance**, account ledgers and the **journal** are under Accounting & ledger. Manual journal entries are for rent, wages, owner's capital and the like; they must balance and can't use Accounts receivable (that only moves through invoices, payments and credit notes).
 - **Close the books** up to a date: nothing can be posted on or before it afterwards.
-- Cheques post straight to Bank. Cost of goods sold and inventory value are not posted yet; they need cost prices from purchasing (Phase 5b).
+- Cheques post straight to Bank.
+
+## Buying stock (Phase 5b)
+
+1. **Purchase orders** (PO-): choose the supplier, products, units and the cost per unit **excluding VAT**. Save as a draft, download the PDF to send, then **Mark as ordered**. Owners, admins and accountants.
+2. **Goods received** (GRN-): when the delivery arrives, open the order → **Receive goods** and enter what actually arrived (part deliveries are fine; the order shows _Partly received_ until everything is in). Storekeepers can do this and never see costs. Owners, admins and accountants can also receive without an order. The stock goes in straight away **at the order's cost**, and the value is posted: Dr Inventory, Cr _Goods received, not yet billed_.
+3. **Supplier bills** (BILL-): when the supplier's invoice comes, enter its number and tick the deliveries it covers. Change the amounts if the invoice differs; the difference goes to _Purchase price differences_. VAT goes to _VAT recoverable_. Bills can also have expense lines (transport, rent…). The same supplier invoice number can't be entered twice. A bill can be cancelled while unpaid (a reversing entry is posted).
+4. **Supplier payments** (SPAY-): pay one or several bills, oldest first or chosen amounts; overpayments stay as credit with the supplier. Reversal needs a reason.
+5. **Suppliers → statement** and **Supplier payments → What we owe** show balances and how overdue they are.
+
+Orders that won't be delivered in full can be **closed**; an order with nothing received can be **cancelled**.
+
+## Stock cost
+
+Every product carries a **weighted-average cost per piece**, across all warehouses. Goods received at cost raise or lower the average; sales, write-offs and count losses take stock out at the average and post **cost of goods sold** (or _Stock gains and losses_); credit notes that return stock bring it back at the cost it was sold at. Transfers move stock without changing its value. Selling the last pieces takes all the remaining value, so nothing is left behind from rounding.
+
+**Opening stock:** the old system had no cost prices, so stock already on hand is worth nothing until you set it. Reports → **Stock value** → **Change** on each product → enter the cost per piece and tick _This is opening stock_ (posts Dr Inventory, Cr Opening balances). Do this **before** receiving new deliveries of that product, otherwise its average mixes new stock with stock at no cost (the app warns when that happens). Owners and admins only.
 
 ## Accounting postings
 
-| Event                        | Debit                       | Credit                                 |
-| ---------------------------- | --------------------------- | -------------------------------------- |
-| Invoice posted               | Accounts receivable (gross) | Sales revenue (net), VAT payable (tax) |
-| Stock issued on invoice (5b) | Cost of goods sold          | Inventory                              |
-| Payment received             | Cash / Bank / M-Pesa        | Accounts receivable                    |
-| Credit note                  | Sales returns, VAT payable  | Accounts receivable                    |
-| Returned stock (5b)          | Inventory                   | Cost of goods sold                     |
-| Goods received (5b)          | Inventory, VAT input        | Accounts payable                       |
-| Old-system balances          | Accounts receivable         | Opening balances                       |
-| Payment reversed             | Accounts receivable         | Cash / Bank / M-Pesa                   |
+| Event                   | Debit                                                                       | Credit                                 |
+| ----------------------- | --------------------------------------------------------------------------- | -------------------------------------- |
+| Invoice posted          | Accounts receivable (gross)                                                 | Sales revenue (net), VAT payable (tax) |
+| Stock issued on invoice | Cost of goods sold                                                          | Inventory                              |
+| Payment received        | Cash / Bank / M-Pesa                                                        | Accounts receivable                    |
+| Credit note             | Sales returns, VAT payable                                                  | Accounts receivable                    |
+| Returned stock          | Inventory                                                                   | Cost of goods sold                     |
+| Goods received          | Inventory                                                                   | Goods received, not yet billed         |
+| Supplier bill           | Goods received not yet billed, expenses, VAT recoverable, price differences | Accounts payable                       |
+| Supplier payment        | Accounts payable                                                            | Cash / Bank / M-Pesa                   |
+| Write-off / count loss  | Stock gains and losses                                                      | Inventory                              |
+| Opening stock cost set  | Inventory                                                                   | Opening balances                       |
+| Old-system balances     | Accounts receivable                                                         | Opening balances                       |
+| Payment reversed        | Accounts receivable                                                         | Cash / Bank / M-Pesa                   |
 
 Tax rates are configuration, not code. Rates must be confirmed against current KRA requirements before production use; reports are management reports, not tax filings.
 
@@ -159,7 +179,7 @@ The reply summarises exactly what will happen and ends with **YES 482913** (a on
 
 ## Reports (Phase 8)
 
-Dashboard (sales today and this month, money received, what customers owe and how much is overdue, low stock, stock at cost, a 30-day chart, top customers and products) and Reports: sales by day/month/customer/product, money received by method, VAT by month and rate, profit and loss from the ledger, and stock value. Every report downloads as CSV. Profit is income less expenses until purchasing records the cost of goods sold (Phase 5b), and the page says so. Owners, admins and accountants only.
+Dashboard (sales today and this month, money received, what customers owe and how much is overdue, low stock, stock at cost, a 30-day chart, top customers and products) and Reports: sales by day/month/customer/product, money received by method, VAT by month and rate, profit and loss from the ledger, and stock value. Every report downloads as CSV. Profit includes cost of goods sold at weighted-average cost; products whose opening stock has no cost yet are flagged. Owners, admins and accountants only.
 
 ## Backups (Phase 8)
 

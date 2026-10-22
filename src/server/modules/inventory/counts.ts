@@ -1,9 +1,11 @@
 import "server-only";
 
+import { todayInNairobi } from "@/lib/dates";
 import { piecesPerUnit } from "@/lib/units";
 import { writeAudit } from "@/server/audit/audit";
 import { authorize, type Actor } from "@/server/auth/permissions";
 import type { Db } from "@/server/db/client";
+import { postStockValue } from "@/server/modules/accounting/journal";
 import { nextNumber } from "@/server/db/sequence";
 import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
 import type { AuditContext } from "@/server/modules/pricing/service";
@@ -169,11 +171,21 @@ export async function postCount(
         });
       }
     }
-    await applyStockChanges(tx, changes, {
+    const stock = await applyStockChanges(tx, changes, {
       type: "StockCount",
       id: count.id,
       number: count.number,
       reason: "Stock count",
+      actorId: actor.id,
+    });
+    await postStockValue(tx, {
+      change: stock.total,
+      against: "STOCK_ADJ",
+      date: todayInNairobi(),
+      description: `Stock count ${count.number}: differences found`,
+      sourceType: "StockCount",
+      sourceId: count.id,
+      sourceNumber: count.number,
       actorId: actor.id,
     });
     await writeAudit(tx, {

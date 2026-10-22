@@ -21,6 +21,12 @@ function sourceHref(type: string, id: string | null) {
   if (type === "Invoice") return `/invoices/${id}`;
   if (type === "Payment" || type === "PaymentReversal") return `/payments/${id}`;
   if (type === "CreditNote") return `/credit-notes/${id}`;
+  if (type === "GoodsReceipt") return `/goods-received/${id}`;
+  if (type === "SupplierBill" || type === "SupplierBillCancelled") return `/supplier-bills/${id}`;
+  if (type === "SupplierPayment" || type === "SupplierPaymentReversal") return `/supplier-payments/${id}`;
+  if (type === "StockAdjustment") return `/inventory/adjustments/${id}`;
+  if (type === "StockCount") return `/inventory/counts/${id}`;
+  if (type === "StockRevaluation" || type === "OpeningInventory") return `/reports/stock`;
   return null;
 }
 

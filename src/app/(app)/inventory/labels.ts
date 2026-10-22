@@ -9,6 +9,7 @@ export const MOVEMENT_LABELS: Record<StockMovementType, string> = {
   COUNT_LOSS: "Count loss",
   SALE: "Sale",
   RETURN_IN: "Return",
+  PURCHASE_IN: "Received from supplier",
 };
 
 /** Where a ledger row's source document lives in the app. */
@@ -24,6 +25,8 @@ export function sourceHref(sourceType: string, sourceId: string): string | null 
       return `/invoices/${sourceId}`;
     case "CreditNote":
       return `/credit-notes/${sourceId}`;
+    case "GoodsReceipt":
+      return `/goods-received/${sourceId}`;
     default:
       return null;
   }

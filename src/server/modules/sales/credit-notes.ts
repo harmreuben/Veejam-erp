@@ -2,7 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
 import { toDbDate, todayInNairobi } from "@/lib/dates";
-import { formatKES, toDecimal } from "@/lib/money";
+import { formatKES, roundMoney, toDecimal } from "@/lib/money";
 import { calculateLine, sumLines } from "@/lib/sales-math";
 import { writeAudit } from "@/server/audit/audit";
 import { authorize, type Actor } from "@/server/auth/permissions";
@@ -205,14 +205,33 @@ export async function createCreditNote(
         });
       }
 
+      let returnedCost = toDecimal(0);
       if (v.returnsToStock) {
-        await applyStockChanges(
+        // Goods come back at what they cost when they were sold on this invoice.
+        const sold = await tx.stockMovement.groupBy({
+          by: ["productId"],
+          where: { sourceType: "Invoice", sourceId: invoice.id, type: "SALE" },
+          _sum: { quantity: true, costValue: true },
+          _count: { costValue: true, _all: true },
+        });
+        const perPiece = new Map(
+          sold
+            .filter((r) => r._count.costValue === r._count._all && r._sum.quantity)
+            .map((r) => [
+              r.productId,
+              toDecimal(r._sum.costValue ?? 0).dividedBy(r._sum.quantity!), // both negative
+            ]),
+        );
+        const stock = await applyStockChanges(
           tx,
           lines.map((l) => ({
             productId: l.productId,
             warehouseId: invoice.warehouseId,
             quantity: l.pieces,
             type: "RETURN_IN" as const,
+            value: perPiece.has(l.productId)
+              ? roundMoney(perPiece.get(l.productId)!.times(l.pieces)).toFixed(2)
+              : undefined,
           })),
           {
             type: "CreditNote",
@@ -222,6 +241,7 @@ export async function createCreditNote(
             actorId: actor.id,
           },
         );
+        returnedCost = stock.total;
       }
 
       await postJournal(tx, {
@@ -235,6 +255,9 @@ export async function createCreditNote(
           { account: "SALES_RETURNS", debit: totals.subtotal },
           { account: "VAT_OUTPUT", debit: totals.taxTotal },
           { account: "AR", credit: totals.total, customerId: invoice.customerId },
+          // Returned goods go back into stock and out of cost of sales.
+          { account: "INVENTORY", debit: returnedCost.toFixed(2) },
+          { account: "COGS", credit: returnedCost.toFixed(2) },
         ],
       });
       const leftover = toDecimal(totals.total).minus(applied);

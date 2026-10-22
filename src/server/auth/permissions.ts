@@ -50,6 +50,14 @@ export const PERMISSIONS = [
   "accounting.view", // chart of accounts, journal, trial balance
   "accounting.journal", // manual journal entries (e.g. expenses)
   "accounting.close", // close the books up to a date
+  // Phase 5b
+  "purchasing.view", // purchase orders and goods received
+  "purchasing.manage", // create, send and cancel purchase orders
+  "goods.receive", // post goods received (puts stock in at cost)
+  "payables.view", // supplier bills, supplier payments and what's owed to suppliers
+  "bills.manage", // enter and cancel supplier bills
+  "supplier_payments.manage", // pay suppliers and reverse supplier payments
+  "inventory.revalue", // set what stock on hand is worth
   // Phase 6
   "whatsapp.use", // run ERP commands from a linked WhatsApp number (owners only)
   "whatsapp.view", // read the WhatsApp message log
@@ -85,6 +93,12 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "accounting.view",
     "accounting.journal",
     "reports.view",
+    "purchasing.view",
+    "purchasing.manage",
+    "goods.receive",
+    "payables.view",
+    "bills.manage",
+    "supplier_payments.manage",
   ],
   SALES: [
     "settings.view",
@@ -110,6 +124,8 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "inventory.count",
     "sales.view",
     "delivery.manage",
+    "purchasing.view",
+    "goods.receive",
   ],
 };
 
@@ -125,11 +141,11 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   OWNER: "Full access, including WhatsApp commands and managing other owners.",
   ADMIN: "Everything except managing owners.",
   ACCOUNTANT:
-    "Customers and credit limits, invoices, payments and reversals, credit notes, the accounts and journals.",
+    "Customers and credit limits, invoices, payments and reversals, credit notes, purchasing, supplier bills and payments, the accounts and journals.",
   SALES:
     "Customers, quotations, sales orders, invoices, deliveries and recording payments. No discounts, reversals or credit overrides.",
   STOREKEEPER:
-    "Stock levels, transfers, stock counts and deliveries (posting a count needs an owner or admin).",
+    "Stock levels, transfers, stock counts, deliveries and receiving goods against purchase orders (posting a count needs an owner or admin).",
 };
 
 export type Actor = { id: string; email: string; role: UserRole };

@@ -1,10 +1,11 @@
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
-import { addDays, toDbDate } from "@/lib/dates";
+import { addDays, toDbDate, todayInNairobi } from "@/lib/dates";
 import { writeAudit } from "@/server/audit/audit";
 import type { Db, DbOrTx } from "@/server/db/client";
 import { nextNumber } from "@/server/db/sequence";
+import { postStockValue } from "@/server/modules/accounting/journal";
 import { insertProduct } from "@/server/modules/catalogue/service";
 import { applyStockChanges } from "@/server/modules/inventory/stock";
 import { insertCustomer, nameKey } from "@/server/modules/customers/service";
@@ -287,7 +288,7 @@ export async function applyLegacyPlan(db: Db, actor: ImportActor, plan: LegacyPl
                 },
               },
             });
-            await applyStockChanges(
+            const stock = await applyStockChanges(
               tx,
               lines.map((l) => ({
                 productId: productIds.get(l.sku)!.id,
@@ -303,6 +304,17 @@ export async function applyLegacyPlan(db: Db, actor: ImportActor, plan: LegacyPl
                 actorId: actor.id,
               },
             );
+            // Zero unless cost prices were known; the owner enters opening costs later.
+            await postStockValue(tx, {
+              change: stock.total,
+              against: "OPENING",
+              date: todayInNairobi(),
+              description: `Opening stock from the old system (${number})`,
+              sourceType: "StockAdjustment",
+              sourceId: adj.id,
+              sourceNumber: number,
+              actorId: actor.id,
+            });
             result.stockSet = lines.length;
           }
         }

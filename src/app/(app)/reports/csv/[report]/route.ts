@@ -143,8 +143,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ report: 
       case "stock": {
         const r = await stockValuation(db, actor);
         rows = [
-          ["SKU", "Product", "Brand", "Pieces on hand", "Cost per piece", "Value at cost"],
-          ...r.rows.map((x) => [x.sku, x.name, x.brand, x.pieces, x.costPrice ?? "", x.value ?? ""]),
+          ["SKU", "Product", "Brand", "Pieces on hand", "Average cost per piece", "Value at cost"],
+          ...r.rows.map((x) => [x.sku, x.name, x.brand, x.pieces, x.averageCost ?? "", x.value ?? ""]),
           ["", "Total", "", "", "", r.total],
         ];
         name = `stock-value-${range.to}.csv`;

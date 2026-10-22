@@ -7,6 +7,8 @@ import type { Db, DbOrTx } from "@/server/db/client";
 import { nextNumber } from "@/server/db/sequence";
 import { ConflictError, ValidationError } from "@/server/errors";
 import type { AuditContext } from "@/server/modules/pricing/service";
+import { todayInNairobi } from "@/lib/dates";
+import { postStockValue } from "@/server/modules/accounting/journal";
 import { parseInput } from "@/server/shared/validation";
 
 import { ADJUSTMENT_REASON_LABELS, adjustmentSchema, transferSchema } from "./schemas";
@@ -81,7 +83,7 @@ export async function postAdjustment(
           },
         },
       });
-      await applyStockChanges(
+      const stock = await applyStockChanges(
         tx,
         lines.map((l) => ({
           productId: l.productId,
@@ -97,6 +99,17 @@ export async function postAdjustment(
           actorId: actor.id,
         },
       );
+      // Opening stock is part of the opening balances; anything else is a stock gain or loss.
+      await postStockValue(tx, {
+        change: stock.total,
+        against: values.reason === "OPENING_BALANCE" ? "OPENING" : "STOCK_ADJ",
+        date: todayInNairobi(),
+        description: `Stock adjustment ${number}: ${ADJUSTMENT_REASON_LABELS[values.reason]}`,
+        sourceType: "StockAdjustment",
+        sourceId: adj.id,
+        sourceNumber: number,
+        actorId: actor.id,
+      });
       await writeAudit(tx, {
         actorUserId: actor.id,
         actorLabel: actor.email,

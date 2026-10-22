@@ -5,4 +5,13 @@ export const SOURCE_LABELS: Record<string, string> = {
   CreditNote: "Credit note",
   OpeningBalances: "Opening balances",
   Manual: "Manual entry",
+  GoodsReceipt: "Goods received",
+  SupplierBill: "Supplier bill",
+  SupplierBillCancelled: "Supplier bill cancelled",
+  SupplierPayment: "Supplier payment",
+  SupplierPaymentReversal: "Supplier payment reversal",
+  StockAdjustment: "Stock adjustment",
+  StockCount: "Stock count",
+  StockRevaluation: "Stock value set",
+  OpeningInventory: "Opening stock value",
 };

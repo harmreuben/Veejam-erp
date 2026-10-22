@@ -23,8 +23,9 @@ import { ValidationError } from "@/server/errors";
  * Money is returned as strings with two decimals (never JavaScript floats).
  *
  * Sales are counted on the invoice date and returns on the credit-note date.
- * Cost of goods sold arrives with purchasing (Phase 5b), so profit figures
- * are sales less expenses until then and say so.
+ * Cost of goods sold is posted with each sale at weighted-average cost; stock
+ * without a cost yet (opening stock not valued) sells at zero cost, which
+ * the stock value report flags.
  */
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -258,7 +259,7 @@ export async function dailyTrend(db: DbOrTx, days: number, today = todayInNairob
 
 // ─── VAT ────────────────────────────────────────────────────────────
 
-/** Output VAT by month and rate: invoices less credit notes. Input VAT arrives with purchasing. */
+/** Output VAT by month and rate: invoices less credit notes; input VAT from supplier bills. */
 export async function vatReport(db: Db, actor: Actor, range: DayRange) {
   authorize(actor, "reports.view");
   const raw = await db.$queryRaw<
@@ -294,8 +295,23 @@ export async function vatReport(db: Db, actor: Actor, range: DayRange) {
   }));
   const sum = (k: "salesNet" | "salesVat" | "returnsNet" | "returnsVat" | "netVat") =>
     rows.reduce((s, r) => s.plus(r[k]), toDecimal(0)).toFixed(2);
+  // Input VAT: on supplier bills, by bill date.
+  const bills = await db.$queryRaw<{ month: string; net: string; vat: string }[]>`
+    SELECT to_char(bill_date, 'YYYY-MM') AS month, SUM(subtotal)::text AS net, SUM(tax_total)::text AS vat
+      FROM supplier_bills
+     WHERE status = 'POSTED' AND bill_date BETWEEN ${toDbDate(range.from)} AND ${toDbDate(range.to)}
+     GROUP BY 1 ORDER BY 1`;
+  const inputRows = bills.map((b) => ({ month: b.month, net: money(b.net), vat: money(b.vat) }));
+  const inputVat = inputRows.reduce((s, r) => s.plus(r.vat), toDecimal(0));
   return {
     rows,
+    input: {
+      rows: inputRows,
+      net: inputRows.reduce((s, r) => s.plus(r.net), toDecimal(0)).toFixed(2),
+      vat: inputVat.toFixed(2),
+    },
+    /** Output VAT less input VAT: what would be paid to KRA (negative: a credit). */
+    payable: toDecimal(sum("netVat")).minus(inputVat).toFixed(2),
     totals: {
       salesNet: sum("salesNet"),
       salesVat: sum("salesVat"),
@@ -396,7 +412,12 @@ export async function profitAndLoss(db: Db, actor: Actor, range: DayRange) {
 
 // ─── Stock value ────────────────────────────────────────────────────
 
-/** Stock on hand at each product's cost price. Products without a cost price are listed, not guessed. */
+/**
+ * Stock on hand at what it cost: each product's weighted-average stock value
+ * (kept by every receipt, sale, return and adjustment). Products with stock
+ * but no cost yet (e.g. opening stock from the old system) are counted as
+ * missing, not guessed.
+ */
 export async function stockValuation(db: Db, actor: Actor) {
   authorize(actor, "reports.view");
   authorize(actor, "catalogue.costs");
@@ -412,15 +433,17 @@ export async function stockValuation(db: Db, actor: Actor) {
       packsPerCarton: true,
       costPrice: true,
       balances: { select: { quantity: true } },
+      valuation: { select: { value: true } },
     },
   });
   let total = toDecimal(0);
   let missing = 0;
   const rows = products.map((p) => {
     const pieces = p.balances.reduce((s, b) => s + b.quantity, 0);
-    const value = p.costPrice ? p.costPrice.times(pieces) : null;
-    if (value) total = total.plus(value);
-    else if (pieces !== 0) missing += 1;
+    const stored = pieces > 0 ? (p.valuation?.value ?? toDecimal(0)) : toDecimal(0);
+    const costed = pieces === 0 || stored.greaterThan(0);
+    if (!costed) missing += 1;
+    total = total.plus(stored);
     return {
       id: p.id,
       sku: p.sku,
@@ -428,8 +451,11 @@ export async function stockValuation(db: Db, actor: Actor) {
       brand: p.brand,
       sizes: { unitsPerPack: p.unitsPerPack, packsPerCarton: p.packsPerCarton },
       pieces,
+      /** Average cost of one piece on hand (4 decimals), or null without stock or cost. */
+      averageCost: pieces > 0 && costed ? stored.dividedBy(pieces).toDecimalPlaces(4).toFixed(4) : null,
+      /** Latest purchase cost per piece, a hint for setting an opening cost. */
       costPrice: p.costPrice?.toFixed(2) ?? null,
-      value: value?.toFixed(2) ?? null,
+      value: costed ? stored.toFixed(2) : null,
     };
   });
   return { rows, total: total.toFixed(2), missing };

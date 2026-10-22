@@ -11,7 +11,7 @@ import { accountSchema, closeBooksSchema, journalSchema } from "@/server/modules
 import type { AuditContext } from "@/server/modules/pricing/service";
 import { isUuid, parseInput } from "@/server/shared/validation";
 
-import { invoiceJournal, postJournal } from "./journal";
+import { invoiceJournal, postJournal, postStockValue, SUBLEDGER_ACCOUNTS } from "./journal";
 
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   ASSET: "Asset",
@@ -31,6 +31,21 @@ const auditBase = (actor: Actor, ctx: AuditContext) => ({
 });
 
 // ─── Getting started ────────────────────────────────────────────────
+
+/**
+ * Stock value that isn't in the Inventory account yet: Σ product stock values
+ * minus the Inventory balance. Every costed movement is journalled as it
+ * happens, so this only differs by stock that was on hand before costing
+ * started (or was valued afterwards without a journal, which shouldn't happen).
+ */
+async function inventoryNotInBooks(db: Db | Parameters<Parameters<Db["$transaction"]>[0]>[0]) {
+  const rows = await db.$queryRaw<{ stock: string; books: string }[]>`
+    SELECT (SELECT COALESCE(SUM(value), 0) FROM inventory_valuations)::text AS stock,
+           (SELECT COALESCE(SUM(l.debit - l.credit), 0)
+              FROM journal_lines l JOIN accounts a ON a.id = l.account_id
+             WHERE a.system_key = 'INVENTORY')::text AS books`;
+  return toDecimal(rows[0]!.stock).minus(rows[0]!.books);
+}
 
 export async function accountingStatus(db: Db) {
   const [opening, unjournaled, settings, accounts, owedOld] = await Promise.all([
@@ -59,6 +74,8 @@ export async function accountingStatus(db: Db) {
     invoicesWithoutJournal: Number(unjournaled[0]?.n ?? 0),
     booksClosedUntil: settings?.booksClosedUntil ? fromDbDate(settings.booksClosedUntil) : null,
     hasAccounts: accounts > 0,
+    /** Stock value not yet in the Inventory account (e.g. opening stock costed after it arrived). */
+    inventoryNotInBooks: (await inventoryNotInBooks(db)).toFixed(2),
   };
 }
 
@@ -147,15 +164,27 @@ export async function startAccounting(db: Db, actor: Actor, ctx: AuditContext = 
         );
         backfilled++;
       }
-      if (openingNumber || backfilled) {
+      // Stock on hand that hasn't reached the Inventory account yet (opening stock).
+      const stockGap = await inventoryNotInBooks(tx);
+      const stockEntry = await postStockValue(tx, {
+        change: stockGap,
+        against: "OPENING",
+        date: todayInNairobi(),
+        description: "Opening balances: value of stock on hand",
+        sourceType: "OpeningInventory",
+        sourceId: "00000000-0000-4000-8000-000000000002",
+        sourceNumber: "Opening stock",
+        actorId: actor.id,
+      });
+      if (openingNumber || backfilled || stockEntry) {
         await writeAudit(tx, {
           ...auditBase(actor, ctx),
           action: "OPENING_BALANCES_POSTED",
           entityType: "System",
-          summary: `Accounting started${openingNumber ? `: opening balances ${openingNumber}` : ""}${backfilled ? `, ${backfilled} earlier invoice(s) journalled` : ""}`,
+          summary: `Accounting started${openingNumber ? `: opening balances ${openingNumber}` : ""}${backfilled ? `, ${backfilled} earlier invoice(s) journalled` : ""}${stockEntry ? `, opening stock value ${formatKES(stockGap.toFixed(2))} (${stockEntry.number})` : ""}`,
         });
       }
-      return { openingNumber, backfilled };
+      return { openingNumber, backfilled, stockValue: stockEntry ? stockGap.toFixed(2) : null };
     },
     { maxWait: 30_000, timeout: 120_000 },
   );
@@ -355,10 +384,10 @@ export async function postManualJournal(db: Db, actor: Actor, input: unknown, ct
   if (accounts.length !== ids.length || accounts.some((a) => a.status !== "ACTIVE")) {
     throw new ValidationError({ lines: ["Choose active accounts"] });
   }
-  if (accounts.some((a) => a.systemKey === "AR")) {
+  if (accounts.some((a) => a.systemKey && (SUBLEDGER_ACCOUNTS as readonly string[]).includes(a.systemKey))) {
     throw new ValidationError({
       lines: [
-        "Customer balances change only through invoices, payments and credit notes, not manual journals",
+        "Customer and supplier balances, stock value and goods awaiting a bill change only through their own documents (invoices, payments, bills, goods received, stock adjustments), not manual journals",
       ],
     });
   }

@@ -46,7 +46,7 @@ export type ReceiptDetails = {
 };
 
 export type Printable = {
-  variant: SalesDocumentKind | "DELIVERY_NOTE" | "RECEIPT";
+  variant: SalesDocumentKind | "DELIVERY_NOTE" | "RECEIPT" | "PURCHASE_ORDER";
   /** Receipts only. */
   receipt?: ReceiptDetails;
   /** Watermark word for cancelled/reversed documents (default CANCELLED). */
@@ -99,7 +99,7 @@ const fmtDate = (d: Date | null | undefined) => (d ? longDate.format(d) : "—")
 type Snapshot = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
 
-function phoneDisplay(phone: string | null): string | null {
+export function phoneDisplay(phone: string | null): string | null {
   if (!phone) return null;
   return /^254\d{9}$/.test(phone) ? `0${phone.slice(3)}` : phone;
 }
@@ -418,6 +418,7 @@ export async function renderPdf(doc: Printable): Promise<Uint8Array> {
   const safe = makeSafe(f.regular);
   const isInvoice = doc.variant === "INVOICE";
   const isDelivery = doc.variant === "DELIVERY_NOTE";
+  const isPurchase = doc.variant === "PURCHASE_ORDER";
   const withPrices = !isDelivery;
 
   let page!: PDFPage;
@@ -511,7 +512,7 @@ export async function renderPdf(doc: Printable): Promise<Uint8Array> {
   // ── Bill to / remit to ─────────────────────────────────────────
   const half = M + WIDTH / 2 + 10;
   text(
-    spaced(isDelivery ? "DELIVER TO" : doc.receipt ? "RECEIVED FROM" : "BILL TO"),
+    spaced(isDelivery ? "DELIVER TO" : doc.receipt ? "RECEIVED FROM" : isPurchase ? "SUPPLIER" : "BILL TO"),
     M,
     y,
     6.5,
@@ -565,7 +566,7 @@ export async function renderPdf(doc: Printable): Promise<Uint8Array> {
           sku: { label: "SKU", x: M + 8, align: "left" },
           desc: { label: "DESCRIPTION", x: M + 66, align: "left", w: 150 },
           qty: { label: "QTY", x: M + 248, align: "right" },
-          price: { label: "UNIT PRICE", x: M + 322, align: "right" },
+          price: { label: isPurchase ? "UNIT COST" : "UNIT PRICE", x: M + 322, align: "right" },
           vat: { label: "VAT %", x: M + 352, align: "center" },
           vatAmt: { label: "VAT AMT", x: M + 432, align: "right" },
           total: { label: "LINE TOTAL", x: RIGHT - 8, align: "right" },

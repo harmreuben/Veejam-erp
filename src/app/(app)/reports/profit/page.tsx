@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Money } from "@/components/format";
 import { NoAccess } from "@/components/no-access";
 import { Page, PageHeader } from "@/components/page";
@@ -32,11 +33,14 @@ export default async function ProfitPage({
         title="Profit and loss"
         description="Income and expense accounts from the ledger for the period. Expenses appear once they are entered as journal entries."
       />
-      {!r.cogsPosted && (
+      {!r.cogsPosted && toDecimal(r.totalIncome).greaterThan(0) && (
         <p className="bg-warning-soft text-foreground rounded-md p-3 text-sm">
-          <strong>Not a true profit yet.</strong> The cost of the goods sold isn&apos;t recorded until
-          purchasing and cost prices are built (Phase 5b), so this shows sales less expenses, not gross
-          profit.
+          <strong>No cost of goods sold in this period.</strong> The stock sold had no cost recorded (for
+          example opening stock from the old system), so profit is overstated. Set its cost on{" "}
+          <Link className="underline" href="/reports/stock">
+            Stock value
+          </Link>
+          ; sales from then on carry their cost.
         </p>
       )}
       <RangeFilter path="/reports/profit" range={range} csv="profit" />

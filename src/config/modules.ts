@@ -110,7 +110,22 @@ export const ERP_MODULES: readonly ErpModule[] = [
     href: "/suppliers",
     permission: "suppliers.view",
   },
-  { slug: "purchasing", name: "Purchase orders", group: "Stock", phase: 5, phaseLabel: "5b" },
+  {
+    slug: "purchasing",
+    name: "Purchase orders",
+    group: "Stock",
+    phase: 5,
+    href: "/purchase-orders",
+    permission: "purchasing.view",
+  },
+  {
+    slug: "goods-received",
+    name: "Goods received",
+    group: "Stock",
+    phase: 5,
+    href: "/goods-received",
+    permission: "purchasing.view",
+  },
   {
     slug: "payments",
     name: "Payments & receipts",
@@ -126,6 +141,22 @@ export const ERP_MODULES: readonly ErpModule[] = [
     phase: 5,
     href: "/payments/balances",
     permission: "customers.view",
+  },
+  {
+    slug: "supplier-bills",
+    name: "Supplier bills",
+    group: "Money",
+    phase: 5,
+    href: "/supplier-bills",
+    permission: "payables.view",
+  },
+  {
+    slug: "supplier-payments",
+    name: "Supplier payments",
+    group: "Money",
+    phase: 5,
+    href: "/supplier-payments",
+    permission: "payables.view",
   },
   {
     slug: "accounting",
@@ -201,13 +232,13 @@ export const BUILD_PHASES: readonly { phase: number; title: string }[] = [
   { phase: 9, title: "Production deployment and full workflow test" },
 ];
 
-/** Which phases are finished. Phase 5 is split: 5a (money in) is done, 5b (purchasing) is not. */
+/** Which phases are finished. */
 export const PHASE_STATUS: Record<number, "done" | "partial" | "todo"> = {
   1: "done",
   2: "done",
   3: "done",
   4: "done",
-  5: "partial",
+  5: "done",
   6: "done",
   7: "todo",
   8: "done",

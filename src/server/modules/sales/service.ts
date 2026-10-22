@@ -574,7 +574,7 @@ export async function postInvoice(
     const company = await tx.companySettings.findUniqueOrThrow({ where: { id: 1 } });
 
     if (sourceOrder) await releaseReservations(tx, sourceOrder.id);
-    await applyStockChanges(
+    const stock = await applyStockChanges(
       tx,
       doc.lines.map((l) => ({
         productId: l.productId,
@@ -639,6 +639,7 @@ export async function postInvoice(
         taxTotal: doc.taxTotal.toFixed(2),
         total: doc.total.toFixed(2),
         actorId: actor.id,
+        cost: stock.total.negated().toFixed(2),
       }),
     );
     await writeAudit(tx, {
