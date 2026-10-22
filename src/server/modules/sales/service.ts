@@ -5,10 +5,10 @@ import type { SalesDocumentKind, SalesDocumentStatus } from "@/generated/prisma/
 import { addDays, toDbDate, todayInNairobi } from "@/lib/dates";
 import { formatKES, toDecimal } from "@/lib/money";
 import { writeAudit } from "@/server/audit/audit";
-import { authorize, hasPermission, type Actor, type Permission } from "@/server/auth/permissions";
+import { authorize, type Actor, type Permission } from "@/server/auth/permissions";
 import type { Db, DbOrTx } from "@/server/db/client";
 import { nextNumber } from "@/server/db/sequence";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
+import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
 import { invoiceJournal, postJournal } from "@/server/modules/accounting/journal";
 import { customerBalance } from "@/server/modules/payments/service";
 import { applyStockChanges, releaseReservations, reserveStock } from "@/server/modules/inventory/stock";
@@ -473,9 +473,9 @@ export async function customerOutstanding(db: DbOrTx, customerId: string): Promi
 }
 
 /**
- * Credit rule:
- *  - a credit limit above 0: what they owe plus this invoice must stay within it;
- *  - a credit limit of 0 means cash only: they may not owe anything else when a new invoice is posted.
+ * Credit rule (a warning, never a block):
+ *  - a credit limit above 0: what they owe plus this invoice should stay within it;
+ *  - a credit limit of 0 means cash only: they shouldn't owe anything else when a new invoice is posted.
  */
 export function creditProblem(args: {
   creditLimit: string;
@@ -504,7 +504,7 @@ export type PostInvoiceResult = { number: string; alreadyPosted: boolean };
  *  1. lock the draft (a second click waits, then sees it's already posted);
  *  2. price every line again; if anything changed since the draft was saved,
  *     save the new prices and stop, so nobody posts figures they haven't seen;
- *  3. check the customer's credit (an owner or admin may override, with a reason);
+ *  3. check the customer's credit: going over the limit doesn't stop it, but is recorded;
  *  4. give it the next INV- number, today's date and its due date;
  *  5. take the stock out (releasing the order's reservation first);
  *  6. freeze company and customer details for reprints, and write the audit.
@@ -580,21 +580,15 @@ export async function postInvoice(
       outstanding,
       amount: doc.total.toFixed(2),
     });
-    let override: { reason: string } | null = null;
-    if (problem) {
-      if (!values.creditOverrideReason) {
-        throw new ConflictError(
-          `Credit check failed for ${customer.name}. ${problem} ` +
-            (hasPermission(actor, "credit.override")
-              ? "To post anyway, give a reason for the override."
-              : "Ask an owner or administrator to post it, or take payment first."),
-        );
-      }
-      if (!hasPermission(actor, "credit.override")) {
-        throw new ForbiddenError("Only an owner or administrator can override a credit limit.");
-      }
-      override = { reason: values.creditOverrideReason };
-    }
+    // Credit never stops an invoice (VeeJam's rule). Going over the limit is
+    // recorded on the invoice and in the audit log instead, with who posted it.
+    const override: { reason: string } | null = problem
+      ? {
+          reason: values.creditOverrideReason
+            ? `${values.creditOverrideReason} (${problem})`
+            : `Posted over the credit limit. ${problem}`,
+        }
+      : null;
 
     const number = await nextNumber(tx, "INVOICE");
     const today = todayInNairobi();
@@ -676,13 +670,13 @@ export async function postInvoice(
       entityId: id,
       summary:
         `${number} posted for ${customer.name}: ${formatKES(doc.total.toFixed(2))}` +
-        (override ? ` (credit limit overridden: ${override.reason})` : ""),
+        (override ? ` (over the credit limit: ${problem})` : ""),
       after: {
         number,
         total: doc.total.toFixed(2),
         taxTotal: doc.taxTotal.toFixed(2),
         outstandingBefore: outstanding,
-        creditOverride: override?.reason ?? null,
+        overCreditLimit: problem,
         fromOrder: sourceOrder?.number ?? null,
       },
     });

@@ -156,7 +156,6 @@ export async function SalesDetailPage({
     actions.push(invoiceButton("default"));
   }
   if (kind === "INVOICE" && doc.status === "DRAFT" && can("invoices.post")) {
-    const canOverride = can("credit.override");
     actions.push(
       <ConfirmButton
         key="post"
@@ -174,24 +173,11 @@ export async function SalesDetailPage({
             </p>
             {doc.creditProblem && (
               <p className="text-warning font-medium">
-                Credit check: {doc.creditProblem}{" "}
-                {canOverride
-                  ? "To post anyway, give the reason for the override below."
-                  : "Ask an owner or administrator to post it."}
+                Over the credit limit: {doc.creditProblem} It will still be posted, and this is recorded on the
+                invoice.
               </p>
             )}
           </>
-        }
-        fields={
-          doc.creditProblem && canOverride
-            ? [
-                {
-                  name: "creditOverrideReason",
-                  label: "Reason for overriding the credit limit",
-                  required: true,
-                },
-              ]
-            : []
         }
         confirmLabel="Post invoice"
         hidden={{ ...base, intent: "post" }}
@@ -323,7 +309,7 @@ export async function SalesDetailPage({
           {doc.creditProblem && (
             <>
               {" "}
-              <strong>Credit check:</strong> {doc.creditProblem}
+              <strong>Over the credit limit:</strong> {doc.creditProblem} It can still be posted.
             </>
           )}
         </Banner>
@@ -454,8 +440,8 @@ export async function SalesDetailPage({
                 ...(doc.creditOverrideReason
                   ? [
                       {
-                        label: "Credit override",
-                        value: `${doc.creditOverrideBy?.fullName}: ${doc.creditOverrideReason}`,
+                        label: "Credit limit",
+                        value: `${doc.creditOverrideReason} Posted by ${doc.creditOverrideBy?.fullName}.`,
                       },
                     ]
                   : []),

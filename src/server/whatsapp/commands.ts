@@ -558,7 +558,7 @@ async function requestSale(c: CommandContext, cmd: Extract<Command, { kind: "sel
     ),
     `Total ${kes(doc.total)} (VAT ${kes(doc.taxTotal)})`,
     short.length ? `⚠ Not enough stock for: ${short.join(", ")}. Posting will be refused.` : null,
-    credit ? `⚠ ${credit} Posting will be refused; post it in the ERP with an override if you agree.` : null,
+    credit ? `⚠ Over the credit limit: ${credit} It will still be posted.` : null,
     `The draft is saved in the ERP; it is posted only when you confirm.`,
   ]
     .filter(Boolean)

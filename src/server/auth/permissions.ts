@@ -39,7 +39,6 @@ export const PERMISSIONS = [
   "invoices.manage", // create and edit draft invoices
   "invoices.post", // post an invoice: numbers it and takes the stock out
   "sales.discount", // give line discounts
-  "credit.override", // post past a customer's credit limit, with a reason
   "delivery.manage",
   "documents.share", // create links that let customers open a document
   "tax.manage",
@@ -145,7 +144,7 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   ACCOUNTANT:
     "Customers and credit limits, invoices, payments and reversals, credit notes, purchasing, supplier bills and payments, the accounts and journals.",
   SALES:
-    "Customers, quotations, sales orders, invoices, deliveries, recording payments and their own sales dashboard. No discounts, reversals or credit overrides.",
+    "Customers, quotations, sales orders, invoices, deliveries, recording payments and their own sales dashboard. No discounts or reversals.",
   STOREKEEPER:
     "Stock levels, transfers, stock counts, deliveries and receiving goods against purchase orders (posting a count needs an owner or admin).",
 };
@@ -218,7 +217,6 @@ export const REQUIRES: Partial<Record<Permission, Permission>> = {
   "invoices.manage": "sales.view",
   "invoices.post": "invoices.manage",
   "sales.discount": "sales.view",
-  "credit.override": "invoices.post",
   "delivery.manage": "sales.view",
   "documents.share": "sales.view",
   "payments.record": "sales.view",
@@ -286,7 +284,6 @@ export const PERMISSION_INFO: Record<Permission, { group: DutyGroup; label: stri
   "invoices.manage": { group: "Selling", label: "Prepare draft invoices" },
   "invoices.post": { group: "Selling", label: "Post invoices (takes stock out)" },
   "sales.discount": { group: "Selling", label: "Give discounts" },
-  "credit.override": { group: "Selling", label: "Sell past a customer's credit limit" },
   "delivery.manage": { group: "Selling", label: "Dispatch and deliver goods" },
   "documents.share": { group: "Selling", label: "Send customers links to documents" },
   "customers.view": { group: "Customers", label: "See customers" },

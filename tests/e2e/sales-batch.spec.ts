@@ -40,8 +40,8 @@ test("sales posts a batch of invoices; one that can't post stays a draft with th
     .getByRole("region", { name: /Last batch/ })
     .or(page.locator("section", { hasText: "Last batch" }));
   await expect(results).toContainText("Last batch: 2 posted, 1 kept as draft");
-  // 999 cartons is over the customer's credit limit (and the stock): kept as a draft with the reason.
-  await expect(results).toContainText(/not posted: (Credit check failed|Not enough stock)/);
+  // 999 cartons is more than the stock: kept as a draft with the reason. (Credit limits never stop an invoice.)
+  await expect(results).toContainText("not posted: Not enough stock");
   await expect(results.getByRole("link", { name: /INV-\d{6}/ })).toHaveCount(2);
 
   // The posted ones are cleared; the form is ready for the next batch.

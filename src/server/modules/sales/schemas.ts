@@ -103,7 +103,7 @@ export const updateDraftSchema = z.intersection(draftSchema, z.object({ version:
 
 export const postInvoiceSchema = z.object({
   version: versionField,
-  /** Filled only when someone allowed to override posts past the customer's credit limit. */
+  /** Optional note when posting past the customer's credit limit (it posts either way). */
   creditOverrideReason: optionalText(500),
 });
 

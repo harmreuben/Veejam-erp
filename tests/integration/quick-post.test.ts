@@ -64,7 +64,7 @@ describe("an invoice posts as soon as it's written", () => {
     expect(await balance(db, s.product.id, s.main.id)).toBe(200);
   });
 
-  it("keeps a draft with the reason when stock or credit stop it, and uses no number", async () => {
+  it("keeps a draft with the reason when stock stops it (credit never does), and uses no number", async () => {
     const s = await setup();
     const short = await createAndPostInvoice(db, s.sales, input(s, s.mama.id, 3));
     expect(short).toMatchObject({ posted: false, number: null });
@@ -75,6 +75,7 @@ describe("an invoice posts as soon as it's written", () => {
       number: null,
     });
 
+    // A customer over their credit limit is still invoiced (and it's recorded).
     const tight = await createCustomer(db, s.owner, {
       name: "Tight Credit",
       type: "WHOLESALER",
@@ -82,11 +83,10 @@ describe("an invoice posts as soon as it's written", () => {
       paymentTermsDays: 14,
     });
     const credit = await createAndPostInvoice(db, s.sales, input(s, tight.id, 1));
-    expect(credit).toMatchObject({ posted: false });
-    expect(credit.problem).toContain("Credit check failed");
+    expect(credit).toMatchObject({ posted: true, number: "INV-000001", problem: null });
 
-    // The next invoice that does post still gets the first number.
-    expect((await createAndPostInvoice(db, s.sales, input(s, s.mama.id, 1))).number).toBe("INV-000001");
+    // The refused one used no number: the next one is INV-000002.
+    expect((await createAndPostInvoice(db, s.sales, input(s, s.mama.id, 1))).number).toBe("INV-000002");
   });
 
   it("form mistakes are refused before anything is saved; storekeepers can't post", async () => {

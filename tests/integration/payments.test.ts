@@ -202,7 +202,7 @@ describe("payments", () => {
     );
   });
 
-  it("paying makes room under a cash-only customer's rule", async () => {
+  it("paying clears a cash-only customer's warning", async () => {
     const s = await setup();
     await db.customer.update({ where: { id: s.customer.id }, data: { creditLimit: "0" } });
     await invoice(s);
@@ -212,9 +212,9 @@ describe("payments", () => {
       issueDate: today(),
       lines: [{ productId: s.product.id, unit: "CARTON", quantity: 1 }],
     });
-    await expect(postInvoice(db, s.sales, id, { version: 1 })).rejects.toThrow(/cash-only/);
     await pay(s, "1900");
     expect((await postInvoice(db, s.sales, id, { version: 1 })).number).toMatch(/^INV-/);
+    expect((await db.salesDocument.findUniqueOrThrow({ where: { id } })).creditOverrideReason).toBeNull();
   });
 });
 

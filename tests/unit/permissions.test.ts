@@ -88,14 +88,13 @@ describe("role permissions", () => {
     });
   });
 
-  it("price changes, write-offs, posting counts, discounts, credit overrides and tax rates need an owner or admin", () => {
+  it("price changes, write-offs, posting counts, discounts and tax rates need an owner or admin", () => {
     for (const p of [
       "inventory.adjust",
       "inventory.count.post",
       "pricing.manage",
       "catalogue.manage",
       "sales.discount",
-      "credit.override",
       "tax.manage",
       "accounting.close",
       "inventory.revalue",

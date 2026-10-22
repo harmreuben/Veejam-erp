@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { applyLegacyPlan } from "@/server/modules/legacy/apply";
 import { buildLegacyPlan, type LegacyRows } from "@/server/modules/legacy/plan";
 import { renderReport } from "@/server/modules/legacy/report";
-import { postInvoice } from "@/server/modules/sales/service";
+import { creditProblem, customerOutstanding } from "@/server/modules/sales/service";
 import { applySeed } from "@/server/seed";
 
 import { clearTestData, rawQuery } from "./db";
@@ -163,38 +163,14 @@ describe("old system import", () => {
         .sort(),
     ).toEqual(["12960.00", "165.00", "360.00", "4950.00"]);
 
-    // Old debts count: Abdi (cash only) still owes 4,950, so a new invoice needs an override.
-    const draft = await db.salesDocument.create({
-      data: {
-        kind: "INVOICE",
-        customerId: abdi.id,
-        warehouseId: (await db.warehouse.findFirstOrThrow()).id,
-        issueDate: new Date(),
-        createdById: owner.id,
-      },
-    });
-    await db.salesDocumentLine.create({
-      data: {
-        documentId: draft.id,
-        position: 1,
-        productId: inv.lines[0]!.productId,
-        sku: "WRG-010",
-        description: "Big G",
-        unit: "PACK",
-        quantity: 1,
-        piecesPerUnit: 50,
-        pieces: 50,
-        unitPrice: "165",
-        taxCategory: "STANDARD",
-        taxRate: "16",
-        netAmount: "142.24",
-        taxAmount: "22.76",
-        grossAmount: "165.00",
-      },
-    });
-    await expect(postInvoice(db, owner, draft.id, { version: 1 })).rejects.toThrow(
-      /cash-only customer.*KES 4,950.00/,
-    );
+    // Old debts count: Abdi (cash only) still owes 4,950, so a new invoice carries the warning.
+    expect(
+      creditProblem({
+        creditLimit: abdi.creditLimit.toFixed(2),
+        outstanding: await customerOutstanding(db, abdi.id),
+        amount: "165.00",
+      }),
+    ).toMatch(/cash-only customer.*KES 4,950.00/);
   });
 });
 

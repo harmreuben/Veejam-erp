@@ -58,7 +58,7 @@ Quotation ──► Sales order ──confirm──► stock reserved ──► 
 
 Any step can be skipped: a counter sale is just **Invoices → New invoice → Post invoice**.
 
-**Invoices post as soon as they're written.** For anyone who may post invoices (sales, accountants, admins, owners), **Post invoice** on the new-invoice form saves it, gives it the next INV- number, takes the stock out and posts it to the accounts in one step. **Invoice and post…** on a quotation or confirmed order does the same. If posting is stopped (not enough stock, over the credit limit, prices changed), nothing is lost: the invoice is kept as a draft and the page says why, so it can be fixed and posted, or posted by an owner with a credit override. **Save as draft** is still there for invoices that aren't ready. Submitting the same form twice posts once.
+**Invoices post as soon as they're written.** For anyone who may post invoices (sales, accountants, admins, owners), **Post invoice** on the new-invoice form saves it, gives it the next INV- number, takes the stock out and posts it to the accounts in one step. **Invoice and post…** on a quotation or confirmed order does the same. If posting is stopped (not enough stock, prices changed), nothing is lost: the invoice is kept as a draft and the page says why, so it can be fixed and posted. A customer's credit limit never stops an invoice (see below). **Save as draft** is still there for invoices that aren't ready. Submitting the same form twice posts once.
 
 **Batch of invoices** (Invoices → Batch of invoices): enter several customers' invoices on one page, for example a day's route, all taken from one warehouse, and post them together. Each shows its price and warns when stock left after the invoices above it won't cover it. They post one after the other; any that can't post are kept as drafts with the reason, and any that couldn't be saved (no customer, no price) stay on the page to fix. Up to 40 at a time; sending the same batch twice posts nothing twice.
 
@@ -83,13 +83,12 @@ Any step can be skipped: a counter sale is just **Invoices → New invoice → P
 | Draft  | none        | yes (or cancel)                  | untouched |
 | Posted | INV-000001… | **never** (the database refuses) | taken out |
 
-Posting happens in one transaction: lock the draft, re-price, check stock (minus other orders' reservations) and credit, give the next number, set today's date and the due date (customer's payment terms), take the stock out, and freeze the company and customer details for reprints. A failed posting uses no number, so invoice numbers have no gaps. Clicking Post twice posts once. Mistakes on a posted invoice are corrected with a credit note (Phase 5).
+Posting happens in one transaction: lock the draft, re-price, check stock (minus other orders' reservations), note the credit position, give the next number, set today's date and the due date (customer's payment terms), take the stock out, and freeze the company and customer details for reprints. A failed posting uses no number, so invoice numbers have no gaps. Clicking Post twice posts once. Mistakes on a posted invoice are corrected with a credit note (Phase 5).
 
-**Credit check at posting** (all posted invoices count as unpaid until payments arrive in Phase 5):
+**Credit limits warn, they never block.** Invoices are posted whatever the customer owes. When an invoice takes a customer over their limit, the draft and the post dialog say so beforehand, and the posted invoice records it ("Credit limit: Posted over the credit limit…", with who posted it), as does the audit log (filter by _Invoice posted_).
 
-- Credit limit above 0: what the customer owes plus this invoice must stay within the limit.
-- Credit limit 0 = **cash only**: the customer may not owe anything on earlier invoices.
-- An owner or administrator can post anyway by giving a reason; the reason and who gave it are kept on the invoice and in the audit log.
+- Credit limit above 0: a warning when what the customer owes plus this invoice goes over the limit.
+- Credit limit 0 = **cash only**: a warning when the customer still owes on earlier invoices.
 
 **Delivery notes** (DN-000001…): made from a posted invoice, no prices, signature lines. Prepared → Dispatched (vehicle, driver) → Delivered (received by). Storekeepers and sales staff can do this.
 
@@ -102,7 +101,7 @@ Posting happens in one transaction: lock the draft, re-price, check stock (minus
 | See quotes, orders, invoices, deliveries | ✓           | ✓          | ✓     | ✓           |
 | Quotations, sales orders                 | ✓           |            | ✓     |             |
 | Draft and post invoices                  | ✓           | ✓          | ✓     |             |
-| Discounts, credit override, tax rates    | ✓           |            |       |             |
+| Discounts, tax rates                     | ✓           |            |       |             |
 | Delivery notes                           | ✓           |            | ✓     | ✓           |
 | Share links                              | ✓           | ✓          | ✓     |             |
 

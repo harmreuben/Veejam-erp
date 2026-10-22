@@ -308,36 +308,40 @@ describe("posting invoices", () => {
 });
 
 describe("credit limits", () => {
-  it("blocks an invoice that would go over the limit; only owners/admins override, with a reason", async () => {
+  it("never stop an invoice: going over the limit is recorded on it and in the audit log", async () => {
     const s = await setup({ creditLimit: "3000" });
     const first = await draftInvoice(s);
     await postInvoice(db, s.sales, first, { version: 1 }); // owes 1,900
     const second = await draftInvoice(s);
-    const blocked = await postInvoice(db, s.sales, second, { version: 1 }).catch((x: unknown) => x);
-    expect(blocked).toBeInstanceOf(ConflictError);
-    expect((blocked as Error).message).toMatch(
-      /KES 3,800.00 owed, over their credit limit of KES 3,000.00.*Ask an owner/,
+    // The draft shows the warning before posting.
+    expect((await getDocument(db, s.sales, second)).creditProblem).toMatch(
+      /KES 3,800.00 owed, over their credit limit of KES 3,000.00/,
     );
-    await expect(
-      postInvoice(db, s.sales, second, { version: 1, creditOverrideReason: "trust me" }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
-    const res = await postInvoice(db, s.owner, second, {
-      version: 1,
-      creditOverrideReason: "Paid cash on delivery",
-    });
+    const res = await postInvoice(db, s.sales, second, { version: 1 });
     expect(res.number).toBe("INV-000002");
     const doc = await db.salesDocument.findUniqueOrThrow({ where: { id: second } });
-    expect([doc.creditOverrideById, doc.creditOverrideReason]).toEqual([s.owner.id, "Paid cash on delivery"]);
+    expect(doc.creditOverrideById).toBe(s.sales.id);
+    expect(doc.creditOverrideReason).toMatch(
+      /^Posted over the credit limit\. This takes them to KES 3,800.00/,
+    );
+    const audit = await db.auditLog.findFirstOrThrow({
+      where: { action: "INVOICE_POSTED", entityId: second },
+    });
+    expect(audit.summary).toContain("over the credit limit");
+    expect(audit.after).toMatchObject({ overCreditLimit: expect.stringContaining("KES 3,800.00") });
+    // Within the limit: nothing recorded.
+    const firstDoc = await db.salesDocument.findUniqueOrThrow({ where: { id: first } });
+    expect(firstDoc.creditOverrideReason).toBeNull();
   });
 
-  it("a cash-only customer (limit 0) can't take a new invoice while owing on an earlier one", async () => {
+  it("a cash-only customer (limit 0) still gets a new invoice while owing, with the warning recorded", async () => {
     const s = await setup({ creditLimit: "0" });
     const first = await draftInvoice(s);
     await postInvoice(db, s.sales, first, { version: 1 });
     const second = await draftInvoice(s);
-    await expect(postInvoice(db, s.sales, second, { version: 1 })).rejects.toThrow(
-      /cash-only customer.*owe KES 1,900.00/,
-    );
+    expect((await postInvoice(db, s.sales, second, { version: 1 })).number).toBe("INV-000002");
+    const doc = await db.salesDocument.findUniqueOrThrow({ where: { id: second } });
+    expect(doc.creditOverrideReason).toMatch(/cash-only customer.*owe KES 1,900.00/);
   });
 });
 
