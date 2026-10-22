@@ -25,11 +25,11 @@ test("signed-out visitors are sent to sign-in, then back to the page they wanted
   await expect(page.getByRole("heading", { level: 1, name: "Company settings" })).toBeVisible();
 });
 
-test("owner sees the setup status with company details from the database", async ({ page, isMobile }) => {
+test("owner lands on the dashboard, with the company name from the database", async ({ page, isMobile }) => {
   await signIn(page, E2E_USERS.owner.email, E2E_USERS.owner.password);
-  await expect(page.getByRole("heading", { level: 1, name: "Setup status" })).toBeVisible();
-  await expect(page.getByText("0115924570")).toBeVisible();
-  await expect(page.getByText("wanjiruvenus980@gmail.com")).toBeVisible();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
+  await expect(page.getByText("VeeJam Limited").filter({ visible: true }).first()).toBeVisible();
   await signOut(page, isMobile);
   // Signed out: protected pages redirect again
   await page.goto("/");
@@ -38,7 +38,7 @@ test("owner sees the setup status with company details from the database", async
 
 test("session cookie is HTTP-only", async ({ page, context }) => {
   await signIn(page, E2E_USERS.owner.email, E2E_USERS.owner.password);
-  await expect(page.getByRole("heading", { level: 1, name: "Setup status" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
   const auth = (await context.cookies()).filter((c) => c.name.startsWith("sb-"));
   expect(auth.length).toBeGreaterThan(0);
   for (const c of auth) {

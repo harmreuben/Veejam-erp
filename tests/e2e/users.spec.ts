@@ -24,7 +24,7 @@ test("owner adds a user, who signs in, changes password, and is then deactivated
   // Grace signs in with the temporary password and changes it
   const grace = await browser.newPage();
   await signIn(grace, NEW.email, NEW.password);
-  await expect(grace.getByRole("heading", { level: 1, name: "Setup status" })).toBeVisible();
+  await expect(grace.getByRole("heading", { level: 1, name: "Stock levels" })).toBeVisible();
   await grace.goto("/account");
   await grace.getByLabel("Current password").fill(NEW.password);
   await grace.getByLabel("New password", { exact: true }).fill("Grace-own-pass-2026");
@@ -57,7 +57,8 @@ test("owner adds a user, who signs in, changes password, and is then deactivated
   const fresh = await browser.newContext();
   const again = await fresh.newPage();
   await signIn(again, NEW.email, "Grace-own-pass-2026");
-  await expect(again.getByRole("heading", { level: 1, name: "Setup status" })).toBeVisible();
+  // Now in Sales, so they start on invoices.
+  await expect(again.getByRole("heading", { level: 1, name: "Invoices" })).toBeVisible();
   // The temporary password no longer works
   await fresh.clearCookies();
   await signIn(again, NEW.email, NEW.password);

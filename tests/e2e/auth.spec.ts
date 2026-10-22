@@ -19,12 +19,13 @@ test("a Supabase account without ERP access can't get in", async ({ page }) => {
 
 test("a crafted next link can't send users to another site", async ({ page }) => {
   await signIn(page, E2E_USERS.owner.email, E2E_USERS.owner.password, "https://evil.example/phish");
-  await expect(page).toHaveURL("http://localhost:3100/");
+  await expect(page).toHaveURL("http://localhost:3100/dashboard");
 });
 
 test("sales staff see only what their role allows", async ({ page }) => {
   await signIn(page, E2E_USERS.sales.email, E2E_USERS.sales.password);
-  await expect(page.getByRole("heading", { level: 1, name: "Setup status" })).toBeVisible();
+  // No dashboard for sales by default: they start on invoices.
+  await expect(page).toHaveURL(/\/invoices$/);
 
   const nav = page.getByRole("navigation", { name: "Modules" }).filter({ visible: true });
   await expect(nav.getByRole("link", { name: "Company settings" })).toBeVisible();

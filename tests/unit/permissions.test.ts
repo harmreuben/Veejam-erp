@@ -234,3 +234,19 @@ describe("per-person duties", () => {
     ).toThrow(ForbiddenError);
   });
 });
+
+describe("where people land after signing in", () => {
+  it("the dashboard when they may see it, otherwise their main working page", async () => {
+    const { homePathFor } = await import("@/config/modules");
+    expect(homePathFor("OWNER", effectivePermissions("OWNER"))).toBe("/dashboard");
+    expect(homePathFor("ADMIN", effectivePermissions("ADMIN"))).toBe("/dashboard");
+    expect(homePathFor("ACCOUNTANT", effectivePermissions("ACCOUNTANT"))).toBe("/dashboard");
+    expect(homePathFor("SALES", effectivePermissions("SALES"))).toBe("/invoices");
+    expect(homePathFor("STOREKEEPER", effectivePermissions("STOREKEEPER"))).toBe("/inventory");
+    // Giving someone the dashboard duty makes it their start page.
+    expect(
+      homePathFor("SALES", effectivePermissions("SALES", [{ permission: "reports.view", granted: true }])),
+    ).toBe("/dashboard");
+    expect(homePathFor("SALES", [])).toBe("/account");
+  });
+});

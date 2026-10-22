@@ -33,7 +33,7 @@ Copy `TEST_DATABASE_URL` and `E2E_DATABASE_URL` from `.env.example` into `.env.l
 
 The browser tests sign in through `tests/e2e/support/mock-supabase-auth.mjs`, a **test-only** stand-in for Supabase Auth that implements the endpoints this app calls. Passing tests prove the app's own sign-in, session, role and deactivation logic. They do **not** prove the connection to your real Supabase project. Check that by hand after setup:
 
-1. Sign in as the owner. You should see Setup status.
+1. Sign in as the owner. You should land on the Dashboard.
 2. Add a staff user, then sign in as them in a private window.
 3. Deactivate them. Their next click should return them to sign-in with "This account has been deactivated".
 

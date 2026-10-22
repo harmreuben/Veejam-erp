@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutGrid, LogOut, Menu, UserRound } from "lucide-react";
+import { LogOut, Menu, UserRound } from "lucide-react";
 
 import { signOut } from "@/app/(auth)/login/actions";
 import { InstallAppButton } from "@/components/pwa";
@@ -30,10 +30,6 @@ function ModuleItem({ module, permissions }: { module: ErpModule; permissions: r
 function ModuleNav({ permissions, className }: { permissions: readonly Permission[]; className?: string }) {
   return (
     <nav aria-label="Modules" className={cn("grid gap-5", className)}>
-      <NavLink href="/" exact className="font-medium">
-        <LayoutGrid className="size-4" aria-hidden />
-        Setup status
-      </NavLink>
       {MODULE_GROUPS.map((group) => (
         <div key={group} className="grid gap-0.5">
           <h3 className="text-sidebar-muted px-3 pb-1 text-xs font-semibold">{group}</h3>
@@ -52,6 +48,15 @@ function Wordmark({ companyName }: { companyName: string }) {
       <span className="text-lg font-bold tracking-tight">{companyName}</span>
       <span className="text-sidebar-muted text-xs">ERP</span>
     </div>
+  );
+}
+
+/** The wordmark as a link home (desktop; on phones the wordmark opens the menu). */
+function HomeLink({ companyName }: { companyName: string }) {
+  return (
+    <Link href="/" className="block rounded-md">
+      <Wordmark companyName={companyName} />
+    </Link>
   );
 }
 
@@ -101,7 +106,7 @@ export function AppSidebar({
       {/* Desktop */}
       <aside className="bg-sidebar text-sidebar-foreground border-sidebar-border sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-6 overflow-y-auto border-r px-3 py-5 md:flex">
         <div className="px-3">
-          <Wordmark companyName={companyName} />
+          <HomeLink companyName={companyName} />
         </div>
         <ModuleNav permissions={permissions} className="flex-1 content-start" />
         <UserCard user={user} />

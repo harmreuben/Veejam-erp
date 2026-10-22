@@ -1,3 +1,4 @@
+import type { UserRole } from "@/generated/prisma/enums";
 import type { Permission } from "@/server/auth/permissions";
 
 /**
@@ -220,27 +221,29 @@ export const ERP_MODULES: readonly ErpModule[] = [
 
 export const MODULE_GROUPS: readonly ModuleGroup[] = ["Sell", "Stock", "Money", "Operate", "Admin"];
 
-export const BUILD_PHASES: readonly { phase: number; title: string }[] = [
-  { phase: 1, title: "Project foundation, tooling and documentation" },
-  { phase: 2, title: "Database, Prisma schema, sign-in and roles" },
-  { phase: 3, title: "Customers, products, SKU import, pricing and inventory" },
-  { phase: 4, title: "Quotations, sales orders, invoices, PDFs and stock posting" },
-  { phase: 5, title: "Payments, receipts and double-entry accounting" },
-  { phase: 6, title: "WhatsApp commands with the mock provider" },
-  { phase: 7, title: "Meta WhatsApp Cloud API on a test number" },
-  { phase: 8, title: "Reports, audit tools, security hardening and backups" },
-  { phase: 9, title: "Production deployment and full workflow test" },
+/**
+ * Where each person lands after signing in: the dashboard if they may see it,
+ * otherwise the first of their main working pages (e.g. invoices for sales,
+ * stock levels for storekeepers), otherwise any page they can open.
+ */
+const HOME_ORDER = [
+  "dashboard",
+  "invoicing",
+  "inventory",
+  "purchasing",
+  "payments",
+  "customers",
+  "catalogue",
 ];
+/** A role's own main page comes before the general order (storekeepers start on stock, not invoices). */
+const ROLE_HOME: Partial<Record<UserRole, string>> = { STOREKEEPER: "inventory", SALES: "invoicing" };
 
-/** Which phases are finished. */
-export const PHASE_STATUS: Record<number, "done" | "partial" | "todo"> = {
-  1: "done",
-  2: "done",
-  3: "done",
-  4: "done",
-  5: "done",
-  6: "done",
-  7: "todo",
-  8: "done",
-  9: "todo",
-};
+export function homePathFor(role: UserRole, permissions: readonly Permission[]): string {
+  const allowed = (m: ErpModule) => !!m.href && (!m.permission || permissions.includes(m.permission));
+  const order = ["dashboard", ...(ROLE_HOME[role] ? [ROLE_HOME[role]] : []), ...HOME_ORDER];
+  for (const slug of order) {
+    const m = ERP_MODULES.find((x) => x.slug === slug);
+    if (m && allowed(m)) return m.href!;
+  }
+  return ERP_MODULES.find(allowed)?.href ?? "/account";
+}
