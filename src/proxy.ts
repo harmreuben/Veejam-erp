@@ -5,7 +5,29 @@ import { SESSION_COOKIE_OPTIONS } from "@/server/auth/cookie-options";
 import { isPublicPath } from "@/server/auth/resolve";
 
 /**
+ * Content-Security-Policy with a fresh nonce per request. Next.js reads the
+ * nonce from the request header and puts it on its own scripts, so only
+ * scripts this app sent can run; injected <script> tags are refused.
+ * Styles allow inline because charts and components set style attributes.
+ */
+export function contentSecurityPolicy(nonce: string, dev: boolean): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    `connect-src 'self'${dev ? " ws: wss:" : ""}`,
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+  ].join("; ");
+}
+
+/**
  * Runs before every page request:
+ * 0. Sets the Content-Security-Policy (see above).
  * 1. Refreshes the Supabase session cookie when it is about to expire.
  * 2. Sends signed-out visitors to /login.
  *
@@ -18,7 +40,16 @@ export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  let response = NextResponse.next({ request });
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const policy = contentSecurityPolicy(nonce, process.env.NODE_ENV === "development");
+  const forward = () => {
+    const headers = new Headers(request.headers);
+    headers.set("x-nonce", nonce);
+    headers.set("Content-Security-Policy", policy);
+    return NextResponse.next({ request: { headers } });
+  };
+
+  let response = forward();
 
   let signedIn = false;
   if (url && key) {
@@ -28,7 +59,7 @@ export async function proxy(request: NextRequest) {
         getAll: () => request.cookies.getAll(),
         setAll: (toSet) => {
           for (const { name, value } of toSet) request.cookies.set(name, value);
-          response = NextResponse.next({ request });
+          response = forward();
           for (const { name, value, options } of toSet) response.cookies.set(name, value, options);
         },
       },
@@ -47,6 +78,7 @@ export async function proxy(request: NextRequest) {
     return redirect;
   }
 
+  response.headers.set("Content-Security-Policy", policy);
   return response;
 }
 

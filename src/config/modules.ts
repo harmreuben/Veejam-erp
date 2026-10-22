@@ -17,10 +17,19 @@ export type ErpModule = {
   href?: string;
   /** Permission needed to see the link. */
   permission?: Permission;
+  /** Shown instead of the phase number, e.g. "5b". */
+  phaseLabel?: string;
 };
 
 export const ERP_MODULES: readonly ErpModule[] = [
-  { slug: "dashboard", name: "Dashboard", group: "Operate", phase: 8 },
+  {
+    slug: "dashboard",
+    name: "Dashboard",
+    group: "Operate",
+    phase: 8,
+    href: "/dashboard",
+    permission: "reports.view",
+  },
   {
     slug: "customers",
     name: "Customers",
@@ -101,7 +110,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
     href: "/suppliers",
     permission: "suppliers.view",
   },
-  { slug: "purchasing", name: "Purchase orders", group: "Stock", phase: 5 },
+  { slug: "purchasing", name: "Purchase orders", group: "Stock", phase: 5, phaseLabel: "5b" },
   {
     slug: "payments",
     name: "Payments & receipts",
@@ -134,9 +143,23 @@ export const ERP_MODULES: readonly ErpModule[] = [
     href: "/settings/tax",
     permission: "settings.view",
   },
-  { slug: "reports", name: "Reports", group: "Operate", phase: 8 },
-  { slug: "whatsapp", name: "WhatsApp commands", group: "Operate", phase: 6 },
-  { slug: "audit", name: "Audit log", group: "Admin", phase: 8 },
+  {
+    slug: "reports",
+    name: "Reports",
+    group: "Operate",
+    phase: 8,
+    href: "/reports",
+    permission: "reports.view",
+  },
+  {
+    slug: "whatsapp",
+    name: "WhatsApp commands",
+    group: "Operate",
+    phase: 6,
+    href: "/whatsapp",
+    permission: "whatsapp.view",
+  },
+  { slug: "audit", name: "Audit log", group: "Admin", phase: 8, href: "/audit", permission: "audit.view" },
   { slug: "imports", name: "Imports", group: "Admin", phase: 3, href: "/imports", permission: "imports.run" },
   {
     slug: "settings",
@@ -154,7 +177,14 @@ export const ERP_MODULES: readonly ErpModule[] = [
     href: "/settings/users",
     permission: "users.view",
   },
-  { slug: "backups", name: "Backup & recovery", group: "Admin", phase: 8 },
+  {
+    slug: "backups",
+    name: "Backup & recovery",
+    group: "Admin",
+    phase: 8,
+    href: "/backups",
+    permission: "backups.view",
+  },
 ];
 
 export const MODULE_GROUPS: readonly ModuleGroup[] = ["Sell", "Stock", "Money", "Operate", "Admin"];
@@ -171,4 +201,15 @@ export const BUILD_PHASES: readonly { phase: number; title: string }[] = [
   { phase: 9, title: "Production deployment and full workflow test" },
 ];
 
-export const CURRENT_PHASE = 4;
+/** Which phases are finished. Phase 5 is split: 5a (money in) is done, 5b (purchasing) is not. */
+export const PHASE_STATUS: Record<number, "done" | "partial" | "todo"> = {
+  1: "done",
+  2: "done",
+  3: "done",
+  4: "done",
+  5: "partial",
+  6: "done",
+  7: "todo",
+  8: "done",
+  9: "todo",
+};

@@ -27,7 +27,10 @@
     "db:check": "tsx --conditions=react-server scripts/check-data.mts",
     "user:grant": "tsx --conditions=react-server scripts/grant-user.mts",
     "legacy:stage": "tsx --conditions=react-server scripts/stage-legacy.mts",
-    "legacy:import": "tsx --conditions=react-server scripts/import-legacy.mts"
+    "legacy:import": "tsx --conditions=react-server scripts/import-legacy.mts",
+    "backup": "tsx --conditions=react-server scripts/backup.mts",
+    "backup:restore": "tsx --conditions=react-server scripts/restore.mts",
+    "audit:deps": "npm audit --omit=dev --audit-level=high"
   },
   "dependencies": {
     "@fontsource-variable/public-sans": "^5.3.0",

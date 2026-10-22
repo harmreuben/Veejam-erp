@@ -22,7 +22,7 @@ describe("role permissions", () => {
     const matrix = Object.fromEntries(Object.values(UserRole).map((r) => [r, [...permissionsFor(r)].sort()]));
     expect(matrix).toEqual({
       OWNER: [...PERMISSIONS].sort(),
-      ADMIN: [...PERMISSIONS].sort(),
+      ADMIN: PERMISSIONS.filter((p) => p !== "whatsapp.use").sort(),
       ACCOUNTANT: [
         "accounting.journal",
         "accounting.view",
@@ -39,6 +39,7 @@ describe("role permissions", () => {
         "invoices.post",
         "payments.record",
         "payments.reverse",
+        "reports.view",
         "sales.view",
         "settings.view",
         "suppliers.manage",
@@ -87,6 +88,18 @@ describe("role permissions", () => {
       for (const r of ["ACCOUNTANT", "SALES", "STOREKEEPER"] as const) {
         expect(hasPermission(r, p), `${r} ${p}`).toBe(false);
       }
+    }
+  });
+
+  it("only owners run WhatsApp commands; backups and the message log are owner/admin only", () => {
+    expect(hasPermission("OWNER", "whatsapp.use")).toBe(true);
+    for (const r of ["ADMIN", "ACCOUNTANT", "SALES", "STOREKEEPER"] as const) {
+      expect(hasPermission(r, "whatsapp.use"), r).toBe(false);
+    }
+    for (const p of ["whatsapp.view", "backups.view"] as const) {
+      expect(hasPermission("ADMIN", p)).toBe(true);
+      for (const r of ["ACCOUNTANT", "SALES", "STOREKEEPER"] as const)
+        expect(hasPermission(r, p)).toBe(false);
     }
   });
 

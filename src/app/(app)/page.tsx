@@ -4,7 +4,7 @@ import { CheckCircle2, CircleDashed } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getConfigChecks, getServerEnv } from "@/config/env";
-import { BUILD_PHASES, CURRENT_PHASE } from "@/config/modules";
+import { BUILD_PHASES, PHASE_STATUS } from "@/config/modules";
 import { requireUser, toActor } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { getCompanySettings, type CompanySettingsView } from "@/server/modules/settings/service";
@@ -74,7 +74,8 @@ export default async function SetupStatusPage() {
         </h2>
         <ol className="bg-card divide-y rounded-lg border">
           {BUILD_PHASES.map(({ phase, title }) => {
-            const done = phase <= CURRENT_PHASE;
+            const status = PHASE_STATUS[phase] ?? "todo";
+            const done = status !== "todo";
             return (
               <li key={phase} className="flex items-center gap-4 px-5 py-3 text-sm">
                 <span
@@ -87,9 +88,14 @@ export default async function SetupStatusPage() {
                   {phase}
                 </span>
                 <span className={done ? "font-medium" : "text-muted-foreground"}>{title}</span>
-                {done && (
+                {status === "done" && (
                   <Badge variant="success" className="ml-auto">
                     Done
+                  </Badge>
+                )}
+                {status === "partial" && (
+                  <Badge variant="warning" className="ml-auto">
+                    Part done
                   </Badge>
                 )}
               </li>

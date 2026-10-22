@@ -34,40 +34,44 @@ enum UserRole {
 /// An ERP user. Sign-in credentials live in Supabase Auth; this row links the
 /// Supabase account to a role and lets the app deactivate access instantly.
 model User {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  authUserId    String    @unique @map("auth_user_id") @db.Uuid
-  email         String    @unique
-  fullName      String    @map("full_name")
-  phone         String?
-  role          UserRole
-  isActive      Boolean   @default(true) @map("is_active")
-  deactivatedAt DateTime? @map("deactivated_at") @db.Timestamptz(3)
-  lastSeenAt    DateTime? @map("last_seen_at") @db.Timestamptz(3)
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authUserId     String    @unique @map("auth_user_id") @db.Uuid
+  email          String    @unique
+  fullName       String    @map("full_name")
+  phone          String?
+  /// Linked WhatsApp number (digits, e.g. 254712345678). Only owners can run commands from it.
+  whatsappNumber String?   @unique @map("whatsapp_number")
+  role           UserRole
+  isActive       Boolean   @default(true) @map("is_active")
+  deactivatedAt  DateTime? @map("deactivated_at") @db.Timestamptz(3)
+  lastSeenAt     DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  auditEntries        AuditLog[]
-  settingsUpdates     CompanySettings[]
-  legacyImportBatches LegacyImportBatch[]
-  priceUpdates        PriceListItem[]
-  customersCreated    Customer[]
-  stockMovements      StockMovement[]
-  stockAdjustments    StockAdjustment[]
-  stockTransfers      StockTransfer[]
-  stockCountsCreated  StockCount[]        @relation("StockCountCreatedBy")
-  stockCountsPosted   StockCount[]        @relation("StockCountPostedBy")
-  importJobsCreated   ImportJob[]         @relation("ImportJobCreatedBy")
-  importJobsCommitted ImportJob[]         @relation("ImportJobCommittedBy")
-  salesDocumentsCreated SalesDocument[]    @relation("SalesDocumentCreatedBy")
-  salesDocumentsPosted  SalesDocument[]    @relation("SalesDocumentPostedBy")
-  creditOverrides       SalesDocument[]    @relation("SalesDocumentCreditOverrideBy")
+  auditEntries          AuditLog[]
+  settingsUpdates       CompanySettings[]
+  legacyImportBatches   LegacyImportBatch[]
+  priceUpdates          PriceListItem[]
+  customersCreated      Customer[]
+  stockMovements        StockMovement[]
+  stockAdjustments      StockAdjustment[]
+  stockTransfers        StockTransfer[]
+  stockCountsCreated    StockCount[]           @relation("StockCountCreatedBy")
+  stockCountsPosted     StockCount[]           @relation("StockCountPostedBy")
+  importJobsCreated     ImportJob[]            @relation("ImportJobCreatedBy")
+  importJobsCommitted   ImportJob[]            @relation("ImportJobCommittedBy")
+  salesDocumentsCreated SalesDocument[]        @relation("SalesDocumentCreatedBy")
+  salesDocumentsPosted  SalesDocument[]        @relation("SalesDocumentPostedBy")
+  creditOverrides       SalesDocument[]        @relation("SalesDocumentCreditOverrideBy")
   deliveryNotes         DeliveryNote[]
   shareLinks            DocumentShareLink[]
   taxRateUpdates        TaxRate[]
   journalEntries        JournalEntry[]
-  paymentsReceived      Payment[]          @relation("PaymentReceivedBy")
-  paymentsReversed      Payment[]          @relation("PaymentReversedBy")
+  paymentsReceived      Payment[]              @relation("PaymentReceivedBy")
+  paymentsReversed      Payment[]              @relation("PaymentReversedBy")
   allocationsMade       PaymentAllocation[]
+  whatsappMessages      WhatsAppMessage[]
+  whatsappConfirmations WhatsAppConfirmation[]
 
   @@map("users")
 }
@@ -268,10 +272,10 @@ model PriceList {
   createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  items      PriceListItem[]
-  customers  Customer[]
-  defaultFor CompanySettings[]
-  salesDocuments   SalesDocument[]
+  items          PriceListItem[]
+  customers      Customer[]
+  defaultFor     CompanySettings[]
+  salesDocuments SalesDocument[]
 
   @@map("price_lists")
 }
@@ -308,32 +312,32 @@ enum CustomerType {
 }
 
 model Customer {
-  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// Account number, e.g. CUS-000001. Assigned automatically.
-  code             String       @unique
+  code             String          @unique
   name             String
-  type             CustomerType @default(RETAIL_SHOP)
-  contactPerson    String?      @map("contact_person")
+  type             CustomerType    @default(RETAIL_SHOP)
+  contactPerson    String?         @map("contact_person")
   /// Kenyan mobile or landline in international form, digits only (2547XXXXXXXX).
   phone            String?
   email            String?
-  kraPin           String?      @unique @map("kra_pin")
-  physicalAddress  String?      @map("physical_address")
+  kraPin           String?         @unique @map("kra_pin")
+  physicalAddress  String?         @map("physical_address")
   town             String?
   /// 0 means cash only: a new invoice can be posted only if nothing is owed. Checked when invoices are posted.
-  creditLimit      Decimal      @default(0) @map("credit_limit") @db.Decimal(18, 2)
-  paymentTermsDays Int          @default(0) @map("payment_terms_days")
-  priceListId      String?      @map("price_list_id") @db.Uuid
-  priceList        PriceList?   @relation(fields: [priceListId], references: [id], onDelete: Restrict)
-  status           RecordStatus @default(ACTIVE)
+  creditLimit      Decimal         @default(0) @map("credit_limit") @db.Decimal(18, 2)
+  paymentTermsDays Int             @default(0) @map("payment_terms_days")
+  priceListId      String?         @map("price_list_id") @db.Uuid
+  priceList        PriceList?      @relation(fields: [priceListId], references: [id], onDelete: Restrict)
+  status           RecordStatus    @default(ACTIVE)
   notes            String?
   /// Names this customer had in the previous system, for matching old records.
-  legacyNames      String[]     @map("legacy_names")
-  version          Int          @default(1)
-  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdById      String?      @map("created_by_id") @db.Uuid
-  createdBy        User?        @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  legacyNames      String[]        @map("legacy_names")
+  version          Int             @default(1)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById      String?         @map("created_by_id") @db.Uuid
+  createdBy        User?           @relation(fields: [createdById], references: [id], onDelete: Restrict)
   salesDocuments   SalesDocument[]
   payments         Payment[]
   journalLines     JournalLine[]
@@ -374,12 +378,12 @@ model Warehouse {
   createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  balances     StockBalance[]
-  movements    StockMovement[]
-  adjustments  StockAdjustment[]
-  transfersOut StockTransfer[]   @relation("TransferFrom")
-  transfersIn  StockTransfer[]   @relation("TransferTo")
-  counts       StockCount[]
+  balances       StockBalance[]
+  movements      StockMovement[]
+  adjustments    StockAdjustment[]
+  transfersOut   StockTransfer[]    @relation("TransferFrom")
+  transfersIn    StockTransfer[]    @relation("TransferTo")
+  counts         StockCount[]
   salesDocuments SalesDocument[]
   reservations   StockReservation[]
 
@@ -710,12 +714,12 @@ model SalesDocument {
   cancelledAt          DateTime?           @map("cancelled_at") @db.Timestamptz(3)
   cancelReason         String?             @map("cancel_reason")
 
-  lines                SalesDocumentLine[]
-  reservations         StockReservation[]
-  deliveryNote         DeliveryNote?
-  shareLinks           DocumentShareLink[]
-  allocationsReceived  PaymentAllocation[] @relation("AllocationInvoice")
-  allocationsGiven     PaymentAllocation[] @relation("AllocationCreditNote")
+  lines               SalesDocumentLine[]
+  reservations        StockReservation[]
+  deliveryNote        DeliveryNote?
+  shareLinks          DocumentShareLink[]
+  allocationsReceived PaymentAllocation[] @relation("AllocationInvoice")
+  allocationsGiven    PaymentAllocation[] @relation("AllocationCreditNote")
 
   @@index([kind, status, issueDate])
   @@index([customerId, kind, status])
@@ -779,21 +783,21 @@ enum DeliveryStatus {
 
 /// Delivery note for a posted invoice (the whole invoice is delivered).
 model DeliveryNote {
-  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  number      String         @unique
-  invoiceId   String         @unique @map("invoice_id") @db.Uuid
-  invoice     SalesDocument  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  status      DeliveryStatus @default(PREPARED)
-  vehicle     String?
-  driver      String?
-  notes       String?
-  dispatchedAt DateTime?     @map("dispatched_at") @db.Timestamptz(3)
-  deliveredAt DateTime?      @map("delivered_at") @db.Timestamptz(3)
-  receivedBy  String?        @map("received_by")
-  version     Int            @default(1)
-  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdById String         @map("created_by_id") @db.Uuid
-  createdBy   User           @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number       String         @unique
+  invoiceId    String         @unique @map("invoice_id") @db.Uuid
+  invoice      SalesDocument  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  status       DeliveryStatus @default(PREPARED)
+  vehicle      String?
+  driver       String?
+  notes        String?
+  dispatchedAt DateTime?      @map("dispatched_at") @db.Timestamptz(3)
+  deliveredAt  DateTime?      @map("delivered_at") @db.Timestamptz(3)
+  receivedBy   String?        @map("received_by")
+  version      Int            @default(1)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById  String         @map("created_by_id") @db.Uuid
+  createdBy    User           @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([status, createdAt])
   @@map("delivery_notes")
@@ -947,4 +951,105 @@ model PaymentAllocation {
   @@index([paymentId])
   @@index([creditNoteId])
   @@map("payment_allocations")
+}
+
+// ─── Phase 6: WhatsApp ─────────────────────────────────────────────
+
+enum WhatsAppDirection {
+  IN
+  OUT
+}
+
+enum WhatsAppMessageStatus {
+  RECEIVED
+  PROCESSED
+  REFUSED
+  FAILED
+  SENT
+  SIMULATED
+}
+
+/// Every WhatsApp message in or out. Incoming messages are unique by the
+/// provider's message id, so a webhook delivered twice is processed once.
+model WhatsAppMessage {
+  id                String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  direction         WhatsAppDirection
+  waNumber          String                @map("wa_number")
+  body              String
+  providerMessageId String?               @unique @map("provider_message_id")
+  status            WhatsAppMessageStatus
+  /// The command recognised in an incoming message, e.g. "SALES" or "PAY".
+  command           String?
+  userId            String?               @map("user_id") @db.Uuid
+  user              User?                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  simulated         Boolean               @default(false)
+  error             String?
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([waNumber, createdAt])
+  @@index([createdAt])
+  @@map("whatsapp_messages")
+}
+
+enum WhatsAppConfirmationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+  FAILED
+}
+
+/// A change requested on WhatsApp, waiting for the owner to reply YES with the code.
+/// Single use, expires after a few minutes, bound to the owner and the draft it describes.
+model WhatsAppConfirmation {
+  id         String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String                     @map("user_id") @db.Uuid
+  user       User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  waNumber   String                     @map("wa_number")
+  action     String
+  payload    Json
+  summary    String
+  /// SHA-256 of the code; the code itself is only ever in the message.
+  codeHash   String                     @map("code_hash")
+  attempts   Int                        @default(0)
+  status     WhatsAppConfirmationStatus @default(PENDING)
+  expiresAt  DateTime                   @map("expires_at") @db.Timestamptz(3)
+  resolvedAt DateTime?                  @map("resolved_at") @db.Timestamptz(3)
+  resultRef  String?                    @map("result_ref")
+  error      String?
+  createdAt  DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId, status])
+  @@map("whatsapp_confirmations")
+}
+
+// ─── Phase 8: hardening and backups ────────────────────────────────
+
+/// Fixed-window request counters (sign-in failures, webhook, share links).
+/// Kept in the database because serverless instances don't share memory.
+model RateLimit {
+  key         String
+  windowStart DateTime @map("window_start") @db.Timestamptz(3)
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+  @@index([windowStart])
+  @@map("rate_limits")
+}
+
+/// One row per backup taken with `npm run backup`, so the app can warn when backups are overdue.
+model BackupRun {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  takenAt  DateTime @default(now()) @map("taken_at") @db.Timestamptz(3)
+  takenBy  String   @map("taken_by")
+  fileName String   @map("file_name")
+  tables   Int
+  rows     Int
+  bytes    Int
+  sha256   String
+  /// "backup" or "restore-drill".
+  kind     String   @default("backup")
+
+  @@index([takenAt])
+  @@map("backup_runs")
 }

@@ -1,0 +1,494 @@
+import "server-only";
+
+import { z } from "zod";
+
+import {
+  addDays,
+  daysBetween,
+  fromDbDate,
+  startOfMonth,
+  startOfPreviousMonth,
+  todayInNairobi,
+  toDbDate,
+  type DayRange,
+} from "@/lib/dates";
+import { toDecimal } from "@/lib/money";
+import { authorize, hasPermission, type Actor } from "@/server/auth/permissions";
+import type { Db, DbOrTx } from "@/server/db/client";
+import { ValidationError } from "@/server/errors";
+
+/**
+ * Management reports. Every figure comes from posted documents or the journal,
+ * so a report always agrees with the invoices, receipts and trial balance.
+ * Money is returned as strings with two decimals (never JavaScript floats).
+ *
+ * Sales are counted on the invoice date and returns on the credit-note date.
+ * Cost of goods sold arrives with purchasing (Phase 5b), so profit figures
+ * are sales less expenses until then and say so.
+ */
+
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+/** Read ?from=&to= with a default; refuses impossible ranges. */
+export function readRange(
+  sp: { from?: string; to?: string },
+  fallback: DayRange = { from: startOfMonth(todayInNairobi()), to: todayInNairobi() },
+): DayRange {
+  const from = sp.from && day.safeParse(sp.from).success ? sp.from : fallback.from;
+  const to = sp.to && day.safeParse(sp.to).success ? sp.to : fallback.to;
+  if (from > to) throw new ValidationError({ from: ["The start date must be on or before the end date"] });
+  if (daysBetween(from, to) > 3 * 366) {
+    throw new ValidationError({ from: ["Choose at most three years at a time"] });
+  }
+  return { from, to };
+}
+
+const money = (v: string | null | undefined) => toDecimal(v ?? 0).toFixed(2);
+
+// ─── Sales ──────────────────────────────────────────────────────────
+
+export type SalesTotals = {
+  invoices: number;
+  net: string;
+  vat: string;
+  gross: string;
+  creditNotes: number;
+  returnsNet: string;
+  returnsVat: string;
+  returnsGross: string;
+  /** Invoiced less credit notes, excluding VAT. */
+  netSales: string;
+  /** Invoiced less credit notes, including VAT. */
+  netGross: string;
+};
+
+export async function salesTotals(db: DbOrTx, range: DayRange): Promise<SalesTotals> {
+  const [row] = await db.$queryRaw<
+    {
+      invoices: number;
+      inv_gross: string;
+      inv_vat: string;
+      credit_notes: number;
+      cn_gross: string;
+      cn_vat: string;
+    }[]
+  >`
+    SELECT
+      COUNT(*) FILTER (WHERE kind = 'INVOICE')::int AS invoices,
+      COALESCE(SUM(total) FILTER (WHERE kind = 'INVOICE'), 0)::text AS inv_gross,
+      COALESCE(SUM(tax_total) FILTER (WHERE kind = 'INVOICE'), 0)::text AS inv_vat,
+      COUNT(*) FILTER (WHERE kind = 'CREDIT_NOTE')::int AS credit_notes,
+      COALESCE(SUM(total) FILTER (WHERE kind = 'CREDIT_NOTE'), 0)::text AS cn_gross,
+      COALESCE(SUM(tax_total) FILTER (WHERE kind = 'CREDIT_NOTE'), 0)::text AS cn_vat
+    FROM sales_documents
+    WHERE status = 'POSTED' AND kind IN ('INVOICE', 'CREDIT_NOTE')
+      AND issue_date BETWEEN ${toDbDate(range.from)} AND ${toDbDate(range.to)}`;
+  if (!row) throw new Error("No totals row");
+  const gross = toDecimal(row.inv_gross);
+  const vat = toDecimal(row.inv_vat);
+  const rGross = toDecimal(row.cn_gross);
+  const rVat = toDecimal(row.cn_vat);
+  return {
+    invoices: row.invoices,
+    net: gross.minus(vat).toFixed(2),
+    vat: vat.toFixed(2),
+    gross: gross.toFixed(2),
+    creditNotes: row.credit_notes,
+    returnsNet: rGross.minus(rVat).toFixed(2),
+    returnsVat: rVat.toFixed(2),
+    returnsGross: rGross.toFixed(2),
+    netSales: gross.minus(vat).minus(rGross.minus(rVat)).toFixed(2),
+    netGross: gross.minus(rGross).toFixed(2),
+  };
+}
+
+export type SalesGroup = "day" | "month" | "customer" | "product";
+export const SALES_GROUPS: Record<SalesGroup, string> = {
+  day: "Day",
+  month: "Month",
+  customer: "Customer",
+  product: "Product",
+};
+
+export type SalesRow = {
+  key: string;
+  label: string;
+  sub: string | null;
+  href: string | null;
+  documents: number;
+  pieces: number | null;
+  net: string;
+  vat: string;
+  gross: string;
+  returnsGross: string;
+  netGross: string;
+};
+
+/** Sales for a date range grouped by day, month, customer or product; credit notes subtracted. */
+export async function salesReport(db: Db, actor: Actor, range: DayRange, group: SalesGroup) {
+  authorize(actor, "reports.view");
+  const from = toDbDate(range.from);
+  const to = toDbDate(range.to);
+  let rows: SalesRow[];
+
+  if (group === "product") {
+    const raw = await db.$queryRaw<
+      {
+        product_id: string;
+        sku: string;
+        name: string;
+        docs: number;
+        pieces: number;
+        gross: string;
+        vat: string;
+        r_gross: string;
+      }[]
+    >`
+      SELECT p.id AS product_id, p.sku, p.name,
+        COUNT(DISTINCT d.id) FILTER (WHERE d.kind = 'INVOICE')::int AS docs,
+        (COALESCE(SUM(l.pieces) FILTER (WHERE d.kind = 'INVOICE'), 0)
+          - COALESCE(SUM(l.pieces) FILTER (WHERE d.kind = 'CREDIT_NOTE'), 0))::int AS pieces,
+        COALESCE(SUM(l.gross_amount) FILTER (WHERE d.kind = 'INVOICE'), 0)::text AS gross,
+        (COALESCE(SUM(l.tax_amount) FILTER (WHERE d.kind = 'INVOICE'), 0)
+          - COALESCE(SUM(l.tax_amount) FILTER (WHERE d.kind = 'CREDIT_NOTE'), 0))::text AS vat,
+        COALESCE(SUM(l.gross_amount) FILTER (WHERE d.kind = 'CREDIT_NOTE'), 0)::text AS r_gross
+      FROM sales_document_lines l
+      JOIN sales_documents d ON d.id = l.document_id
+      JOIN products p ON p.id = l.product_id
+      WHERE d.status = 'POSTED' AND d.kind IN ('INVOICE', 'CREDIT_NOTE')
+        AND d.issue_date BETWEEN ${from} AND ${to}
+      GROUP BY p.id, p.sku, p.name
+      ORDER BY SUM(CASE WHEN d.kind = 'INVOICE' THEN l.gross_amount ELSE -l.gross_amount END) DESC, p.name`;
+    rows = raw.map((r) => {
+      const netGross = toDecimal(r.gross).minus(r.r_gross);
+      return {
+        key: r.product_id,
+        label: r.name,
+        sub: r.sku,
+        href: `/products/${r.product_id}`,
+        documents: r.docs,
+        pieces: r.pieces,
+        net: netGross.minus(r.vat).toFixed(2),
+        vat: money(r.vat),
+        gross: money(r.gross),
+        returnsGross: money(r.r_gross),
+        netGross: netGross.toFixed(2),
+      };
+    });
+  } else {
+    const key =
+      group === "customer"
+        ? "d.customer_id::text"
+        : group === "month"
+          ? "to_char(d.issue_date, 'YYYY-MM')"
+          : "to_char(d.issue_date, 'YYYY-MM-DD')";
+    // The grouping expression is one of three fixed strings above, never user input.
+    const raw = await db.$queryRawUnsafe<
+      {
+        k: string;
+        name: string | null;
+        code: string | null;
+        docs: number;
+        gross: string;
+        vat: string;
+        r_gross: string;
+        r_vat: string;
+      }[]
+    >(
+      `SELECT ${key} AS k,
+         MAX(c.name) AS name, MAX(c.code) AS code,
+         COUNT(*) FILTER (WHERE d.kind = 'INVOICE')::int AS docs,
+         COALESCE(SUM(d.total) FILTER (WHERE d.kind = 'INVOICE'), 0)::text AS gross,
+         COALESCE(SUM(d.tax_total) FILTER (WHERE d.kind = 'INVOICE'), 0)::text AS vat,
+         COALESCE(SUM(d.total) FILTER (WHERE d.kind = 'CREDIT_NOTE'), 0)::text AS r_gross,
+         COALESCE(SUM(d.tax_total) FILTER (WHERE d.kind = 'CREDIT_NOTE'), 0)::text AS r_vat
+       FROM sales_documents d JOIN customers c ON c.id = d.customer_id
+       WHERE d.status = 'POSTED' AND d.kind IN ('INVOICE', 'CREDIT_NOTE')
+         AND d.issue_date BETWEEN $1 AND $2
+       GROUP BY 1
+       ORDER BY ${group === "customer" ? "SUM(CASE WHEN d.kind = 'INVOICE' THEN d.total ELSE -d.total END) DESC" : "1"}`,
+      from,
+      to,
+    );
+    rows = raw.map((r) => {
+      const netGross = toDecimal(r.gross).minus(r.r_gross);
+      const vat = toDecimal(r.vat).minus(r.r_vat);
+      return {
+        key: r.k,
+        label: group === "customer" ? (r.name ?? "") : r.k,
+        sub: group === "customer" ? r.code : null,
+        href: group === "customer" ? `/customers/${r.k}` : null,
+        documents: r.docs,
+        pieces: null,
+        net: netGross.minus(vat).toFixed(2),
+        vat: vat.toFixed(2),
+        gross: money(r.gross),
+        returnsGross: money(r.r_gross),
+        netGross: netGross.toFixed(2),
+      };
+    });
+  }
+  return { rows, totals: await salesTotals(db, range) };
+}
+
+/** Daily sales and money received for the last `days` days, for the dashboard chart. */
+export async function dailyTrend(db: DbOrTx, days: number, today = todayInNairobi()) {
+  const from = addDays(today, -(days - 1));
+  const [sales, receipts] = await Promise.all([
+    db.$queryRaw<{ d: Date; gross: string }[]>`
+      SELECT issue_date AS d,
+        SUM(CASE WHEN kind = 'INVOICE' THEN total ELSE -total END)::text AS gross
+      FROM sales_documents
+      WHERE status = 'POSTED' AND kind IN ('INVOICE', 'CREDIT_NOTE')
+        AND issue_date BETWEEN ${toDbDate(from)} AND ${toDbDate(today)}
+      GROUP BY issue_date`,
+    db.$queryRaw<{ d: Date; amount: string }[]>`
+      SELECT received_on AS d, SUM(amount)::text AS amount
+      FROM payments WHERE status = 'POSTED'
+        AND received_on BETWEEN ${toDbDate(from)} AND ${toDbDate(today)}
+      GROUP BY received_on`,
+  ]);
+  const s = new Map(sales.map((r) => [fromDbDate(r.d), r.gross]));
+  const p = new Map(receipts.map((r) => [fromDbDate(r.d), r.amount]));
+  return Array.from({ length: days }, (_, i) => {
+    const d = addDays(from, i);
+    return { day: d, sales: money(s.get(d)), received: money(p.get(d)) };
+  });
+}
+
+// ─── VAT ────────────────────────────────────────────────────────────
+
+/** Output VAT by month and rate: invoices less credit notes. Input VAT arrives with purchasing. */
+export async function vatReport(db: Db, actor: Actor, range: DayRange) {
+  authorize(actor, "reports.view");
+  const raw = await db.$queryRaw<
+    {
+      month: string;
+      category: string;
+      rate: string;
+      net: string;
+      vat: string;
+      r_net: string;
+      r_vat: string;
+    }[]
+  >`
+    SELECT to_char(d.issue_date, 'YYYY-MM') AS month, l.tax_category::text AS category, l.tax_rate::text AS rate,
+      COALESCE(SUM(l.gross_amount - l.tax_amount) FILTER (WHERE d.kind = 'INVOICE'), 0)::text AS net,
+      COALESCE(SUM(l.tax_amount) FILTER (WHERE d.kind = 'INVOICE'), 0)::text AS vat,
+      COALESCE(SUM(l.gross_amount - l.tax_amount) FILTER (WHERE d.kind = 'CREDIT_NOTE'), 0)::text AS r_net,
+      COALESCE(SUM(l.tax_amount) FILTER (WHERE d.kind = 'CREDIT_NOTE'), 0)::text AS r_vat
+    FROM sales_document_lines l JOIN sales_documents d ON d.id = l.document_id
+    WHERE d.status = 'POSTED' AND d.kind IN ('INVOICE', 'CREDIT_NOTE')
+      AND d.issue_date BETWEEN ${toDbDate(range.from)} AND ${toDbDate(range.to)}
+    GROUP BY 1, 2, 3
+    ORDER BY 1, 3 DESC, 2`;
+  const rows = raw.map((r) => ({
+    month: r.month,
+    category: r.category,
+    rate: toDecimal(r.rate).toDecimalPlaces(2).toString(),
+    salesNet: money(r.net),
+    salesVat: money(r.vat),
+    returnsNet: money(r.r_net),
+    returnsVat: money(r.r_vat),
+    netVat: toDecimal(r.vat).minus(r.r_vat).toFixed(2),
+  }));
+  const sum = (k: "salesNet" | "salesVat" | "returnsNet" | "returnsVat" | "netVat") =>
+    rows.reduce((s, r) => s.plus(r[k]), toDecimal(0)).toFixed(2);
+  return {
+    rows,
+    totals: {
+      salesNet: sum("salesNet"),
+      salesVat: sum("salesVat"),
+      returnsNet: sum("returnsNet"),
+      returnsVat: sum("returnsVat"),
+      netVat: sum("netVat"),
+    },
+  };
+}
+
+// ─── Money received ─────────────────────────────────────────────────
+
+export async function collectionsReport(db: Db, actor: Actor, range: DayRange) {
+  authorize(actor, "reports.view");
+  return collections(db, range);
+}
+
+export async function collections(db: DbOrTx, range: DayRange) {
+  const raw = await db.$queryRaw<{ d: Date; method: string; n: number; amount: string; reversed: string }[]>`
+    SELECT received_on AS d, method::text AS method,
+      COUNT(*) FILTER (WHERE status = 'POSTED')::int AS n,
+      COALESCE(SUM(amount) FILTER (WHERE status = 'POSTED'), 0)::text AS amount,
+      COALESCE(SUM(amount) FILTER (WHERE status = 'REVERSED'), 0)::text AS reversed
+    FROM payments
+    WHERE received_on BETWEEN ${toDbDate(range.from)} AND ${toDbDate(range.to)}
+    GROUP BY 1, 2 ORDER BY 1, 2`;
+  const methods = ["CASH", "MPESA", "BANK_TRANSFER", "CHEQUE"] as const;
+  const byDay = new Map<
+    string,
+    { day: string; byMethod: Record<string, string>; total: string; count: number }
+  >();
+  const methodTotals: Record<string, ReturnType<typeof toDecimal>> = Object.fromEntries(
+    methods.map((m) => [m, toDecimal(0)]),
+  );
+  let reversed = toDecimal(0);
+  let count = 0;
+  for (const r of raw) {
+    const d = fromDbDate(r.d);
+    const row = byDay.get(d) ?? {
+      day: d,
+      byMethod: Object.fromEntries(methods.map((m) => [m, "0.00"])),
+      total: "0.00",
+      count: 0,
+    };
+    row.byMethod[r.method] = money(r.amount);
+    row.total = toDecimal(row.total).plus(r.amount).toFixed(2);
+    row.count += r.n;
+    byDay.set(d, row);
+    methodTotals[r.method] = methodTotals[r.method]!.plus(r.amount);
+    reversed = reversed.plus(r.reversed);
+    count += r.n;
+  }
+  const total = Object.values(methodTotals).reduce((s, v) => s.plus(v), toDecimal(0));
+  return {
+    rows: [...byDay.values()].filter((r) => r.count > 0),
+    methodTotals: Object.fromEntries(
+      Object.entries(methodTotals).map(([k, v]) => [k, v.toFixed(2)]),
+    ) as Record<(typeof methods)[number], string>,
+    total: total.toFixed(2),
+    count,
+    reversed: reversed.toFixed(2),
+  };
+}
+
+// ─── Profit and loss (from the journal) ─────────────────────────────
+
+export async function profitAndLoss(db: Db, actor: Actor, range: DayRange) {
+  authorize(actor, "reports.view");
+  const raw = await db.$queryRaw<
+    { code: string; name: string; type: string; debit: string; credit: string }[]
+  >`
+    SELECT a.code, a.name, a.type::text AS type,
+      COALESCE(SUM(l.debit), 0)::text AS debit, COALESCE(SUM(l.credit), 0)::text AS credit
+    FROM journal_lines l
+    JOIN journal_entries e ON e.id = l.entry_id
+    JOIN accounts a ON a.id = l.account_id
+    WHERE a.type IN ('INCOME', 'EXPENSE') AND e.date BETWEEN ${toDbDate(range.from)} AND ${toDbDate(range.to)}
+    GROUP BY a.code, a.name, a.type
+    ORDER BY a.code`;
+  const income = raw
+    .filter((r) => r.type === "INCOME")
+    .map((r) => ({ code: r.code, name: r.name, amount: toDecimal(r.credit).minus(r.debit).toFixed(2) }));
+  const expenses = raw
+    .filter((r) => r.type === "EXPENSE")
+    .map((r) => ({ code: r.code, name: r.name, amount: toDecimal(r.debit).minus(r.credit).toFixed(2) }));
+  const totalIncome = income.reduce((s, r) => s.plus(r.amount), toDecimal(0));
+  const totalExpenses = expenses.reduce((s, r) => s.plus(r.amount), toDecimal(0));
+  const cogsPosted = expenses.some((r) => r.code === "5000" && !toDecimal(r.amount).isZero());
+  return {
+    income,
+    expenses,
+    totalIncome: totalIncome.toFixed(2),
+    totalExpenses: totalExpenses.toFixed(2),
+    result: totalIncome.minus(totalExpenses).toFixed(2),
+    cogsPosted,
+  };
+}
+
+// ─── Stock value ────────────────────────────────────────────────────
+
+/** Stock on hand at each product's cost price. Products without a cost price are listed, not guessed. */
+export async function stockValuation(db: Db, actor: Actor) {
+  authorize(actor, "reports.view");
+  authorize(actor, "catalogue.costs");
+  const products = await db.product.findMany({
+    where: { OR: [{ status: "ACTIVE" }, { balances: { some: { quantity: { not: 0 } } } }] },
+    orderBy: [{ brand: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      sku: true,
+      name: true,
+      brand: true,
+      unitsPerPack: true,
+      packsPerCarton: true,
+      costPrice: true,
+      balances: { select: { quantity: true } },
+    },
+  });
+  let total = toDecimal(0);
+  let missing = 0;
+  const rows = products.map((p) => {
+    const pieces = p.balances.reduce((s, b) => s + b.quantity, 0);
+    const value = p.costPrice ? p.costPrice.times(pieces) : null;
+    if (value) total = total.plus(value);
+    else if (pieces !== 0) missing += 1;
+    return {
+      id: p.id,
+      sku: p.sku,
+      name: p.name,
+      brand: p.brand,
+      sizes: { unitsPerPack: p.unitsPerPack, packsPerCarton: p.packsPerCarton },
+      pieces,
+      costPrice: p.costPrice?.toFixed(2) ?? null,
+      value: value?.toFixed(2) ?? null,
+    };
+  });
+  return { rows, total: total.toFixed(2), missing };
+}
+
+// ─── Dashboard ──────────────────────────────────────────────────────
+
+export async function dashboard(db: Db, actor: Actor, today = todayInNairobi()) {
+  authorize(actor, "reports.view");
+  const monthStart = startOfMonth(today);
+  const prevStart = startOfPreviousMonth(today);
+  // Same number of days into last month, so "vs last month" compares like with like.
+  const dayOfMonth = Number(today.slice(8, 10));
+  const prevSameDay = addDays(prevStart, Math.min(dayOfMonth, daysBetween(prevStart, monthStart)) - 1);
+
+  const [
+    todaySales,
+    monthSales,
+    prevMonthSales,
+    monthIn,
+    trend,
+    receivables,
+    lowStock,
+    topCustomers,
+    topProducts,
+  ] = await Promise.all([
+    salesTotals(db, { from: today, to: today }),
+    salesTotals(db, { from: monthStart, to: today }),
+    salesTotals(db, { from: prevStart, to: prevSameDay }),
+    collections(db, { from: monthStart, to: today }),
+    dailyTrend(db, 30, today),
+    db.$queryRaw<{ owed: string; overdue: string; customers: number }[]>`
+        SELECT COALESCE(SUM(total - amount_paid - amount_credited), 0)::text AS owed,
+          COALESCE(SUM(total - amount_paid - amount_credited)
+            FILTER (WHERE COALESCE(due_date, issue_date) < ${toDbDate(today)}), 0)::text AS overdue,
+          COUNT(DISTINCT customer_id) FILTER (WHERE total - amount_paid - amount_credited > 0)::int AS customers
+        FROM sales_documents WHERE kind = 'INVOICE' AND status = 'POSTED'`,
+    db.$queryRaw<{ n: number }[]>`
+        SELECT COUNT(*)::int AS n FROM products p
+        WHERE p.status = 'ACTIVE'
+          AND COALESCE((SELECT SUM(quantity) FROM stock_balances b WHERE b.product_id = p.id), 0) <= p.reorder_level`,
+    salesReport(db, actor, { from: monthStart, to: today }, "customer"),
+    salesReport(db, actor, { from: monthStart, to: today }, "product"),
+  ]);
+  const r = receivables[0]!;
+  const stock = hasPermission(actor.role, "catalogue.costs") ? await stockValuation(db, actor) : null;
+  return {
+    today,
+    todaySales,
+    monthSales,
+    prevMonthSales,
+    monthReceived: monthIn.total,
+    trend,
+    owed: money(r.owed),
+    overdue: money(r.overdue),
+    customersOwing: r.customers,
+    lowStock: lowStock[0]?.n ?? 0,
+    stockValue: stock ? { total: stock.total, missing: stock.missing } : null,
+    topCustomers: topCustomers.rows.slice(0, 5),
+    topProducts: topProducts.rows.slice(0, 5),
+  };
+}

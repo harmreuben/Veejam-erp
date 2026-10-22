@@ -1,11 +1,19 @@
 import type { NextConfig } from "next";
 
-/** Baseline security headers. A full Content-Security-Policy is added in Phase 8. */
+/**
+ * Security headers on every response. The Content-Security-Policy needs a fresh
+ * nonce per request, so it is set in src/proxy.ts instead of here.
+ */
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  // Browsers only honour this over HTTPS (Vercel), so it is harmless on localhost.
+  ...(process.env.NODE_ENV === "production"
+    ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]
+    : []),
 ];
 
 const nextConfig: NextConfig = {

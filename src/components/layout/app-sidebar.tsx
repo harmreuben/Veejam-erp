@@ -17,11 +17,11 @@ function ModuleItem({ module, permissions }: { module: ErpModule; permissions: r
   return (
     <span
       aria-disabled="true"
-      title={`Built in phase ${module.phase}`}
+      title={`Built in phase ${module.phaseLabel ?? module.phase}`}
       className="text-sidebar-muted flex cursor-default items-center justify-between rounded-md px-3 py-1.5 text-sm"
     >
       {module.name}
-      <span className="text-xs">Phase {module.phase}</span>
+      <span className="text-xs">Phase {module.phaseLabel ?? module.phase}</span>
     </span>
   );
 }

@@ -2,6 +2,9 @@
 export const MOCK_AUTH_PORT = 54329;
 export const E2E_ANON_KEY = "e2e-anon-key";
 export const E2E_SERVICE_KEY = "e2e-service-role-key";
+export const E2E_OWNER_WHATSAPP = "254711000001";
+export const E2E_META_APP_SECRET = "e2e-app-secret-not-real";
+export const E2E_VERIFY_TOKEN = "e2e-verify-token";
 export const E2E_DATABASE_URL =
   process.env.E2E_DATABASE_URL ?? "postgresql://veejam:veejam_local@localhost:5432/veejam_e2e_test";
 

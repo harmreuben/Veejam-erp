@@ -9,6 +9,7 @@ import { requestContext } from "@/server/auth/session";
 import { createSupabaseServerClient, isSupabaseConfigured } from "@/server/auth/supabase";
 import { getDb } from "@/server/db/client";
 import { findUserByAuthId } from "@/server/modules/users/service";
+import { hitLimit, isLimited, LIMITS, minutes } from "@/server/security/rate-limit";
 
 export type SignInState = { error?: string; email?: string };
 
@@ -33,6 +34,20 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
 
   const db = getDb();
   const ctx = await requestContext();
+  // Only failures count, so busy offices signing in normally are never blocked.
+  const emailKey = `signin:email:${parsed.data.email}`;
+  const ipKey = `signin:ip:${ctx.ipAddress ?? "unknown"}`;
+  const [byEmail, byIp] = await Promise.all([
+    isLimited(db, emailKey, LIMITS.signInEmail),
+    isLimited(db, ipKey, LIMITS.signInIp),
+  ]);
+  if (!byEmail.allowed || !byIp.allowed) {
+    const wait = Math.max(
+      byEmail.allowed ? 0 : byEmail.retryAfterSeconds,
+      byIp.allowed ? 0 : byIp.retryAfterSeconds,
+    );
+    return { error: `Too many failed sign-in attempts. Wait ${minutes(wait)} and try again.`, email };
+  }
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
@@ -43,6 +58,19 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
     // Supabase reports a ban only after the password checks out, so saying
     // "deactivated" here reveals nothing to someone guessing passwords.
     const banned = error?.code === "user_banned";
+    const [emailHit] = await Promise.all([
+      hitLimit(db, emailKey, LIMITS.signInEmail),
+      hitLimit(db, ipKey, LIMITS.signInIp),
+    ]).catch(() => [null]);
+    if (emailHit && emailHit.count === LIMITS.signInEmail.limit) {
+      await writeAudit(db, {
+        actorLabel: parsed.data.email,
+        action: "RATE_LIMITED",
+        entityType: "Session",
+        summary: `Sign-in locked for ${minutes(emailHit.retryAfterSeconds)} after ${emailHit.count} failed attempts`,
+        ...ctx,
+      }).catch(() => undefined);
+    }
     await writeAudit(db, {
       actorLabel: parsed.data.email,
       action: "AUTH_SIGN_IN_FAILED",

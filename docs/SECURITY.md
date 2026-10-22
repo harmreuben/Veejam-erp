@@ -1,6 +1,6 @@
 # Security
 
-## In place (Phases 1–5a)
+## In place (Phases 1–5a, 6, 8)
 
 | Control                                                                                                                                                                                | Where                                                       |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
@@ -40,14 +40,28 @@
 | Credit notes can't credit more than was sold; posted credit notes are immutable like invoices (tested)                                                                                 | `sales/credit-notes.ts`                                     |
 | Server actions reject cross-site requests (Next.js checks the Origin header); inputs validated with Zod on the server                                                                  | Next.js + service schemas                                   |
 
+## Added in Phases 6 and 8
+
+| Control                                                                                                                                                                                                                                                               | Where                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| WhatsApp webhook rejects anything without a valid `X-Hub-Signature-256` (HMAC-SHA256 of the raw body, constant-time compare); refuses all calls when `META_APP_SECRET` isn't set; verification token checked on GET (tested)                                          | `api/whatsapp/webhook`, `whatsapp/webhook.ts`                          |
+| Commands only from an active owner's linked number that is also `VEEJAM_OWNER_WHATSAPP_NUMBER`; strangers get one refusal a day; admins can't run commands (tested)                                                                                                   | `whatsapp/inbound.ts`                                                  |
+| Each WhatsApp message id processed once (unique index), so retried webhooks can't repeat an action (tested)                                                                                                                                                           | `whatsapp_messages`                                                    |
+| Changes need YES + a random 6-digit code: hashed at rest, single use, 5-minute expiry, 3 attempts, bound to the owner; the draft's version and the customer's balance are re-checked before anything is saved; payment idempotency key = the confirmation id (tested) | `whatsapp/commands.ts`                                                 |
+| Rate limits in Postgres: 8 failed sign-ins per email and 30 per IP per 15 minutes (only failures count), 20 WhatsApp messages per sender per minute, 300 webhook calls and 30 share-link opens per IP per minute (tested)                                             | `security/rate-limit.ts`                                               |
+| Content-Security-Policy with a fresh nonce per request (`script-src 'nonce-…' 'strict-dynamic'`, `frame-ancestors 'none'`, `object-src 'none'`, `base-uri`/`form-action 'self'`); browser test fails on any violation                                                 | `src/proxy.ts`                                                         |
+| HSTS (2 years) in production; Cross-Origin-Opener-Policy `same-origin`                                                                                                                                                                                                | `next.config.ts`                                                       |
+| Reports, dashboard and CSV exports limited to owners, admins and accountants; stock value needs cost-price permission; CSV cells starting with `= + - @` are neutralised (formula injection)                                                                          | `reports/`, `lib/csv.ts`                                               |
+| Audit log viewer with filters; exporting it is itself audited                                                                                                                                                                                                         | `/audit`                                                               |
+| Encrypted backups (AES-256-GCM, scrypt-derived key); tampering or a wrong passphrase is detected; restores only into an empty database, never the live one, and verify every table by SHA-256 (tested)                                                                | `server/backup/backup.ts`, `scripts/backup.mts`, `scripts/restore.mts` |
+| `npm run audit:deps` checks production dependencies (0 known vulnerabilities at the time of writing)                                                                                                                                                                  | `package.json`                                                         |
+
 ## Planned
 
-| Phase | Control                                                                                                                                                      |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2+    | Append-only audit log for invoices, postings, stock adjustments, payments, price changes, imports, settings.                                                 |
-| 3+    | Zod validation on every input; Prisma parameterised queries only (no string-built SQL); React output escaping (no `dangerouslySetInnerHTML` with user data). |
-| 6–7   | Webhook HMAC-SHA256 on raw body with constant-time compare; owner allow-list; idempotency on event IDs; expiring, single-use, version-bound confirmations.   |
-| 8     | Rate limiting on sign-in, webhook, share-link and API routes; Content-Security-Policy; dependency audit; backup and restore drill.                           |
+| Phase | Control                                                                                                                                                  |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 7     | Meta Cloud API sending with the system-user token in Vercel only; webhook tested end to end against Meta's test number.                                  |
+| 9     | Production review: rotate every secret that was ever shared in chat, Supabase daily backups and point-in-time recovery, uptime monitoring, error alerts. |
 
 ## Secret handling
 

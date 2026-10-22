@@ -17,3 +17,6 @@ export declare const E2E_USERS: {
   storekeeper: E2EUser;
   stranger: E2EUser;
 };
+export declare const E2E_OWNER_WHATSAPP: string;
+export declare const E2E_META_APP_SECRET: string;
+export declare const E2E_VERIFY_TOKEN: string;

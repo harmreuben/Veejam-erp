@@ -69,6 +69,17 @@ Rules Prisma can't express (check constraints, the audit trigger, RLS) are hand-
 
 `sales_documents` gained the `CREDIT_NOTE` kind (CN-, draft → posted, always linked to its invoice), `amount_credited` (paid + credited ≤ total), `returns_to_stock` and a unique `idempotency_key`. The posted-document trigger now covers credit notes and allows only `amount_paid`, `amount_credited`, `updated_at` and `version` to change. `stock_movements` gained `RETURN_IN` (always positive). `company_settings` gained `books_closed_until`.
 
+## Phase 6 and 8 tables
+
+| Table                    | Purpose                                                                         | Key rules                                                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `whatsapp_messages`      | Every WhatsApp message in and out, with its status and command                  | Incoming messages unique by the provider's message id (a repeated webhook is ignored); number format check; ≤ 4096 characters |
+| `whatsapp_confirmations` | Changes asked for on WhatsApp, waiting for YES + code                           | Only the SHA-256 of the code is stored; expiry; at most 5 attempts; pending ⇔ not yet resolved                                |
+| `rate_limits`            | Fixed-window counters (failed sign-ins, webhook, share links, WhatsApp senders) | Kept in Postgres because serverless instances don't share memory; old windows tidied automatically                            |
+| `backup_runs`            | Each backup and successful restore drill                                        | Written by the backup scripts; shown on the Backup & recovery page                                                            |
+
+`users` gained `whatsapp_number` (unique, digits only).
+
 ## Roles
 
 Fixed roles in the `UserRole` enum: `OWNER`, `ADMIN`, `ACCOUNTANT`, `SALES`, `STOREKEEPER`. What each may do is defined in code (`src/server/auth/permissions.ts`) and checked on the server for every action. The system always keeps at least one active owner; this is enforced with a row lock, so two owners acting at the same moment can't both be removed.
@@ -83,7 +94,7 @@ Fixed roles in the `UserRole` enum: `OWNER`, `ADMIN`, `ACCOUNTANT`, `SALES`, `ST
 
 **Phase 5b — purchasing:** `PurchaseOrder`, `GoodsReceipt`, `SupplierInvoice`, supplier payments, cost layers for cost of goods sold.
 
-**Phases 6–7 — WhatsApp:** `WhatsAppMessage`, `WhatsAppEvent` (unique event id for idempotency), `PendingConfirmation`.
+**Phases 6 and 8 — built** (see above). Phase 7 connects the Meta Cloud API to the same tables.
 
 ## Checking the database matches the schema
 

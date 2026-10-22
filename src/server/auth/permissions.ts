@@ -50,13 +50,20 @@ export const PERMISSIONS = [
   "accounting.view", // chart of accounts, journal, trial balance
   "accounting.journal", // manual journal entries (e.g. expenses)
   "accounting.close", // close the books up to a date
+  // Phase 6
+  "whatsapp.use", // run ERP commands from a linked WhatsApp number (owners only)
+  "whatsapp.view", // read the WhatsApp message log
+  // Phase 8
+  "reports.view", // dashboard and management reports
+  "backups.view", // see when backups were taken
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
 
 const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
   OWNER: PERMISSIONS,
-  ADMIN: PERMISSIONS,
+  // WhatsApp commands act with an owner's full authority, so they stay with owners.
+  ADMIN: PERMISSIONS.filter((p) => p !== "whatsapp.use"),
   ACCOUNTANT: [
     "settings.view",
     "audit.view",
@@ -77,6 +84,7 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "credit_notes.manage",
     "accounting.view",
     "accounting.journal",
+    "reports.view",
   ],
   SALES: [
     "settings.view",

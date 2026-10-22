@@ -60,7 +60,14 @@ export type AuditAction =
   | "BOOKS_CLOSED"
   | "ACCOUNT_CREATED"
   | "ACCOUNT_UPDATED"
-  | "OPENING_BALANCES_POSTED";
+  | "OPENING_BALANCES_POSTED"
+  | "WHATSAPP_NUMBER_LINKED"
+  | "WHATSAPP_COMMAND_CONFIRMED"
+  | "WHATSAPP_SENDER_REFUSED"
+  | "AUDIT_EXPORTED"
+  | "BACKUP_TAKEN"
+  | "BACKUP_RESTORED"
+  | "RATE_LIMITED";
 
 export type AuditEntry = {
   actorUserId?: string | null;

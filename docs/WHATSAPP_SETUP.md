@@ -1,6 +1,14 @@
 # WhatsApp setup
 
-> Phase 1: configuration plan. The mock provider is built in Phase 6 and the Meta provider is connected and tested in Phase 7. Until then, no WhatsApp feature is claimed to work.
+> **Phase 6 is built:** commands, confirmations, the signed webhook and the in-app simulator work with the mock provider. **Phase 7** connects the Meta Cloud API; until then `WHATSAPP_PROVIDER=meta` refuses to send (and logs that) rather than pretending.
+
+## Trying it now (mock provider)
+
+1. In `.env.local` set `VEEJAM_OWNER_WHATSAPP_NUMBER=2547XXXXXXXX` (the owner's real number, digits only) and restart `npm run dev`.
+2. Sign in as the owner → **WhatsApp commands → Your number** → enter the same number → Save.
+3. **Simulator** tab: type `HELP`, `SALES TODAY`, `BALANCE <customer>`, or `PAY <customer> 500 CASH` and reply `YES <code>`. These change real data once confirmed.
+
+Without `VEEJAM_OWNER_WHATSAPP_NUMBER` only the simulator works; the webhook refuses everything until `META_APP_SECRET` is set.
 
 ## Rules
 

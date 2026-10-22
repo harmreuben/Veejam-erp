@@ -146,6 +146,21 @@ Tax rates are configuration, not code. Rates must be confirmed against current K
 
 ## WhatsApp owner commands (Phase 6)
 
-Read-only commands answer immediately: `STOCK`, `PRICE`, `PRODUCT SEARCH`, `CUSTOMER SEARCH`, `CUSTOMER BALANCE`, `SALES TODAY`, `SALES MONTH`, `LOW STOCK`, `INVOICE <no>`, `STATEMENT <customer>`.
+Only an **active owner** whose WhatsApp number is linked (WhatsApp commands → Your number) can run commands, and for real messages the number must also be `VEEJAM_OWNER_WHATSAPP_NUMBER`. Anyone else gets one polite refusal a day and nothing else; every message in and out is in the message log. Until the Meta Cloud API is connected (Phase 7), use the **simulator** on the WhatsApp commands page — it goes through exactly the same code.
 
-Commands that change data follow: identify owner → parse → validate → fetch authoritative data → create draft → send summary → wait for explicit confirmation → revalidate → commit in one transaction → reply with reference → audit. Confirmations expire and are bound to the owner, the action and the draft version.
+**Look things up** (answered straight away): `SALES TODAY | YESTERDAY | WEEK | MONTH`, `PAYMENTS TODAY | WEEK | MONTH`, `STOCK <product>`, `LOW STOCK`, `PRICE <product>`, `PRODUCT <search>`, `CUSTOMER <search>`, `BALANCE <customer>`, `STATEMENT <customer>`, `OWED`, `INVOICE <number>`, `HELP`. Customers can be named by code (`CUS-000004`) or name; if a name matches several, the reply lists them instead of guessing.
+
+**Make changes** (always confirmed):
+
+- `PAY <customer> <amount> <CASH|MPESA|BANK|CHEQUE> [code]` — e.g. `PAY CUS-000004 3000 MPESA SJK3H7QW2P`. Applied to the oldest invoices first.
+- `SELL <customer>: <qty> <ctn|pk|pc> <product>, …` — e.g. `SELL Mama Pima: 2 ctn Big G, 5 pk Doublemint`. A draft invoice is saved straight away (visible in the ERP); it is posted only on confirmation. Missing stock and credit-limit problems are warned about up front.
+
+The reply summarises exactly what will happen and ends with **YES 482913** (a one-time code). Nothing changes until the owner replies with that code. The code works once, expires after 5 minutes, and three wrong codes cancel the request; `NO` cancels; a new request replaces an older one. On YES the ERP checks again — if the customer's balance changed or the draft was edited meanwhile, nothing is done and the reply says why. Every confirmed change is audited.
+
+## Reports (Phase 8)
+
+Dashboard (sales today and this month, money received, what customers owe and how much is overdue, low stock, stock at cost, a 30-day chart, top customers and products) and Reports: sales by day/month/customer/product, money received by method, VAT by month and rate, profit and loss from the ledger, and stock value. Every report downloads as CSV. Profit is income less expenses until purchasing records the cost of goods sold (Phase 5b), and the page says so. Owners, admins and accountants only.
+
+## Backups (Phase 8)
+
+`npm run backup` writes an encrypted file of every table (AES-256-GCM, key from `BACKUP_PASSPHRASE`). Take one weekly and keep a copy off the computer. Once a month run the **restore drill**: `npm run backup:restore -- --file … --to "<empty database>" --migrate` restores into a throwaway database and checks every table matches the backup exactly. The Backup & recovery page shows when each was last done and warns when overdue.

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import { Toaster } from "sonner";
 import "@fontsource-variable/public-sans";
@@ -15,7 +16,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+  // Reading the request makes every page render per request, which the
+  // Content-Security-Policy nonce needs (a page built ahead of time has no nonce).
+  await headers();
   return (
     <html lang="en-KE" className="h-full">
       <body className="min-h-full">

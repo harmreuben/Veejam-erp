@@ -2,7 +2,7 @@
 
 Distribution, invoicing, inventory and accounting system for **VeeJam Limited**, a Wrigley products distributor in Kenya. The business owner can also query and operate the ERP over the official WhatsApp Business Cloud API.
 
-> **Status: Phase 5a of 9 — money in.** On top of selling (Phase 4), staff record customer payments (cash, M-Pesa, bank, cheque) with printed receipts, issue credit notes for returns, and see statements and ageing per customer. Every invoice, payment and credit note posts a balanced double-entry journal; the trial balance, ledgers, manual journal entries and closing the books are under Accounting. Purchasing (Phase 5b) is next. See [Build plan](#build-plan).
+> **Status: Phases 1–4, 5a, 6 and 8 done.** Selling, payments and double-entry accounting (Phase 5a) are joined by WhatsApp owner commands with a built-in simulator (Phase 6) and a dashboard, reports with CSV export, an audit log viewer, rate limiting, a Content-Security-Policy and encrypted backups with a verified restore drill (Phase 8). Still to come: purchasing (5b), the live Meta WhatsApp connection (7) and production go-live (9). See [Build plan](#build-plan).
 
 ## Tech stack
 
@@ -70,6 +70,9 @@ code .
 | `npm run db:seed`                                         | Create company settings and numbering if missing (safe to repeat)      |
 | `npm run user:grant -- --email … --name "…" --role OWNER` | Give a Supabase account ERP access (first owner)                       |
 | `npm run legacy:stage`                                    | Store the old system's CSV exports for the Phase 3 import              |
+| `npm run backup`                                          | Encrypted backup of the whole database (needs BACKUP_PASSPHRASE)       |
+| `npm run backup:restore -- --file … --to … --migrate`     | Restore a backup into an empty database and verify it (the drill)      |
+| `npm run audit:deps`                                      | Check production dependencies for known vulnerabilities                |
 
 Health check while the app runs: http://localhost:3000/api/health
 
@@ -112,10 +115,10 @@ docs/                  Architecture, schema, workflows, security, deployment, te
 | 2     | Supabase, Prisma schema, migrations, auth, roles, seed  | Done                          |
 | 3     | Customers, products/SKUs, imports, pricing, inventory   | Done                          |
 | 4     | Quotations, sales orders, invoices, PDFs, stock posting | Done                          |
-| 5     | Payments, receipts, double-entry accounting             | 5a done; 5b (purchasing) next |
-| 6     | WhatsApp mock provider, command parser, confirmations   |                               |
+| 5     | Payments, receipts, double-entry accounting; purchasing | 5a done; 5b (purchasing) next |
+| 6     | WhatsApp mock provider, command parser, confirmations   | Done                          |
 | 7     | Meta Cloud API on a test number with verified webhook   |                               |
-| 8     | Reports, audit tools, security hardening, backups       |                               |
+| 8     | Reports, audit tools, security hardening, backups       | Done                          |
 | 9     | Production deployment and full workflow test            |                               |
 
 ## Ground rules

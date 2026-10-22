@@ -3,7 +3,10 @@ import { defineConfig, devices } from "@playwright/test";
 import {
   E2E_ANON_KEY,
   E2E_DATABASE_URL,
+  E2E_META_APP_SECRET,
+  E2E_OWNER_WHATSAPP,
   E2E_SERVICE_KEY,
+  E2E_VERIFY_TOKEN,
   MOCK_AUTH_PORT,
 } from "./tests/e2e/support/fixtures.mjs";
 
@@ -58,6 +61,9 @@ export default defineConfig({
         DIRECT_URL: E2E_DATABASE_URL,
         APP_BASE_URL: `http://localhost:${PORT}`,
         WHATSAPP_PROVIDER: "mock",
+        VEEJAM_OWNER_WHATSAPP_NUMBER: E2E_OWNER_WHATSAPP,
+        META_APP_SECRET: E2E_META_APP_SECRET,
+        META_WHATSAPP_VERIFY_TOKEN: E2E_VERIFY_TOKEN,
       },
     },
   ],
