@@ -518,3 +518,154 @@ export async function dashboard(db: Db, actor: Actor, today = todayInNairobi()) 
     topProducts: topProducts.rows.slice(0, 5),
   };
 }
+
+// ─── A salesperson's own dashboard ──────────────────────────────────
+
+/**
+ * One person's own selling: invoices they wrote (posted, VAT-inclusive) less
+ * credit notes raised against those invoices, money they recorded, their open
+ * quotes and orders, and their customers' overdue invoices to chase.
+ * Old-system invoices are left out. No costs or profit.
+ */
+export async function myDashboard(db: Db, actor: Actor, today = todayInNairobi()) {
+  authorize(actor, "dashboard.own");
+  const me = actor.id;
+  const monthStart = startOfMonth(today);
+  const prevStart = startOfPreviousMonth(today);
+  const dayOfMonth = Number(today.slice(8, 10));
+  const prevSameDay = addDays(prevStart, Math.min(dayOfMonth, daysBetween(prevStart, monthStart)) - 1);
+  const from30 = addDays(today, -29);
+
+  const mySales = async (range: DayRange) => {
+    const [row] = await db.$queryRaw<{ invoices: number; gross: string; credited: string }[]>`
+      SELECT
+        (SELECT COUNT(*)::int FROM sales_documents
+          WHERE kind = 'INVOICE' AND status = 'POSTED' AND NOT historical AND created_by_id = ${me}::uuid
+            AND issue_date BETWEEN ${toDbDate(range.from)} AND ${toDbDate(range.to)}) AS invoices,
+        (SELECT COALESCE(SUM(total), 0)::text FROM sales_documents
+          WHERE kind = 'INVOICE' AND status = 'POSTED' AND NOT historical AND created_by_id = ${me}::uuid
+            AND issue_date BETWEEN ${toDbDate(range.from)} AND ${toDbDate(range.to)}) AS gross,
+        (SELECT COALESCE(SUM(cn.total), 0)::text FROM sales_documents cn
+          JOIN sales_documents inv ON inv.id = cn.source_document_id
+          WHERE cn.kind = 'CREDIT_NOTE' AND cn.status = 'POSTED' AND inv.created_by_id = ${me}::uuid
+            AND cn.issue_date BETWEEN ${toDbDate(range.from)} AND ${toDbDate(range.to)}) AS credited`;
+    return { invoices: row!.invoices, netGross: toDecimal(row!.gross).minus(row!.credited).toFixed(2) };
+  };
+
+  const [
+    today_,
+    month,
+    prevMonth,
+    received,
+    trendSales,
+    trendReceived,
+    open,
+    chase,
+    topProducts,
+    topCustomers,
+  ] = await Promise.all([
+    mySales({ from: today, to: today }),
+    mySales({ from: monthStart, to: today }),
+    mySales({ from: prevStart, to: prevSameDay }),
+    db.$queryRaw<{ amount: string; n: number }[]>`
+        SELECT COALESCE(SUM(amount), 0)::text AS amount, COUNT(*)::int AS n FROM payments
+        WHERE status = 'POSTED' AND received_by_id = ${me}::uuid
+          AND received_on BETWEEN ${toDbDate(monthStart)} AND ${toDbDate(today)}`,
+    db.$queryRaw<{ d: Date; gross: string }[]>`
+        SELECT d, SUM(gross)::text AS gross FROM (
+          SELECT issue_date AS d, total AS gross FROM sales_documents
+           WHERE kind = 'INVOICE' AND status = 'POSTED' AND NOT historical AND created_by_id = ${me}::uuid
+             AND issue_date BETWEEN ${toDbDate(from30)} AND ${toDbDate(today)}
+          UNION ALL
+          SELECT cn.issue_date, -cn.total FROM sales_documents cn
+            JOIN sales_documents inv ON inv.id = cn.source_document_id
+           WHERE cn.kind = 'CREDIT_NOTE' AND cn.status = 'POSTED' AND inv.created_by_id = ${me}::uuid
+             AND cn.issue_date BETWEEN ${toDbDate(from30)} AND ${toDbDate(today)}
+        ) x GROUP BY d`,
+    db.$queryRaw<{ d: Date; amount: string }[]>`
+        SELECT received_on AS d, SUM(amount)::text AS amount FROM payments
+        WHERE status = 'POSTED' AND received_by_id = ${me}::uuid
+          AND received_on BETWEEN ${toDbDate(from30)} AND ${toDbDate(today)}
+        GROUP BY received_on`,
+    db.$queryRaw<
+      { quotes: number; quotes_value: string; orders: number; orders_value: string; drafts: number }[]
+    >`
+        SELECT
+          COUNT(*) FILTER (WHERE kind = 'QUOTATION' AND status IN ('DRAFT', 'SENT', 'ACCEPTED'))::int AS quotes,
+          COALESCE(SUM(total) FILTER (WHERE kind = 'QUOTATION' AND status IN ('DRAFT', 'SENT', 'ACCEPTED')), 0)::text AS quotes_value,
+          COUNT(*) FILTER (WHERE kind = 'SALES_ORDER' AND status IN ('DRAFT', 'CONFIRMED'))::int AS orders,
+          COALESCE(SUM(total) FILTER (WHERE kind = 'SALES_ORDER' AND status IN ('DRAFT', 'CONFIRMED')), 0)::text AS orders_value,
+          COUNT(*) FILTER (WHERE kind = 'INVOICE' AND status = 'DRAFT')::int AS drafts
+        FROM sales_documents WHERE created_by_id = ${me}::uuid`,
+    db.$queryRaw<
+      {
+        id: string;
+        number: string;
+        customer_id: string;
+        customer: string;
+        due: Date;
+        balance: string;
+        all_count: number;
+        all_total: string;
+      }[]
+    >`
+        SELECT d.id, d.number, c.id AS customer_id, c.name AS customer, COALESCE(d.due_date, d.issue_date) AS due,
+               (d.total - d.amount_paid - d.amount_credited)::text AS balance,
+               (COUNT(*) OVER ())::int AS all_count,
+               (SUM(d.total - d.amount_paid - d.amount_credited) OVER ())::text AS all_total
+        FROM sales_documents d JOIN customers c ON c.id = d.customer_id
+        WHERE d.kind = 'INVOICE' AND d.status = 'POSTED' AND d.created_by_id = ${me}::uuid
+          AND d.total - d.amount_paid - d.amount_credited > 0
+          AND COALESCE(d.due_date, d.issue_date) < ${toDbDate(today)}
+        ORDER BY COALESCE(d.due_date, d.issue_date), d.number
+        LIMIT 10`,
+    db.$queryRaw<{ name: string; sku: string; gross: string; invoices: number }[]>`
+        SELECT l.description AS name, l.sku, SUM(l.gross_amount)::text AS gross, COUNT(DISTINCT d.id)::int AS invoices
+        FROM sales_document_lines l JOIN sales_documents d ON d.id = l.document_id
+        WHERE d.kind = 'INVOICE' AND d.status = 'POSTED' AND NOT d.historical AND d.created_by_id = ${me}::uuid
+          AND d.issue_date BETWEEN ${toDbDate(monthStart)} AND ${toDbDate(today)}
+        GROUP BY l.description, l.sku ORDER BY SUM(l.gross_amount) DESC LIMIT 5`,
+    db.$queryRaw<{ id: string; name: string; gross: string; invoices: number }[]>`
+        SELECT c.id, c.name, SUM(d.total)::text AS gross, COUNT(*)::int AS invoices
+        FROM sales_documents d JOIN customers c ON c.id = d.customer_id
+        WHERE d.kind = 'INVOICE' AND d.status = 'POSTED' AND NOT d.historical AND d.created_by_id = ${me}::uuid
+          AND d.issue_date BETWEEN ${toDbDate(monthStart)} AND ${toDbDate(today)}
+        GROUP BY c.id, c.name ORDER BY SUM(d.total) DESC LIMIT 5`,
+  ]);
+
+  const s = new Map(trendSales.map((r) => [fromDbDate(r.d), r.gross]));
+  const p = new Map(trendReceived.map((r) => [fromDbDate(r.d), r.amount]));
+  const o = open[0]!;
+  return {
+    today,
+    todaySales: today_,
+    monthSales: month,
+    prevMonthSales: prevMonth,
+    monthReceived: money(received[0]?.amount),
+    paymentsRecorded: received[0]?.n ?? 0,
+    trend: Array.from({ length: 30 }, (_, i) => {
+      const d = addDays(from30, i);
+      return { day: d, sales: money(s.get(d)), received: money(p.get(d)) };
+    }),
+    open: {
+      quotes: o.quotes,
+      quotesValue: money(o.quotes_value),
+      orders: o.orders,
+      ordersValue: money(o.orders_value),
+      draftInvoices: o.drafts,
+    },
+    toChase: chase.map((c) => ({
+      id: c.id,
+      number: c.number,
+      customerId: c.customer_id,
+      customer: c.customer,
+      due: fromDbDate(c.due),
+      daysOverdue: daysBetween(fromDbDate(c.due), today),
+      balance: money(c.balance),
+    })),
+    overdueCount: chase[0]?.all_count ?? 0,
+    overdueTotal: money(chase[0]?.all_total),
+    topProducts: topProducts.map((r) => ({ ...r, gross: money(r.gross) })),
+    topCustomers: topCustomers.map((r) => ({ ...r, gross: money(r.gross) })),
+  };
+}

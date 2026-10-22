@@ -61,6 +61,7 @@ describe("role permissions", () => {
         "catalogue.view",
         "customers.manage",
         "customers.view",
+        "dashboard.own",
         "delivery.manage",
         "documents.share",
         "inventory.view",
@@ -241,7 +242,11 @@ describe("where people land after signing in", () => {
     expect(homePathFor("OWNER", effectivePermissions("OWNER"))).toBe("/dashboard");
     expect(homePathFor("ADMIN", effectivePermissions("ADMIN"))).toBe("/dashboard");
     expect(homePathFor("ACCOUNTANT", effectivePermissions("ACCOUNTANT"))).toBe("/dashboard");
-    expect(homePathFor("SALES", effectivePermissions("SALES"))).toBe("/invoices");
+    expect(homePathFor("SALES", effectivePermissions("SALES"))).toBe("/dashboard");
+    // Without their own dashboard, sales start on invoices.
+    expect(
+      homePathFor("SALES", effectivePermissions("SALES", [{ permission: "dashboard.own", granted: false }])),
+    ).toBe("/invoices");
     expect(homePathFor("STOREKEEPER", effectivePermissions("STOREKEEPER"))).toBe("/inventory");
     // Giving someone the dashboard duty makes it their start page.
     expect(

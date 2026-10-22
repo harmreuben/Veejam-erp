@@ -57,8 +57,8 @@ test("owner adds a user, who signs in, changes password, and is then deactivated
   const fresh = await browser.newContext();
   const again = await fresh.newPage();
   await signIn(again, NEW.email, "Grace-own-pass-2026");
-  // Now in Sales, so they start on invoices.
-  await expect(again.getByRole("heading", { level: 1, name: "Invoices" })).toBeVisible();
+  // Now in Sales, so they start on their own sales dashboard.
+  await expect(again.getByText("Your sales this month")).toBeVisible();
   // The temporary password no longer works
   await fresh.clearCookies();
   await signIn(again, NEW.email, NEW.password);

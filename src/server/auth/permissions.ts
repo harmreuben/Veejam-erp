@@ -63,6 +63,7 @@ export const PERMISSIONS = [
   "whatsapp.view", // read the WhatsApp message log
   // Phase 8
   "reports.view", // dashboard and management reports
+  "dashboard.own", // a personal dashboard of one's own sales
   "backups.view", // see when backups were taken
 ] as const;
 
@@ -114,6 +115,7 @@ const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "delivery.manage",
     "documents.share",
     "payments.record",
+    "dashboard.own",
   ],
   STOREKEEPER: [
     "settings.view",
@@ -143,7 +145,7 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   ACCOUNTANT:
     "Customers and credit limits, invoices, payments and reversals, credit notes, purchasing, supplier bills and payments, the accounts and journals.",
   SALES:
-    "Customers, quotations, sales orders, invoices, deliveries and recording payments. No discounts, reversals or credit overrides.",
+    "Customers, quotations, sales orders, invoices, deliveries, recording payments and their own sales dashboard. No discounts, reversals or credit overrides.",
   STOREKEEPER:
     "Stock levels, transfers, stock counts, deliveries and receiving goods against purchase orders (posting a count needs an owner or admin).",
 };
@@ -229,6 +231,7 @@ export const REQUIRES: Partial<Record<Permission, Permission>> = {
   "bills.manage": "payables.view",
   "supplier_payments.manage": "payables.view",
   "whatsapp.use": "whatsapp.view",
+  "dashboard.own": "sales.view",
 };
 
 export type DutyChange = { permission: string; granted: boolean };
@@ -315,7 +318,8 @@ export const PERMISSION_INFO: Record<Permission, { group: DutyGroup; label: stri
   "accounting.view": { group: "Accounts", label: "See the accounts and ledger" },
   "accounting.journal": { group: "Accounts", label: "Post journal entries" },
   "accounting.close": { group: "Accounts", label: "Start and close the books" },
-  "reports.view": { group: "Reports and WhatsApp", label: "See the dashboard and reports" },
+  "reports.view": { group: "Reports and WhatsApp", label: "See the business dashboard and reports" },
+  "dashboard.own": { group: "Reports and WhatsApp", label: "See their own sales dashboard" },
   "whatsapp.view": { group: "Reports and WhatsApp", label: "See the WhatsApp message log" },
   "whatsapp.use": { group: "Reports and WhatsApp", label: "Run ERP commands from WhatsApp" },
   "settings.view": { group: "Administration", label: "See company settings" },

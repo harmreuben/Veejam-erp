@@ -3,7 +3,7 @@ import { LogOut, Menu, UserRound } from "lucide-react";
 
 import { signOut } from "@/app/(auth)/login/actions";
 import { InstallAppButton } from "@/components/pwa";
-import { ERP_MODULES, MODULE_GROUPS, type ErpModule } from "@/config/modules";
+import { canSeeModule, ERP_MODULES, MODULE_GROUPS, type ErpModule } from "@/config/modules";
 import { ROLE_LABELS, type Permission } from "@/server/auth/permissions";
 import type { AppUser } from "@/server/auth/resolve";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,7 @@ import { NavLink } from "./nav-link";
 
 function ModuleItem({ module, permissions }: { module: ErpModule; permissions: readonly Permission[] }) {
   if (module.href) {
-    if (module.permission && !permissions.includes(module.permission)) return null;
+    if (!canSeeModule(module, permissions)) return null;
     return <NavLink href={module.href}>{module.name}</NavLink>;
   }
   return (

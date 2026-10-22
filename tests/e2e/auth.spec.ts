@@ -24,8 +24,11 @@ test("a crafted next link can't send users to another site", async ({ page }) =>
 
 test("sales staff see only what their role allows", async ({ page }) => {
   await signIn(page, E2E_USERS.sales.email, E2E_USERS.sales.password);
-  // No dashboard for sales by default: they start on invoices.
-  await expect(page).toHaveURL(/\/invoices$/);
+  // Sales start on their own sales dashboard, without the business figures.
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByText("Your sales this month")).toBeVisible();
+  await expect(page.getByText("Owed by customers")).toHaveCount(0);
+  await expect(page.getByText("Stock at cost")).toHaveCount(0);
 
   const nav = page.getByRole("navigation", { name: "Modules" }).filter({ visible: true });
   await expect(nav.getByRole("link", { name: "Company settings" })).toBeVisible();

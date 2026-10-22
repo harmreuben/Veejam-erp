@@ -16,8 +16,8 @@ export type ErpModule = {
   phase: number;
   /** Set to the route once the module is actually built. */
   href?: string;
-  /** Permission needed to see the link. */
-  permission?: Permission;
+  /** Permission needed to see the link; with a list, any one of them is enough. */
+  permission?: Permission | readonly Permission[];
   /** Shown instead of the phase number, e.g. "5b". */
   phaseLabel?: string;
 };
@@ -29,7 +29,8 @@ export const ERP_MODULES: readonly ErpModule[] = [
     group: "Operate",
     phase: 8,
     href: "/dashboard",
-    permission: "reports.view",
+    // The business dashboard, or a salesperson's own one.
+    permission: ["reports.view", "dashboard.own"],
   },
   {
     slug: "customers",
@@ -221,6 +222,13 @@ export const ERP_MODULES: readonly ErpModule[] = [
 
 export const MODULE_GROUPS: readonly ModuleGroup[] = ["Sell", "Stock", "Money", "Operate", "Admin"];
 
+/** Does someone with these duties get this module in their menu? */
+export function canSeeModule(m: ErpModule, permissions: readonly Permission[]): boolean {
+  if (!m.permission) return true;
+  const any = typeof m.permission === "string" ? [m.permission] : m.permission;
+  return any.some((p) => permissions.includes(p));
+}
+
 /**
  * Where each person lands after signing in: the dashboard if they may see it,
  * otherwise the first of their main working pages (e.g. invoices for sales,
@@ -239,7 +247,7 @@ const HOME_ORDER = [
 const ROLE_HOME: Partial<Record<UserRole, string>> = { STOREKEEPER: "inventory", SALES: "invoicing" };
 
 export function homePathFor(role: UserRole, permissions: readonly Permission[]): string {
-  const allowed = (m: ErpModule) => !!m.href && (!m.permission || permissions.includes(m.permission));
+  const allowed = (m: ErpModule) => !!m.href && canSeeModule(m, permissions);
   const order = ["dashboard", ...(ROLE_HOME[role] ? [ROLE_HOME[role]] : []), ...HOME_ORDER];
   for (const slug of order) {
     const m = ERP_MODULES.find((x) => x.slug === slug);

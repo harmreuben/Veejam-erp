@@ -7,7 +7,8 @@
 **Admin → Users & roles** lists everyone with access. Each person has a **role** (Owner, Administrator, Accountant, Sales, Storekeeper) that sets their starting duties. Click a name (or **Duties**) to tick or untick individual duties, for example let one salesperson give discounts, or stop another from recording payments. People marked **Customised** differ from their role.
 
 - Changes apply on the person's next click; everyone can see their own duties under **Your account**.
-- After signing in, everyone lands on the **Dashboard** if they have _See the dashboard and reports_; otherwise on their main page (Invoices for sales, Stock levels for storekeepers). Clicking the company name at the top of the menu goes back there.
+- After signing in, everyone lands on the **Dashboard**: the business dashboard for owners, admins and accountants, and a personal **My sales** dashboard for sales staff. Storekeepers start on Stock levels. Clicking the company name at the top of the menu goes back there.
+- **My sales** shows only that person's work: invoices they wrote (VAT-inclusive, less credit notes on them) today and this month against last month, money they recorded, open quotations and orders, a 30-day chart, their customers' overdue invoices to follow up, and their top customers and products. No costs, profit or company totals. Owners and admins see it as a second tab. It comes with the _See their own sales dashboard_ duty.
 - Owners always have every duty. Admins can change anyone except owners; nobody can change their own.
 - Running WhatsApp commands and managing users come only with a role (Owner, or Administrator for users).
 - Some duties need another: ticking _Post invoices_ also ticks _Prepare draft invoices_; unticking _See quotations, orders, invoices…_ unticks everything that depends on it.

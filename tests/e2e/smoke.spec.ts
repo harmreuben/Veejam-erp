@@ -30,6 +30,10 @@ test("owner lands on the dashboard, with the company name from the database", as
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard" })).toBeVisible();
   await expect(page.getByText("VeeJam Limited").filter({ visible: true }).first()).toBeVisible();
+  // Owners also have their own sales view.
+  await expect(
+    page.getByRole("navigation", { name: "Dashboards" }).getByRole("link", { name: "My sales" }),
+  ).toBeVisible();
   await signOut(page, isMobile);
   // Signed out: protected pages redirect again
   await page.goto("/");
