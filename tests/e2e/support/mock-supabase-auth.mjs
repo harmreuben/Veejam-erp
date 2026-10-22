@@ -2,7 +2,9 @@
  * TEST-ONLY stand-in for Supabase Auth (GoTrue), used by the browser tests.
  *
  * Implements only the endpoints this app calls: password sign-in, token
- * refresh, get/update user, sign-out, and the admin endpoints for creating,
+ * refresh, get/update user, sign-out (global/local/others), password reset
+ * emails (kept in a test-only outbox at GET /__outbox), verifying the emailed
+ * token, and the admin endpoints for creating,
  * listing, banning and deleting users. Tokens are HS256 JWTs, which makes the
  * app verify every request by calling GET /auth/v1/user, the same path it uses
  * with a real Supabase project that has symmetric signing keys.
@@ -20,6 +22,9 @@ const SECRET = randomBytes(32);
 const users = new Map(); // id -> user
 const refreshTokens = new Map(); // token -> { userId, sessionId }
 const revokedSessions = new Set();
+const sessions = new Map(); // sessionId -> userId
+const recoveryTokens = new Map(); // token_hash -> { userId, expires }
+const outbox = []; // { to, link, sentAt }
 
 function addUser({ id = randomUUID(), email, password }) {
   const now = new Date().toISOString();
@@ -71,6 +76,7 @@ const publicUser = (u) => ({
 
 function issueSession(user) {
   const sessionId = randomUUID();
+  sessions.set(sessionId, user.id);
   const now = Math.floor(Date.now() / 1000);
   const expiresIn = 3600;
   const refresh = randomBytes(24).toString("hex");
@@ -114,6 +120,15 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${MOCK_AUTH_PORT}`);
     const path = url.pathname;
     if (path === "/auth/v1/health") return send(res, 200, { status: "ok" });
+    // TEST ONLY: the emails "sent", newest last.
+    if (path === "/__outbox") {
+      const to = url.searchParams.get("to");
+      return send(
+        res,
+        200,
+        outbox.filter((m) => !to || m.to === to.toLowerCase()),
+      );
+    }
 
     const apikey = req.headers.apikey;
     if (apikey !== E2E_ANON_KEY && apikey !== E2E_SERVICE_KEY)
@@ -157,9 +172,46 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && path === "/auth/v1/logout") {
       const claims = verifyJwt(bearer(req));
-      if (claims) revokedSessions.add(claims.session_id);
+      if (claims) {
+        const scope = url.searchParams.get("scope") ?? "global";
+        for (const [sid, uid] of sessions) {
+          if (uid !== claims.sub) continue;
+          const isThis = sid === claims.session_id;
+          if (scope === "global" || (scope === "local" && isThis) || (scope === "others" && !isThis)) {
+            revokedSessions.add(sid);
+          }
+        }
+      }
       res.writeHead(204).end();
       return;
+    }
+
+    // Password reset email: like Supabase with the app's email template (token_hash link).
+    if (req.method === "POST" && path === "/auth/v1/recover") {
+      const body = await readJson(req);
+      const user = [...users.values()].find((u) => u.email === String(body.email ?? "").toLowerCase());
+      if (user) {
+        const tokenHash = randomBytes(20).toString("hex");
+        recoveryTokens.set(tokenHash, { userId: user.id, expires: Date.now() + 3600_000 });
+        const site = new URL(url.searchParams.get("redirect_to") ?? "http://localhost:3100/").origin;
+        outbox.push({
+          to: user.email,
+          link: `${site}/auth/confirm?token_hash=${tokenHash}&type=recovery&next=/reset-password`,
+          sentAt: new Date().toISOString(),
+        });
+      }
+      return send(res, 200, {});
+    }
+    if (req.method === "POST" && path === "/auth/v1/verify") {
+      const body = await readJson(req);
+      const entry = recoveryTokens.get(String(body.token_hash ?? ""));
+      if (!entry || body.type !== "recovery" || entry.expires < Date.now()) {
+        return authError(res, 403, "otp_expired", "Email link is invalid or has expired");
+      }
+      recoveryTokens.delete(String(body.token_hash)); // one use only
+      const user = users.get(entry.userId);
+      if (!user || isBanned(user)) return authError(res, 400, "user_banned", "User is banned");
+      return send(res, 200, issueSession(user));
     }
 
     // Admin API (service-role key only)

@@ -9,7 +9,7 @@ import { getDb } from "@/server/db/client";
 import { listUsers } from "@/server/modules/users/service";
 
 import { AddStaffForm } from "./add-staff-form";
-import { AccessToggle, RoleSelect } from "./user-row-actions";
+import { AccessToggle, ResetLinkButton, RoleSelect } from "./user-row-actions";
 
 export const metadata = { title: "Users & roles" };
 
@@ -113,7 +113,12 @@ export default async function UsersPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {editable && <AccessToggle userId={u.id} name={u.fullName} active={u.isActive} />}
+                      {editable && (
+                        <div className="flex justify-end gap-1">
+                          {u.isActive && <ResetLinkButton userId={u.id} name={u.fullName} />}
+                          <AccessToggle userId={u.id} name={u.fullName} active={u.isActive} />
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );

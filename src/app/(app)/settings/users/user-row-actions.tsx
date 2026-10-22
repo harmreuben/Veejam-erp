@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import type { UserRole } from "@/generated/prisma/enums";
 import type { ActionResult } from "@/server/action-result";
 
-import { updateAccess, updateRole } from "./actions";
+import { sendResetLink, updateAccess, updateRole } from "./actions";
 
 const selectClass =
   "border-input bg-card h-8 rounded-md border px-2 text-sm focus-visible:ring-ring/40 focus-visible:ring-[3px] outline-none";
@@ -104,6 +104,27 @@ export function AccessToggle({ userId, name, active }: { userId: string; name: s
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </form>
+  );
+}
+
+export function ResetLinkButton({ userId, name }: { userId: string; name: string }) {
+  const [state, action, pending] = useActionState<ActionResult, FormData>(sendResetLink, { ok: true });
+  useResultToast(state);
+  return (
+    <form action={action}>
+      <input type="hidden" name="userId" value={userId} />
+      <Button
+        type="submit"
+        size="sm"
+        variant="ghost"
+        disabled={pending}
+        aria-label={`Email ${name} a password reset link`}
+        title="Email a link to choose a new password"
+      >
+        {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+        Reset password
+      </Button>
     </form>
   );
 }

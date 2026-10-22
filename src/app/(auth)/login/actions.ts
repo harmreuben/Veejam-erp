@@ -122,7 +122,8 @@ export async function signOut(): Promise<void> {
     const sub = data?.claims?.sub ? String(data.claims.sub) : null;
     const db = getDb();
     const appUser = sub ? await findUserByAuthId(db, sub) : null;
-    await supabase.auth.signOut();
+    // This device only: signing out on the phone shouldn't sign the office PC out too.
+    await supabase.auth.signOut({ scope: "local" });
     if (appUser) {
       await writeAudit(db, {
         actorUserId: appUser.id,

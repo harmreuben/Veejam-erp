@@ -118,6 +118,12 @@ The browser tests sign in through `tests/e2e/support/mock-supabase-auth.mjs`, a 
 | `integration/my-dashboard.test.ts` | Own sales, credit notes on own invoices, money recorded, open work, overdue list; other people's sales excluded; permissions                                                                                                                                                                                                               |
 | `e2e/sales-batch.spec.ts`          | Sales posts a batch of three: two posted, one kept as a draft with the reason; LPO number kept                                                                                                                                                                                                                                             |
 
+### Added with password reset
+
+| File                         | Checks                                                                                                                                                                                                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `e2e/password-reset.spec.ts` | Same answer for unknown addresses (no email); link from the test outbox works on another device; mismatch refused; new password works, old doesn't; link works once; other devices signed out; new-password page refused without the link; owner's Reset password button; sign-out signs out this device only |
+
 ## Required tests by later phases
 
 Phase 7: a real message from Meta's test number reaches the webhook and gets a reply.

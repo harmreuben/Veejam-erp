@@ -59,6 +59,9 @@ const PUBLIC_PATHS = [
   "/api/health",
   "/api/whatsapp/webhook",
   "/d",
+  // Forgotten passwords: asking for a link, and the link itself.
+  "/forgot-password",
+  "/auth/confirm",
   // Installable web app: browsers fetch these without the session cookie.
   "/manifest.webmanifest",
   "/sw.js",

@@ -93,6 +93,37 @@ Once it is on Vercel (HTTPS), staff can install it like an app: its own icon, it
 
 The app always shows live data and stores nothing on the device: the service worker (`public/sw.js`) only shows an "offline" page when there's no connection. Updates arrive with each deploy; there is nothing to reinstall. Installing doesn't work on `http://localhost` from another device, only on the HTTPS Vercel address.
 
+## 6. Password reset emails (one time)
+
+Staff can reset a forgotten password themselves (**Forgot your password?** on the sign-in page), and owners/admins can send a link from **Users & roles → Reset password**. Supabase sends the email, so it needs three settings.
+
+1. **An email service.** Supabase's built-in sender only delivers to your Supabase team's own addresses, about 2 an hour, so connect your own. Simplest: a Gmail account.
+   - Turn on 2-Step Verification for that Google account, then create an **App password** (Google Account → Security → App passwords).
+   - Supabase → Authentication → **Emails** → **SMTP Settings** → enable custom SMTP:
+     host `smtp.gmail.com`, port `465`, username = the Gmail address, password = the app password, sender email = the same Gmail address, sender name `VeeJam Limited`.
+   - (Brevo or Resend work the same way with their SMTP details, and suit higher volumes.)
+   - Then Authentication → **Rate Limits**: emails per hour can stay at 30.
+2. **The reset email's link.** Supabase → Authentication → **Emails** → **Templates** → **Reset Password**, and replace the link with:
+
+   ```html
+   <h2>Reset your VeeJam ERP password</h2>
+   <p>Someone asked to reset the password for {{ .Email }}. If it was you, choose a new one:</p>
+   <p>
+     <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password"
+       >Choose a new password</a
+     >
+   </p>
+   <p>
+     The link works once, for one hour. If you didn't ask, ignore this email: your password stays the same.
+   </p>
+   ```
+
+   This link works on any device (the default one only works in the browser that asked).
+
+3. **URLs.** Authentication → **URL Configuration**: Site URL `https://veejam.vercel.app` (or your own domain), and under Redirect URLs `https://veejam.vercel.app/**` and `http://localhost:3000/**`.
+
+What the app does: the same answer whatever address is typed (it never reveals who has an account); links only for active ERP users; at most 3 emails per address an hour; the link works once, for an hour; the new-password page only opens from the link (a 15-minute, signed proof), so an unattended signed-in screen can't be used to change someone's password; after a reset every other device signed in as that person is signed out; everything is in the audit log. **Sign out** now signs out only the device you're on.
+
 ## 6. If the app feels slow
 
 Open **Admin → Speed check** (owners and admins) on the device that feels slow. It measures the round trip from that device, where the app's server runs, each database step and the sign-in check, and says what to change. The usual fixes:

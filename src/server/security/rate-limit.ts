@@ -19,6 +19,10 @@ export const LIMITS = {
   webhookIp: { limit: 300, windowSeconds: 60 },
   /** Messages per WhatsApp sender. */
   whatsappSender: { limit: 20, windowSeconds: 60 },
+  /** Password reset emails per address (each email costs and can annoy). */
+  resetEmail: { limit: 3, windowSeconds: 60 * 60 },
+  /** Password reset requests per IP. */
+  resetIp: { limit: 10, windowSeconds: 60 * 60 },
   /** Share-link opens per IP. */
   shareLinkIp: { limit: 30, windowSeconds: 60 },
 } as const satisfies Record<string, Limit>;
