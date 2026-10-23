@@ -30,6 +30,10 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: "on-first-retry",
+    // Most tests open pages directly by URL; the real app sends fresh loads to the
+    // start page. This header switches that off, and only the test server honours it
+    // (VEEJAM_TEST_DEEP_LINKS below). start-page.spec.ts tests the real behaviour.
+    extraHTTPHeaders: { "x-veejam-deep-links": "1" },
     // Optional: point at an already-installed Chromium instead of Playwright's download.
     launchOptions: process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : {},
   },
@@ -61,6 +65,7 @@ export default defineConfig({
         DIRECT_URL: E2E_DATABASE_URL,
         APP_BASE_URL: `http://localhost:${PORT}`,
         WHATSAPP_PROVIDER: "mock",
+        VEEJAM_TEST_DEEP_LINKS: "1",
         VEEJAM_OWNER_WHATSAPP_NUMBER: E2E_OWNER_WHATSAPP,
         META_APP_SECRET: E2E_META_APP_SECRET,
         META_WHATSAPP_VERIFY_TOKEN: E2E_VERIFY_TOKEN,

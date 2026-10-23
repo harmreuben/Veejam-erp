@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { SESSION_COOKIE_OPTIONS } from "@/server/auth/cookie-options";
+import { isFreshPageLoad, LANDING_COOKIE, opensDirectly, START_PATH } from "@/server/auth/landing";
 import { isPublicPath } from "@/server/auth/resolve";
 
 /**
@@ -32,6 +33,8 @@ export function contentSecurityPolicy(nonce: string, dev: boolean): string {
  * 0. Sets the Content-Security-Policy (see above).
  * 1. Refreshes the Supabase session cookie when it is about to expire.
  * 2. Sends signed-out visitors to /login.
+ * 3. Sends every fresh load of the app (opening it, reloading, a bookmark) to
+ *    the person's start page instead of wherever they last were.
  *
  * This is a first line of defence only. Every page, server action and route
  * handler checks the session and permissions again on the server, because the
@@ -71,6 +74,24 @@ export async function proxy(request: NextRequest) {
     const { data } = await supabase.auth.getClaims();
     authMs = performance.now() - started;
     signedIn = !!data?.claims?.sub;
+  }
+
+  // 3. Fresh loads start on the start page. Only the start page that /start just
+  // chose may load directly (once); moving around inside the app isn't affected.
+  // Browser tests can switch this off with a header, only when the test server allows it.
+  const testOptOut =
+    process.env.VEEJAM_TEST_DEEP_LINKS === "1" && request.headers.get("x-veejam-deep-links") === "1";
+  if (!testOptOut && isFreshPageLoad(request) && !opensDirectly(pathname)) {
+    const landing = request.cookies.get(LANDING_COOKIE)?.value;
+    if (landing !== pathname) {
+      const target = request.nextUrl.clone();
+      target.pathname = signedIn ? START_PATH : "/login";
+      target.search = "";
+      const redirect = NextResponse.redirect(target);
+      for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie);
+      return redirect;
+    }
+    response.cookies.delete(LANDING_COOKIE);
   }
 
   if (!signedIn && !isPublicPath(pathname)) {
