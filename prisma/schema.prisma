@@ -755,10 +755,14 @@ model SalesDocument {
   postedBy             User?               @relation("SalesDocumentPostedBy", fields: [postedById], references: [id], onDelete: Restrict)
   cancelledAt          DateTime?           @map("cancelled_at") @db.Timestamptz(3)
   cancelReason         String?             @map("cancel_reason")
-  /// Invoices deleted by an owner or admin: everything they did was undone; kept (hidden) for the record.
+  /// Invoices and credit notes deleted by an owner or admin: everything they did was undone; kept (hidden) for the record.
   deletedAt            DateTime?           @map("deleted_at") @db.Timestamptz(3)
   deletedById          String?             @map("deleted_by_id") @db.Uuid
   deletedBy            User?               @relation("SalesDocumentDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+  /// A corrected credit note points at the one it replaced (which is cancelled and deleted).
+  replacesId           String?             @unique @map("replaces_id") @db.Uuid
+  replaces             SalesDocument?      @relation("CreditNoteCorrection", fields: [replacesId], references: [id], onDelete: Restrict)
+  replacedBy           SalesDocument?      @relation("CreditNoteCorrection")
 
   lines               SalesDocumentLine[]
   reservations        StockReservation[]

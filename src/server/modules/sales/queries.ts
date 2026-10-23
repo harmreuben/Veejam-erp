@@ -83,6 +83,8 @@ export async function getDocument(db: Db, actor: Actor, id: string) {
       postedBy: { select: { fullName: true } },
       creditOverrideBy: { select: { fullName: true } },
       deletedBy: { select: { fullName: true } },
+      replaces: { select: { id: true, number: true } },
+      replacedBy: { select: { id: true, number: true } },
       reservations: true,
       allocationsReceived: {
         where: { reversedAt: null },

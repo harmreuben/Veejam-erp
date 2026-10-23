@@ -25,6 +25,7 @@ export function sourceHref(sourceType: string, sourceId: string): string | null 
     case "InvoiceDeletion":
       return `/invoices/${sourceId}`;
     case "CreditNote":
+    case "CreditNoteDeletion":
       return `/credit-notes/${sourceId}`;
     case "GoodsReceipt":
       return `/goods-received/${sourceId}`;

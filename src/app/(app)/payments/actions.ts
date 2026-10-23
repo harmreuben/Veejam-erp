@@ -8,6 +8,7 @@ import { toActionResult, type ActionResult } from "@/server/action-result";
 import { requestContext, requireUser, toActor } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { applyCredit, deletePayment, recordPayment, reversePayment } from "@/server/modules/payments/service";
+import { correctCreditNote } from "@/server/modules/sales/correct-credit-note";
 import { createCreditNote } from "@/server/modules/sales/credit-notes";
 
 function refresh() {
@@ -56,6 +57,24 @@ export async function paymentAction(_prev: ActionResult, formData: FormData): Pr
     refresh();
     return `KES ${applied} applied`;
   });
+}
+
+/** Owners and admins: replace an issued credit note with a corrected one. */
+export async function correctCreditNoteAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const creditNoteId = String(formData.get("creditNoteId") ?? "");
+  let id = "";
+  const result = await toActionResult(async () => {
+    const { db, actor, ctx } = await session();
+    const r = await correctCreditNote(db, actor, creditNoteId, formToObject(formData), ctx);
+    id = r.id;
+    refresh();
+    return `${r.number} issued in place of ${r.replaced}`;
+  });
+  if (result.ok && id) redirect(`/credit-notes/${id}?corrected=1`);
+  return result;
 }
 
 export async function creditNoteAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {

@@ -75,6 +75,21 @@ test("owner issues a credit note for a returned carton; it clears the balance an
 
   await expect(page.getByRole("heading", { level: 1, name: /CN-\d{6}/ })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "issued" })).toContainText("back in stock");
+  const first = (await page.getByRole("heading", { level: 1 }).textContent())!.match(/CN-\d{6}/)![0];
+
+  // The owner corrects it: same carton and stock choice, a better reason.
+  await page.getByRole("link", { name: "Edit", exact: true }).click();
+  await expect(page.getByLabel(/quantity to credit/).first()).toHaveValue("1");
+  await expect(page.getByRole("checkbox", { name: /put them back into stock/ })).toBeChecked();
+  await page.getByLabel(/Reason/).fill("One carton returned unopened by the shop");
+  await page.getByLabel(/Why is it being changed/).fill("Reason needed more detail");
+  await page.getByRole("button", { name: "Save corrected credit note" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "in place of" })).toContainText(first);
+  await expect(page.getByRole("heading", { level: 1, name: /CN-\d{6}/ })).not.toContainText(first);
+  await page.getByRole("link", { name: first }).click();
+  await expect(page.getByText(/Replaced by/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Edit", exact: true })).toHaveCount(0);
+
   await page.goto("/customers?q=E2E%20Sales");
   await page.getByRole("link", { name: CUSTOMER }).click();
   await expect(page.getByText("Credit not yet applied").locator("..")).toContainText("KES 1,000.00");

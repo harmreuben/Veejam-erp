@@ -20,7 +20,7 @@ function sourceHref(type: string, id: string | null) {
   if (!id) return null;
   if (type === "Invoice" || type === "InvoiceDeletion") return `/invoices/${id}`;
   if (type === "Payment" || type === "PaymentReversal") return `/payments/${id}`;
-  if (type === "CreditNote") return `/credit-notes/${id}`;
+  if (type === "CreditNote" || type === "CreditNoteDeletion") return `/credit-notes/${id}`;
   if (type === "GoodsReceipt") return `/goods-received/${id}`;
   if (type === "SupplierBill" || type === "SupplierBillCancelled") return `/supplier-bills/${id}`;
   if (type === "SupplierPayment" || type === "SupplierPaymentReversal") return `/supplier-payments/${id}`;

@@ -81,7 +81,7 @@ export async function SalesDetailPage({
   const isPostedInvoice = kind === "INVOICE" && doc.status === "POSTED";
 
   const creditLeft =
-    kind === "CREDIT_NOTE" && can("payments.record")
+    kind === "CREDIT_NOTE" && doc.status === "POSTED" && can("payments.record")
       ? doc.creditsGiven.reduce((x, c) => x.minus(c.amount), toDecimal(doc.total)).toFixed(2)
       : null;
   const openForCredit =
@@ -299,6 +299,64 @@ export async function SalesDetailPage({
     );
   }
 
+  // Owners and admins: correct or delete an issued credit note (see sales/correct-credit-note.ts).
+  const canCorrect =
+    kind === "CREDIT_NOTE" && doc.status === "POSTED" && !doc.deletedAt && can("credit_notes.edit");
+  const cnSplit = (() => {
+    const here = doc.creditsGiven
+      .filter((c) => c.invoice.id === doc.sourceDocument?.id)
+      .reduce((x, c) => x.plus(c.amount), toDecimal(0));
+    const all = doc.creditsGiven.reduce((x, c) => x.plus(c.amount), toDecimal(0));
+    return { here, elsewhere: all.minus(here), unused: toDecimal(doc.total).minus(all) };
+  })();
+  if (canCorrect) {
+    actions.push(
+      <ConfirmButton
+        key="delete-cn"
+        label="Delete…"
+        variant="ghost"
+        destructive
+        title={`Delete ${title}?`}
+        description={
+          <>
+            <p>Everything this credit note did is undone, dated today:</p>
+            <ul className="list-disc pl-5">
+              <li>
+                {doc.customer.name} loses its <Money value={doc.total} /> of credit:
+                <ul className="list-[circle] pl-5">
+                  {cnSplit.here.greaterThan(0) && (
+                    <li>
+                      {doc.sourceDocument?.number} owes <Money value={cnSplit.here.toFixed(2)} /> again
+                    </li>
+                  )}
+                  {cnSplit.elsewhere.greaterThan(0) && (
+                    <li>
+                      the other invoices it paid owe <Money value={cnSplit.elsewhere.toFixed(2)} /> again
+                    </li>
+                  )}
+                  {cnSplit.unused.greaterThan(0) && (
+                    <li>
+                      <Money value={cnSplit.unused.toFixed(2)} /> of unused credit comes off their account
+                    </li>
+                  )}
+                </ul>
+              </li>
+              {doc.returnsToStock && <li>The goods it put back into stock are taken out again.</li>}
+              <li>Its sales returns and VAT are reversed in the accounts.</li>
+            </ul>
+            <p>
+              It disappears from lists, balances and reports, but is kept under &ldquo;Deleted&rdquo; with
+              your name and reason. To change it instead, use Edit.
+            </p>
+          </>
+        }
+        fields={[{ name: "why", label: "Why is it being deleted?", required: true }]}
+        confirmLabel="Delete credit note"
+        hidden={{ ...base, intent: "delete-credit-note" }}
+      />,
+    );
+  }
+
   return (
     <Page wide>
       <PageHeader
@@ -320,7 +378,7 @@ export async function SalesDetailPage({
         }
         actions={
           <>
-            {editable && (
+            {(editable || canCorrect) && (
               <Button variant="outline" asChild>
                 <Link href={`${label.path}/${doc.id}/edit`}>
                   <Pencil aria-hidden /> Edit
@@ -347,6 +405,38 @@ export async function SalesDetailPage({
           <strong>{doc.number} issued.</strong> It has been applied to {doc.sourceDocument?.number}
           {doc.returnsToStock ? ", and the goods are back in stock" : ""}. Any amount not needed there is
           credit on the customer&apos;s account.
+        </Banner>
+      )}
+      {sp.corrected && kind === "CREDIT_NOTE" && doc.replaces && (
+        <Banner tone="success">
+          <strong>
+            {doc.number} issued in place of {doc.replaces.number}.
+          </strong>{" "}
+          <Link href={`/credit-notes/${doc.replaces.id}`} className="text-primary hover:underline">
+            {doc.replaces.number}
+          </Link>{" "}
+          was undone and is kept under &ldquo;Deleted&rdquo;.
+        </Banner>
+      )}
+      {!sp.corrected && doc.replaces && (
+        <Banner>
+          Corrects{" "}
+          <Link href={`/credit-notes/${doc.replaces.id}`} className="text-primary hover:underline">
+            {doc.replaces.number}
+          </Link>
+          , which was cancelled.
+        </Banner>
+      )}
+      {doc.replacedBy && (
+        <Banner tone="warning">
+          Replaced by{" "}
+          <Link
+            href={`/credit-notes/${doc.replacedBy.id}`}
+            className="text-primary font-medium hover:underline"
+          >
+            {doc.replacedBy.number}
+          </Link>
+          .
         </Banner>
       )}
       {sp.posted && isPostedInvoice && (

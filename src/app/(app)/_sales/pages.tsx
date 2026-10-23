@@ -92,7 +92,7 @@ export async function SalesListPage({
             options: [
               { value: "ALL", label: "All" },
               ...STATUSES[kind].map((s) => ({ value: s, label: STATUS_LABELS[s] })),
-              ...(isInvoice ? [{ value: "DELETED", label: "Deleted" }] : []),
+              ...(isInvoice || kind === "CREDIT_NOTE" ? [{ value: "DELETED", label: "Deleted" }] : []),
             ],
           },
         ]}

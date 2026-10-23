@@ -29,6 +29,7 @@ import {
   type BatchItemResult,
   type QuickPostResult,
 } from "@/server/modules/sales/quick-post";
+import { deleteCreditNote } from "@/server/modules/sales/correct-credit-note";
 import { deleteInvoice } from "@/server/modules/sales/delete-invoice";
 import { KIND_LABELS } from "@/server/modules/sales/schemas";
 import {
@@ -186,6 +187,14 @@ export async function documentAction(_prev: ActionResult, formData: FormData): P
             ? `; ${formatKES(r.creditFreed)} paid on it is now credit on the customer's account`
             : "")
         );
+      }
+      case "delete-credit-note": {
+        const r = await deleteCreditNote(db, actor, id, input, ctx);
+        refreshSales();
+        revalidatePath("/credit-notes", "layout");
+        revalidatePath("/payments", "layout");
+        goTo = "/credit-notes";
+        return `${r.number} deleted; ${formatKES(r.total)} is owed again on its invoice`;
       }
       case "cancel": {
         await cancelDocument(db, actor, id, input, ctx);

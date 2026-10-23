@@ -30,6 +30,7 @@ export type StockSource = {
     | "Invoice"
     | "InvoiceDeletion"
     | "CreditNote"
+    | "CreditNoteDeletion"
     | "GoodsReceipt";
   id: string;
   number: string;

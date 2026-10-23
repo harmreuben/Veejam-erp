@@ -10,7 +10,7 @@ import { formatKES, toDecimal } from "@/lib/money";
 import { calculateLine } from "@/lib/sales-math";
 import { UNIT_LABELS, type Unit } from "@/lib/units";
 
-import { creditNoteAction } from "../../../payments/actions";
+import { correctCreditNoteAction, creditNoteAction } from "../../../payments/actions";
 
 type Line = {
   id: string;
@@ -22,6 +22,17 @@ type Line = {
   discountPercent: string;
   taxRate: string;
   remaining: number;
+  /** Editing: the quantity on the credit note being corrected. */
+  current?: number;
+};
+
+/** Editing an issued credit note (owners and admins): it's replaced by a corrected one. */
+type Correcting = {
+  creditNoteId: string;
+  number: string;
+  version: number;
+  reason: string;
+  returnsToStock: boolean;
 };
 
 export function CreditNoteForm({
@@ -30,15 +41,21 @@ export function CreditNoteForm({
   lines,
   pricesIncludeTax,
   outstanding,
+  correcting,
 }: {
   invoiceId: string;
   idempotencyKey: string;
   lines: Line[];
   pricesIncludeTax: boolean;
   outstanding: string;
+  correcting?: Correcting;
 }) {
-  const { state, submit, pending, errors } = useActionForm(creditNoteAction);
-  const [qty, setQty] = useState<Record<string, string>>({});
+  const { state, submit, pending, errors } = useActionForm(
+    correcting ? correctCreditNoteAction : creditNoteAction,
+  );
+  const [qty, setQty] = useState<Record<string, string>>(() =>
+    Object.fromEntries(lines.filter((l) => l.current).map((l) => [l.id, String(l.current)])),
+  );
   const total = lines.reduce((s, l) => {
     const q = Number(qty[l.id] ?? "0");
     if (!Number.isInteger(q) || q <= 0 || q > l.remaining) return s;
@@ -55,6 +72,12 @@ export function CreditNoteForm({
     <form onSubmit={submit} className="grid gap-6" noValidate>
       <input type="hidden" name="invoiceId" value={invoiceId} />
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
+      {correcting && (
+        <>
+          <input type="hidden" name="creditNoteId" value={correcting.creditNoteId} />
+          <input type="hidden" name="version" value={correcting.version} />
+        </>
+      )}
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full min-w-[560px] text-sm">
           <thead className="bg-muted/50 text-muted-foreground text-xs">
@@ -118,10 +141,20 @@ export function CreditNoteForm({
           errors={errors("reason")}
           className="sm:col-span-2"
         >
-          <Textarea name="reason" rows={2} placeholder="e.g. 2 packets damaged, returned by the driver" />
+          <Textarea
+            name="reason"
+            rows={2}
+            placeholder="e.g. 2 packets damaged, returned by the driver"
+            defaultValue={correcting?.reason}
+          />
         </Field>
         <label className="flex items-center gap-2 text-sm sm:col-span-2">
-          <input type="checkbox" name="returnsToStock" className="size-4" />
+          <input
+            type="checkbox"
+            name="returnsToStock"
+            className="size-4"
+            defaultChecked={correcting?.returnsToStock}
+          />
           The goods came back and can be sold again: put them back into stock
         </label>
       </div>
@@ -137,11 +170,28 @@ export function CreditNoteForm({
           </>
         )}
       </p>
-      <SubmitBar pending={pending} state={state} label="Issue credit note" pendingLabel="Issuing…">
-        <span className="text-muted-foreground text-sm">
-          A credit note can&apos;t be changed once issued.
-        </span>
-      </SubmitBar>
+      {correcting && (
+        <Field
+          id="why"
+          label="Why is it being changed? (kept in the audit log, not printed)"
+          errors={errors("why")}
+        >
+          <Input name="why" placeholder="e.g. Only one carton was damaged, not two" />
+        </Field>
+      )}
+      {correcting ? (
+        <SubmitBar pending={pending} state={state} label="Save corrected credit note" pendingLabel="Saving…">
+          <span className="text-muted-foreground text-sm">
+            {correcting.number} is cancelled and a corrected credit note is issued with the next number.
+          </span>
+        </SubmitBar>
+      ) : (
+        <SubmitBar pending={pending} state={state} label="Issue credit note" pendingLabel="Issuing…">
+          <span className="text-muted-foreground text-sm">
+            Only an owner or administrator can change a credit note once issued.
+          </span>
+        </SubmitBar>
+      )}
     </form>
   );
 }

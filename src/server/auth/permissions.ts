@@ -66,6 +66,7 @@ export const PERMISSIONS = [
   // Owners and admins only
   "invoices.delete", // undo and hide an invoice (stock, ledger and payments are put right)
   "payments.delete", // undo and hide a customer payment
+  "credit_notes.edit", // correct or delete an issued credit note (credit, stock and ledger are put right)
   "backups.view", // see when backups were taken
 ] as const;
 
@@ -199,9 +200,10 @@ export const isPermission = (value: string): value is Permission =>
 export const NOT_GRANTABLE: readonly Permission[] = [
   "whatsapp.use",
   "users.manage",
-  // Deleting invoices and payments stays with owners and admins.
+  // Deleting invoices and payments, and correcting credit notes, stays with owners and admins.
   "invoices.delete",
   "payments.delete",
+  "credit_notes.edit",
 ];
 
 /** A duty only makes sense with the one it needs (you can't post invoices you can't see). */
@@ -241,6 +243,7 @@ export const REQUIRES: Partial<Record<Permission, Permission>> = {
   "dashboard.own": "sales.view",
   "invoices.delete": "invoices.post",
   "payments.delete": "payments.reverse",
+  "credit_notes.edit": "credit_notes.manage",
 };
 
 export type DutyChange = { permission: string; granted: boolean };
@@ -305,6 +308,10 @@ export const PERMISSION_INFO: Record<Permission, { group: DutyGroup; label: stri
   "credit_notes.manage": { group: "Payments and credit", label: "Issue credit notes" },
   "invoices.delete": { group: "Selling", label: "Delete invoices (owners and admins)" },
   "payments.delete": { group: "Payments and credit", label: "Delete customer payments (owners and admins)" },
+  "credit_notes.edit": {
+    group: "Payments and credit",
+    label: "Correct or delete credit notes (owners and admins)",
+  },
   "catalogue.view": { group: "Products and prices", label: "See products" },
   "catalogue.manage": { group: "Products and prices", label: "Add and edit products" },
   "catalogue.costs": { group: "Products and prices", label: "See and use cost prices" },
