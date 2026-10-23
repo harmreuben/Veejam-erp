@@ -7,6 +7,8 @@ import { E2E_USERS } from "./support/fixtures.mjs";
 test("the phone menu slides over the page without moving it, and closes every expected way", async ({
   page,
 }) => {
+  // Measure positions without the page's entrance animation moving things.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await signIn(page, E2E_USERS.owner.email, E2E_USERS.owner.password, "/dashboard");
   await page.waitForURL(/\/dashboard$/);
   const heading = page.getByRole("heading", { level: 1, name: "Dashboard" });

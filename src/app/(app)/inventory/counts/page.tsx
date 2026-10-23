@@ -43,7 +43,11 @@ export default async function CountsPage() {
           </tr>
         </THead>
         <TBody>
-          {counts.length === 0 && <EmptyRow colSpan={5}>No counts yet.</EmptyRow>}
+          {counts.length === 0 && (
+            <EmptyRow colSpan={5} art="cartons">
+              No counts yet.
+            </EmptyRow>
+          )}
           {counts.map((c) => (
             <tr key={c.id} className="hover:bg-muted/50">
               <TD>

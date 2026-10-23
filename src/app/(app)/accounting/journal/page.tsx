@@ -69,7 +69,11 @@ export default async function JournalPage({
           </tr>
         </THead>
         <TBody>
-          {rows.length === 0 && <EmptyRow colSpan={5}>No entries yet.</EmptyRow>}
+          {rows.length === 0 && (
+            <EmptyRow colSpan={5} art="documents">
+              No entries yet.
+            </EmptyRow>
+          )}
           {rows.map((e) => (
             <tr key={e.id} className="hover:bg-muted/50">
               <TD>

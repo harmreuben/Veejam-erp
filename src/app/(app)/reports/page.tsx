@@ -43,12 +43,12 @@ export default async function ReportsPage() {
         title="Reports"
         description="Management reports from posted documents and the ledger. Every report can be downloaded as CSV for Excel. They are not tax filings."
       />
-      <ul className="grid gap-3 sm:grid-cols-2">
+      <ul className="vj-stagger grid gap-3 sm:grid-cols-2">
         {reports.map((r) => (
           <li key={r.href}>
             <Link
               href={r.href}
-              className="bg-card hover:border-primary/50 grid h-full gap-1 rounded-lg border p-4 transition-colors"
+              className="bg-card hover:border-primary/50 vj-lift grid h-full gap-1 rounded-lg border p-4"
             >
               <span className="font-medium">{r.title}</span>
               <span className="text-muted-foreground text-sm">{r.text}</span>

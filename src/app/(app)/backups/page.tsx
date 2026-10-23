@@ -41,7 +41,7 @@ export default async function BackupsPage() {
         description="Encrypted copies of the whole database, taken from your computer, and proof that they can be restored."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="vj-stagger grid gap-3 sm:grid-cols-2">
         <div className="bg-card grid gap-1 rounded-lg border p-4">
           <div className="text-muted-foreground text-sm">Last backup</div>
           <div className="text-xl font-semibold">{age(lastBackup?.takenAt)}</div>

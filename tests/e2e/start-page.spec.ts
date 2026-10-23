@@ -36,6 +36,7 @@ test("reloading or reopening the app lands on the dashboard; moving around insid
 test("each person lands on their own start page; signed out goes to sign-in", async ({ browser }) => {
   const store = await (await browser.newContext({ extraHTTPHeaders: {} })).newPage();
   await signIn(store, E2E_USERS.storekeeper.email, E2E_USERS.storekeeper.password);
+  await store.waitForURL((u) => !u.pathname.startsWith("/login"));
   await store.goto("/deliveries");
   await expect(store).toHaveURL(/\/inventory$/);
 

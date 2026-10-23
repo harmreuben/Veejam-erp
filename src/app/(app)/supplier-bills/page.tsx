@@ -85,7 +85,9 @@ export default async function SupplierBillsPage({
         </THead>
         <TBody>
           {rows.length === 0 && (
-            <EmptyRow colSpan={7}>{q ? "Nothing matches that search." : "No bills here."}</EmptyRow>
+            <EmptyRow colSpan={7} art={q ? "search" : "documents"}>
+              {q ? "Nothing matches that search." : "No bills here."}
+            </EmptyRow>
           )}
           {rows.map((b) => (
             <tr key={b.id} className="hover:bg-muted/50">

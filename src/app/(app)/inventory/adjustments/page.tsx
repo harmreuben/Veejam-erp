@@ -43,7 +43,11 @@ export default async function AdjustmentsPage() {
           </tr>
         </THead>
         <TBody>
-          {rows.length === 0 && <EmptyRow colSpan={6}>No adjustments yet.</EmptyRow>}
+          {rows.length === 0 && (
+            <EmptyRow colSpan={6} art="cartons">
+              No adjustments yet.
+            </EmptyRow>
+          )}
           {rows.map((a) => (
             <tr key={a.id} className="hover:bg-muted/50">
               <TD>

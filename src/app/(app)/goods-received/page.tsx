@@ -75,7 +75,9 @@ export default async function GoodsReceivedPage({
         </THead>
         <TBody>
           {rows.length === 0 && (
-            <EmptyRow colSpan={6}>{q ? "Nothing matches that search." : "Nothing received yet."}</EmptyRow>
+            <EmptyRow colSpan={6} art={q ? "search" : "cartons"}>
+              {q ? "Nothing matches that search." : "Nothing received yet."}
+            </EmptyRow>
           )}
           {rows.map((r) => (
             <tr key={r.id} className="hover:bg-muted/50">

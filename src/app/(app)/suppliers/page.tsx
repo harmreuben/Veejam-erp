@@ -59,7 +59,11 @@ export default async function SuppliersPage({
           </tr>
         </THead>
         <TBody>
-          {suppliers.length === 0 && <EmptyRow colSpan={4}>No suppliers yet.</EmptyRow>}
+          {suppliers.length === 0 && (
+            <EmptyRow colSpan={4} art="truck">
+              No suppliers yet.
+            </EmptyRow>
+          )}
           {suppliers.map((s) => (
             <tr key={s.id} className="hover:bg-muted/50">
               <TD>

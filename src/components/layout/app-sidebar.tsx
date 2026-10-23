@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LogOut, UserRound } from "lucide-react";
 
 import { signOut } from "@/app/(auth)/login/actions";
+import { Logo } from "@/components/brand/logo";
 import { InstallAppButton } from "@/components/pwa";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { canSeeModule, ERP_MODULES, MODULE_GROUPS, type ErpModule } from "@/config/modules";
@@ -46,12 +47,7 @@ function ModuleNav({ permissions, className }: { permissions: readonly Permissio
 }
 
 function Wordmark({ companyName }: { companyName: string }) {
-  return (
-    <div className="flex items-baseline gap-2">
-      <span className="text-lg font-bold tracking-tight">{companyName}</span>
-      <span className="text-sidebar-muted text-xs">ERP</span>
-    </div>
-  );
+  return <Logo name={companyName} className="min-w-0" />;
 }
 
 /** The wordmark as a link home (desktop; on phones the wordmark opens the menu). */

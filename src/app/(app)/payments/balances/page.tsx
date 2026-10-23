@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ageParts, SplitBar } from "@/components/charts";
 import { Money } from "@/components/format";
 import { NoAccess } from "@/components/no-access";
 import { Download } from "lucide-react";
@@ -37,6 +38,11 @@ export default async function BalancesPage() {
           )
         }
       />
+      {aged.rows.length > 0 && (
+        <div className="bg-card rounded-lg border p-4">
+          <SplitBar label="Money owed by customers, by age" parts={ageParts(aged.buckets, aged.totals)} />
+        </div>
+      )}
       <Table minWidth={900}>
         <THead>
           <tr>
@@ -51,7 +57,11 @@ export default async function BalancesPage() {
           </tr>
         </THead>
         <TBody>
-          {aged.rows.length === 0 && <EmptyRow colSpan={8}>Nobody owes anything.</EmptyRow>}
+          {aged.rows.length === 0 && (
+            <EmptyRow colSpan={8} art="done">
+              Nobody owes anything.
+            </EmptyRow>
+          )}
           {aged.rows.map((r) => (
             <tr key={r.customerId} className="hover:bg-muted/50">
               <TD>

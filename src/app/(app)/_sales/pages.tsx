@@ -111,7 +111,7 @@ export async function SalesListPage({
         </THead>
         <TBody>
           {rows.length === 0 && (
-            <EmptyRow colSpan={isInvoice ? 7 : 6}>
+            <EmptyRow colSpan={isInvoice ? 7 : 6} art={q || status !== "ALL" ? "search" : "documents"}>
               {q || status !== "ALL" ? "Nothing matches that search." : `No ${label.many.toLowerCase()} yet.`}
             </EmptyRow>
           )}

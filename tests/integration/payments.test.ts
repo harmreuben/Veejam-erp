@@ -19,6 +19,7 @@ import {
   recordPayment,
   reversePayment,
 } from "@/server/modules/payments/service";
+import { ageingTotals } from "@/server/modules/reports/service";
 import { createCreditNote, creditableLines } from "@/server/modules/sales/credit-notes";
 import { createDraft, postInvoice } from "@/server/modules/sales/service";
 import { applySeed } from "@/server/seed";
@@ -299,6 +300,18 @@ describe("statements, ageing, opening balances, manual journals and closing", ()
     const aged = await agedReceivables(db, s.owner, addDays(today(), 45));
     expect(aged.rows[0]!.buckets).toEqual(["0.00", "1400.00", "0.00", "0.00", "0.00"]);
     expect((await agedReceivables(db, s.owner)).rows[0]!.buckets[0]).toBe("1400.00");
+    // The dashboard's money-owed-by-age bar uses its own query: it must agree.
+    for (const on of [today(), addDays(today(), 45), addDays(today(), 200)]) {
+      const page = await agedReceivables(db, s.owner, on);
+      expect((await ageingTotals(db, on)).totals).toEqual(page.totals);
+    }
+    expect((await ageingTotals(db, addDays(today(), 200))).totals).toEqual([
+      "0.00",
+      "0.00",
+      "0.00",
+      "0.00",
+      "1400.00",
+    ]);
   });
 
   it("opening balances for old-system invoices, posted once", async () => {

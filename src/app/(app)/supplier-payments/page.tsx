@@ -56,7 +56,7 @@ export default async function SupplierPaymentsPage({
         </THead>
         <TBody>
           {rows.length === 0 && (
-            <EmptyRow colSpan={6}>
+            <EmptyRow colSpan={6} art={q ? "search" : "money"}>
               {q ? "Nothing matches that search." : "No supplier payments yet."}
             </EmptyRow>
           )}

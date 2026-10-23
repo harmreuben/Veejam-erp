@@ -2,6 +2,7 @@
 
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 import { cn } from "@/lib/utils";
 
@@ -24,7 +25,6 @@ export function MobileNav({ title, children }: { title: React.ReactNode; childre
   useEffect(() => {
     lockPageScroll(open);
     if (!open) return;
-    closeButton.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setOpen(false);
@@ -49,7 +49,11 @@ export function MobileNav({ title, children }: { title: React.ReactNode; childre
         <button
           ref={openButton}
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            // Show the panel now, then move focus into it in the same step.
+            flushSync(() => setOpen(true));
+            closeButton.current?.focus();
+          }}
           aria-expanded={open}
           aria-controls="mobile-menu"
           className="hover:bg-sidebar-accent focus-visible:ring-sidebar-foreground/40 inline-flex size-10 items-center justify-center rounded-md outline-none focus-visible:ring-2"

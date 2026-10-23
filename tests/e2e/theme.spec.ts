@@ -45,3 +45,16 @@ test("the theme switch applies at once and is remembered on the next page", asyn
   await page.emulateMedia({ colorScheme: "dark" });
   expect(await background(page)).not.toBe(light);
 });
+
+test("motion: pages ease in, but not for people who ask for reduced motion", async ({ page }) => {
+  await signIn(page, E2E_USERS.owner.email, E2E_USERS.owner.password, "/dashboard");
+  await page.waitForURL(/\/dashboard$/);
+  const anim = () =>
+    page
+      .locator(".vj-page")
+      .first()
+      .evaluate((el) => getComputedStyle(el).animationName);
+  expect(await anim()).toBe("vj-rise");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  expect(await anim()).toBe("none");
+});

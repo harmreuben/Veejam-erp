@@ -12,6 +12,14 @@ const OPTIONS: { value: ThemeChoice; label: string; Icon: typeof Sun }[] = [
   { value: "system", label: "System", Icon: Monitor },
 ];
 
+/** Cross-fade between the old and new colours where the browser can (View Transitions). */
+function crossFade(change: () => void) {
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+  if (doc.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    doc.startViewTransition(change);
+  } else change();
+}
+
 /** Switch the page's colours now and remember the choice on this device for a year. */
 function applyTheme(value: ThemeChoice) {
   const root = document.documentElement;
@@ -30,7 +38,7 @@ export function ThemeToggle({ initial, className }: { initial: ThemeChoice; clas
 
   const choose = (value: ThemeChoice) => {
     setTheme(value);
-    applyTheme(value);
+    crossFade(() => applyTheme(value));
   };
 
   return (

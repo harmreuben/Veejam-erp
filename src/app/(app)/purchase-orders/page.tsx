@@ -77,7 +77,7 @@ export default async function PurchaseOrdersPage({
         </THead>
         <TBody>
           {rows.length === 0 && (
-            <EmptyRow colSpan={showCosts ? 6 : 5}>
+            <EmptyRow colSpan={showCosts ? 6 : 5} art={q ? "search" : "truck"}>
               {q ? "Nothing matches that search." : "No purchase orders here."}
             </EmptyRow>
           )}

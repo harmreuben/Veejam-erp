@@ -1,5 +1,6 @@
 import * as React from "react";
 
+import { Illustration, type ArtName } from "@/components/illustrations";
 import { cn } from "@/lib/utils";
 
 /** A plain, accessible data table that scrolls sideways on phones instead of squashing. */
@@ -42,11 +43,27 @@ export function TD({ className, numeric, ...props }: React.ComponentProps<"td"> 
   );
 }
 
-export function EmptyRow({ colSpan, children }: { colSpan: number; children: React.ReactNode }) {
+/** "Nothing here yet" across the whole table, with an optional drawing above the words. */
+export function EmptyRow({
+  colSpan,
+  art,
+  children,
+}: {
+  colSpan: number;
+  art?: ArtName;
+  children: React.ReactNode;
+}) {
   return (
     <tr>
       <td colSpan={colSpan} className="text-muted-foreground px-4 py-10 text-center">
-        {children}
+        {art ? (
+          <div className="vj-page flex flex-col items-center gap-3">
+            <Illustration name={art} />
+            <div>{children}</div>
+          </div>
+        ) : (
+          children
+        )}
       </td>
     </tr>
   );

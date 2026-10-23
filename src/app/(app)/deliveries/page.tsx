@@ -58,7 +58,11 @@ export default async function DeliveriesPage({
           </tr>
         </THead>
         <TBody>
-          {rows.length === 0 && <EmptyRow colSpan={6}>No delivery notes yet.</EmptyRow>}
+          {rows.length === 0 && (
+            <EmptyRow colSpan={6} art="truck">
+              No delivery notes yet.
+            </EmptyRow>
+          )}
           {rows.map((n) => (
             <tr key={n.id} className="hover:bg-muted/50">
               <TD>

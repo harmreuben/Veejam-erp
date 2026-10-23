@@ -64,7 +64,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
           </>
         }
       />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="vj-stagger grid gap-3 sm:grid-cols-3">
         <div className="bg-card rounded-lg border p-4">
           <div className="text-muted-foreground text-xs">Owes on invoices</div>
           <div className="text-xl font-semibold">

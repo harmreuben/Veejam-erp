@@ -502,6 +502,7 @@ export async function dashboard(db: Db, actor: Actor, today = todayInNairobi()) 
   ]);
   const r = receivables[0]!;
   const stock = hasPermission(actor, "catalogue.costs") ? await stockValuation(db, actor) : null;
+  const ageing = hasPermission(actor, "customers.view") ? await ageingTotals(db, today) : null;
   return {
     today,
     todaySales,
@@ -514,9 +515,35 @@ export async function dashboard(db: Db, actor: Actor, today = todayInNairobi()) 
     customersOwing: r.customers,
     lowStock: lowStock[0]?.n ?? 0,
     stockValue: stock ? { total: stock.total, missing: stock.missing } : null,
+    ageing,
     topCustomers: topCustomers.rows.slice(0, 5),
     topProducts: topProducts.rows.slice(0, 5),
   };
+}
+
+/** Labels match the customer balances page (payments/service.ts agedReceivables). */
+export const AGE_BUCKETS = ["Not yet due", "1–30 days", "31–60 days", "61–90 days", "Over 90 days"] as const;
+
+/**
+ * Everything customers owe on posted invoices, split by how many days past the
+ * due date (or the issue date, without one) each invoice is.
+ */
+export async function ageingTotals(db: DbOrTx, asOf: string) {
+  const [r] = await db.$queryRaw<{ b0: string; b1: string; b2: string; b3: string; b4: string }[]>`
+    WITH open AS (
+      SELECT total - amount_paid - amount_credited AS out,
+        ${toDbDate(asOf)}::date - COALESCE(due_date, issue_date) AS late
+      FROM sales_documents
+      WHERE kind = 'INVOICE' AND status = 'POSTED' AND total - amount_paid - amount_credited > 0
+    )
+    SELECT
+      COALESCE(SUM(out) FILTER (WHERE late <= 0), 0)::text AS b0,
+      COALESCE(SUM(out) FILTER (WHERE late BETWEEN 1 AND 30), 0)::text AS b1,
+      COALESCE(SUM(out) FILTER (WHERE late BETWEEN 31 AND 60), 0)::text AS b2,
+      COALESCE(SUM(out) FILTER (WHERE late BETWEEN 61 AND 90), 0)::text AS b3,
+      COALESCE(SUM(out) FILTER (WHERE late > 90), 0)::text AS b4
+    FROM open`;
+  return { buckets: AGE_BUCKETS, totals: [r!.b0, r!.b1, r!.b2, r!.b3, r!.b4].map(money) };
 }
 
 // ─── A salesperson's own dashboard ──────────────────────────────────

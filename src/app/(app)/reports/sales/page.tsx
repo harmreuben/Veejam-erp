@@ -1,11 +1,12 @@
 import Link from "next/link";
 
+import { BarList, Columns } from "@/components/charts";
 import { param } from "@/components/filters";
 import { Money } from "@/components/format";
 import { NoAccess } from "@/components/no-access";
 import { Page, PageHeader } from "@/components/page";
 import { EmptyRow, TBody, TD, TH, THead, Table } from "@/components/ui/table";
-import { formatLongDay, formatMonth } from "@/lib/dates";
+import { formatLongDay, formatMonth, formatShortDay } from "@/lib/dates";
 import { formatKES } from "@/lib/money";
 import { pageUser } from "@/server/auth/guard";
 import { toActor } from "@/server/auth/session";
@@ -52,7 +53,7 @@ export default async function SalesReportPage({
         }}
       />
       <RangeError message={error} />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="vj-stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Invoiced (incl. VAT)"
           value={formatKES(totals.gross)}
@@ -70,6 +71,34 @@ export default async function SalesReportPage({
           note={`VAT ${formatKES(totals.vat)} invoiced`}
         />
       </div>
+      {rows.length > 0 &&
+        (group === "day" || group === "month" ? (
+          rows.length > 1 && (
+            <Columns
+              label={`Net sales by ${group}`}
+              points={rows.map((r) => ({
+                key: r.key,
+                label: group === "day" ? formatShortDay(r.label) : formatMonth(r.label),
+                value: r.netGross,
+              }))}
+            />
+          )
+        ) : (
+          <BarList
+            items={[...rows]
+              .sort((a, b) => Number(b.netGross) - Number(a.netGross))
+              .slice(0, 10)
+              .map((r) => ({
+                key: r.key,
+                label: r.label,
+                sub: r.sub ?? undefined,
+                href: r.href ?? undefined,
+                value: r.netGross,
+                note: plural(r.documents, "invoice"),
+              }))}
+            empty=""
+          />
+        ))}
       <Table minWidth={820}>
         <THead>
           <tr>
@@ -84,7 +113,9 @@ export default async function SalesReportPage({
         </THead>
         <TBody>
           {rows.length === 0 && (
-            <EmptyRow colSpan={group === "product" ? 7 : 6}>No sales in this period.</EmptyRow>
+            <EmptyRow colSpan={group === "product" ? 7 : 6} art="chart">
+              No sales in this period.
+            </EmptyRow>
           )}
           {rows.map((r) => (
             <tr key={r.key}>

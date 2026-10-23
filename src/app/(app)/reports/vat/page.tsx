@@ -43,7 +43,7 @@ export default async function VatPage({
       />
       <RangeFilter path="/reports/vat" range={range} csv="vat" />
       <RangeError message={error} />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="vj-stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Taxable sales (excl. VAT)" value={formatKES(r.totals.salesNet)} />
         <Stat label="Net output VAT" value={formatKES(r.totals.netVat)} note="After credit notes" />
         <Stat
@@ -71,7 +71,11 @@ export default async function VatPage({
           </tr>
         </THead>
         <TBody>
-          {r.rows.length === 0 && <EmptyRow colSpan={8}>No sales in this period.</EmptyRow>}
+          {r.rows.length === 0 && (
+            <EmptyRow colSpan={8} art="chart">
+              No sales in this period.
+            </EmptyRow>
+          )}
           {r.rows.map((row) => (
             <tr key={`${row.month}-${row.category}-${row.rate}`}>
               <TD>{formatMonth(row.month)}</TD>

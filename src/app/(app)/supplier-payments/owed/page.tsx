@@ -38,7 +38,11 @@ export default async function OwedPage() {
           </tr>
         </THead>
         <TBody>
-          {r.rows.length === 0 && <EmptyRow colSpan={8}>Nothing is owed to suppliers.</EmptyRow>}
+          {r.rows.length === 0 && (
+            <EmptyRow colSpan={8} art="done">
+              Nothing is owed to suppliers.
+            </EmptyRow>
+          )}
           {r.rows.map((s) => (
             <tr key={s.id}>
               <TD>

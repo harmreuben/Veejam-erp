@@ -75,7 +75,7 @@ export default async function CustomersPage({
         </THead>
         <TBody>
           {customers.length === 0 && (
-            <EmptyRow colSpan={6}>
+            <EmptyRow colSpan={6} art={q ? "search" : "shop"}>
               {q
                 ? "No customers match that search."
                 : "No customers yet. Add one, or import a list under Admin → Imports."}

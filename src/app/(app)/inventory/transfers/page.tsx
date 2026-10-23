@@ -41,7 +41,11 @@ export default async function TransfersPage() {
           </tr>
         </THead>
         <TBody>
-          {rows.length === 0 && <EmptyRow colSpan={5}>No transfers yet.</EmptyRow>}
+          {rows.length === 0 && (
+            <EmptyRow colSpan={5} art="truck">
+              No transfers yet.
+            </EmptyRow>
+          )}
           {rows.map((t) => (
             <tr key={t.id} className="hover:bg-muted/50">
               <TD>

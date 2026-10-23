@@ -1,3 +1,4 @@
+import { SplitBar } from "@/components/charts";
 import { Money } from "@/components/format";
 import { NoAccess } from "@/components/no-access";
 import { Page, PageHeader } from "@/components/page";
@@ -36,7 +37,7 @@ export default async function CollectionsPage({
       />
       <RangeFilter path="/reports/collections" range={range} csv="collections" />
       <RangeError message={error} />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="vj-stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Stat
           label="Total received"
           value={formatKES(r.total)}
@@ -46,6 +47,18 @@ export default async function CollectionsPage({
           <Stat key={m} label={METHOD_LABELS[m]} value={formatKES(r.methodTotals[m])} />
         ))}
       </div>
+      {r.count > 0 && (
+        <div className="bg-card rounded-lg border p-4">
+          <SplitBar
+            label="Money received, by how it was paid"
+            parts={METHODS.map((m, i) => ({
+              label: METHOD_LABELS[m],
+              value: r.methodTotals[m],
+              color: `var(--chart-${i + 1})`,
+            }))}
+          />
+        </div>
+      )}
       {toDecimal(r.reversed).greaterThan(0) && (
         <p className="text-muted-foreground text-sm">Reversed in this period: {formatKES(r.reversed)}.</p>
       )}
@@ -62,7 +75,11 @@ export default async function CollectionsPage({
           </tr>
         </THead>
         <TBody>
-          {r.rows.length === 0 && <EmptyRow colSpan={6}>No payments in this period.</EmptyRow>}
+          {r.rows.length === 0 && (
+            <EmptyRow colSpan={6} art="money">
+              No payments in this period.
+            </EmptyRow>
+          )}
           {r.rows.map((row) => (
             <tr key={row.day}>
               <TD>{formatLongDay(row.day)}</TD>

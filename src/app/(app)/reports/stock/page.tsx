@@ -1,11 +1,12 @@
 import { Download } from "lucide-react";
 
+import { BarList, type BarItem } from "@/components/charts";
 import { Money, Qty } from "@/components/format";
 import { NoAccess } from "@/components/no-access";
-import { Page, PageHeader } from "@/components/page";
+import { Page, PageHeader, Section } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { TBody, TD, TH, THead, Table } from "@/components/ui/table";
-import { formatKES } from "@/lib/money";
+import { formatKES, toDecimal } from "@/lib/money";
 import { formatQuantity } from "@/lib/units";
 import { pageUser } from "@/server/auth/guard";
 import { hasPermission } from "@/server/auth/permissions";
@@ -23,6 +24,20 @@ export default async function StockValuePage() {
   if (!user || !hasPermission(user, "catalogue.costs")) return <NoAccess what="cost prices" />;
   const r = await stockValuation(getDb(), toActor(user));
   const canRevalue = hasPermission(user, "inventory.revalue");
+  const brands = new Map<string, { value: ReturnType<typeof toDecimal>; products: number }>();
+  for (const p of r.rows) {
+    if (!p.value || p.pieces <= 0) continue;
+    const b = brands.get(p.brand) ?? { value: toDecimal(0), products: 0 };
+    brands.set(p.brand, { value: b.value.plus(p.value), products: b.products + 1 });
+  }
+  const byBrand: BarItem[] = [...brands.entries()]
+    .sort((a, b) => b[1].value.comparedTo(a[1].value))
+    .map(([brand, b]) => ({
+      key: brand,
+      label: brand,
+      value: b.value.toFixed(2),
+      note: `${b.products} product${b.products === 1 ? "" : "s"}`,
+    }));
   return (
     <Page wide>
       <PageHeader
@@ -38,7 +53,7 @@ export default async function StockValuePage() {
           </Button>
         }
       />
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="vj-stagger grid gap-3 sm:grid-cols-2">
         <Stat label="Stock at cost" value={formatKES(r.total)} />
         <Stat
           label="Products in stock without a cost"
@@ -52,6 +67,11 @@ export default async function StockValuePage() {
           }
         />
       </div>
+      {byBrand.length > 1 && (
+        <Section title="Stock value by brand">
+          <BarList items={byBrand} empty="" />
+        </Section>
+      )}
       {r.missing > 0 && (
         <p className="bg-warning-soft rounded-md p-3 text-sm">
           <strong>Set the cost of stock that has none before new deliveries of it arrive.</strong> Otherwise

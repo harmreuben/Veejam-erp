@@ -12,7 +12,7 @@ export function Tile({
   tone,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   note?: React.ReactNode;
   href?: string;
   tone?: "warning";
@@ -27,10 +27,7 @@ export function Tile({
     </>
   );
   return href ? (
-    <Link
-      href={href}
-      className="bg-card hover:border-primary/50 grid gap-1 rounded-lg border p-4 transition-colors"
-    >
+    <Link href={href} className="bg-card hover:border-primary/50 vj-lift grid gap-1 rounded-lg border p-4">
       {body}
     </Link>
   ) : (

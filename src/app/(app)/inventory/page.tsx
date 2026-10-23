@@ -64,7 +64,7 @@ export default async function StockLevelsPage({
         </THead>
         <TBody>
           {rows.length === 0 && (
-            <EmptyRow colSpan={warehouses.length + 3}>
+            <EmptyRow colSpan={warehouses.length + 3} art={lowOnly ? "done" : "cartons"}>
               {lowOnly
                 ? "Nothing is low on stock."
                 : "No products yet. Add products, then record opening stock with a stock count or an adjustment."}

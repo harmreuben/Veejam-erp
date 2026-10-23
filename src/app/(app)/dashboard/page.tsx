@@ -1,10 +1,13 @@
 import Link from "next/link";
 
+import { ageParts, BarList, SplitBar } from "@/components/charts";
+import { CountUp } from "@/components/count-up";
+import { Illustration } from "@/components/illustrations";
 import { Money } from "@/components/format";
 import { NoAccess } from "@/components/no-access";
 import { Page, PageHeader, Section } from "@/components/page";
 import { Button } from "@/components/ui/button";
-import { EmptyRow, TBody, TD, TH, THead, Table } from "@/components/ui/table";
+import { TBody, TD, TH, THead, Table } from "@/components/ui/table";
 import { formatLongDay, formatShortDay } from "@/lib/dates";
 import { formatKES, toDecimal } from "@/lib/money";
 import { hasPermission } from "@/server/auth/permissions";
@@ -47,26 +50,30 @@ export default async function DashboardPage() {
           }
         />
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="vj-stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Tile
             label="Sales today"
-            value={formatKES(d.todaySales.netGross)}
+            value={<CountUp value={d.todaySales.netGross} />}
             note={`${d.todaySales.invoices} invoice${d.todaySales.invoices === 1 ? "" : "s"}`}
             href={`/reports/sales?from=${d.today}&to=${d.today}&group=customer`}
           />
           <Tile
             label="Sales this month"
-            value={formatKES(d.monthSales.netGross)}
+            value={<CountUp value={d.monthSales.netGross} />}
             note={
               change(d.monthSales.netGross, d.prevMonthSales.netGross) ??
               `${d.monthSales.invoices} invoice${d.monthSales.invoices === 1 ? "" : "s"}`
             }
             href="/reports/sales"
           />
-          <Tile label="Received this month" value={formatKES(d.monthReceived)} href="/reports/collections" />
+          <Tile
+            label="Received this month"
+            value={<CountUp value={d.monthReceived} />}
+            href="/reports/collections"
+          />
           <Tile
             label="Owed by customers"
-            value={formatKES(d.owed)}
+            value={<CountUp value={d.owed} />}
             note={
               <>
                 {formatKES(d.overdue)} overdue · {d.customersOwing} customer
@@ -78,7 +85,7 @@ export default async function DashboardPage() {
           />
           <Tile
             label="Low stock"
-            value={String(d.lowStock)}
+            value={<CountUp value={d.lowStock} kind="count" />}
             note="products at or below reorder level"
             href="/inventory?low=1"
             tone={d.lowStock > 0 ? "warning" : undefined}
@@ -86,7 +93,7 @@ export default async function DashboardPage() {
           {d.stockValue && (
             <Tile
               label="Stock at cost"
-              value={formatKES(d.stockValue.total)}
+              value={<CountUp value={d.stockValue.total} />}
               note={
                 d.stockValue.missing
                   ? `${d.stockValue.missing} product${d.stockValue.missing === 1 ? " has" : "s have"} stock with no cost`
@@ -128,62 +135,60 @@ export default async function DashboardPage() {
           </div>
         </Section>
 
+        {d.ageing && (
+          <Section
+            title="Money owed, by age"
+            description="What customers owe, by how long it's been overdue."
+            actions={
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/payments/balances">Who owes what</Link>
+              </Button>
+            }
+          >
+            <div className="bg-card rounded-lg border p-4">
+              <SplitBar
+                label="Money owed by customers, by age"
+                parts={ageParts(d.ageing.buckets, d.ageing.totals)}
+                empty={
+                  <div className="text-muted-foreground flex items-center gap-4 text-sm">
+                    <Illustration name="done" className="h-16 w-20" />
+                    Nobody owes anything right now.
+                  </div>
+                }
+              />
+            </div>
+          </Section>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-2">
           <Section title="Top customers this month">
-            <Table minWidth={360}>
-              <THead>
-                <tr>
-                  <TH>Customer</TH>
-                  <TH numeric>Invoices</TH>
-                  <TH numeric>Sales</TH>
-                </tr>
-              </THead>
-              <TBody>
-                {d.topCustomers.length === 0 && <EmptyRow colSpan={3}>No sales yet this month.</EmptyRow>}
-                {d.topCustomers.map((r) => (
-                  <tr key={r.key}>
-                    <TD>
-                      <Link href={r.href!} className="hover:underline">
-                        {r.label}
-                      </Link>
-                    </TD>
-                    <TD numeric>{r.documents}</TD>
-                    <TD numeric>
-                      <Money value={r.netGross} />
-                    </TD>
-                  </tr>
-                ))}
-              </TBody>
-            </Table>
+            <BarList
+              empty="No sales yet this month."
+              items={d.topCustomers.map((r) => ({
+                key: r.key,
+                label: r.label,
+                href: r.href ?? undefined,
+                value: r.netGross,
+                note: plural(r.documents, "invoice"),
+              }))}
+            />
           </Section>
           <Section title="Top products this month">
-            <Table minWidth={360}>
-              <THead>
-                <tr>
-                  <TH>Product</TH>
-                  <TH numeric>Invoices</TH>
-                  <TH numeric>Sales</TH>
-                </tr>
-              </THead>
-              <TBody>
-                {d.topProducts.length === 0 && <EmptyRow colSpan={3}>No sales yet this month.</EmptyRow>}
-                {d.topProducts.map((r) => (
-                  <tr key={r.key}>
-                    <TD>
-                      {r.label}
-                      <div className="text-muted-foreground font-mono text-xs">{r.sub}</div>
-                    </TD>
-                    <TD numeric>{r.documents}</TD>
-                    <TD numeric>
-                      <Money value={r.netGross} />
-                    </TD>
-                  </tr>
-                ))}
-              </TBody>
-            </Table>
+            <BarList
+              empty="No sales yet this month."
+              items={d.topProducts.map((r) => ({
+                key: r.key,
+                label: r.label,
+                sub: r.sub ?? undefined,
+                value: r.netGross,
+                note: plural(r.documents, "invoice"),
+              }))}
+            />
           </Section>
         </div>
       </Page>
     </>
   );
 }
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;

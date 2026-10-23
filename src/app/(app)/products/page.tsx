@@ -66,7 +66,7 @@ export default async function ProductsPage({
         </THead>
         <TBody>
           {products.length === 0 && (
-            <EmptyRow colSpan={showCost ? 7 : 6}>
+            <EmptyRow colSpan={showCost ? 7 : 6} art={q ? "search" : "cartons"}>
               {q
                 ? "No products match that search."
                 : "No products yet. Add one, or import your product list under Admin → Imports."}

@@ -6,7 +6,7 @@
  * left on a shared device. Its only job is to show a friendly "you're offline"
  * page instead of the browser's error when the network is down.
  */
-const CACHE = "veejam-offline-v1";
+const CACHE = "veejam-offline-v2";
 const OFFLINE_URL = "/offline.html";
 
 self.addEventListener("install", (event) => {

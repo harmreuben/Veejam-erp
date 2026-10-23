@@ -1,6 +1,8 @@
 import Link from "next/link";
 
+import { CountUp } from "@/components/count-up";
 import { Money } from "@/components/format";
+import { BarList } from "@/components/charts";
 import { Page, PageHeader, Section } from "@/components/page";
 import { Tabs } from "@/components/tabs";
 import { Button } from "@/components/ui/button";
@@ -60,16 +62,16 @@ export async function MyDashboard({ user, withTabs = false }: { user: AppUser; w
           }
         />
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="vj-stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Tile
             label="Your sales today"
-            value={formatKES(d.todaySales.netGross)}
+            value={<CountUp value={d.todaySales.netGross} />}
             note={plural(d.todaySales.invoices, "invoice")}
             href="/invoices?status=POSTED"
           />
           <Tile
             label="Your sales this month"
-            value={formatKES(d.monthSales.netGross)}
+            value={<CountUp value={d.monthSales.netGross} />}
             note={
               change(d.monthSales.netGross, d.prevMonthSales.netGross) ??
               plural(d.monthSales.invoices, "invoice")
@@ -77,19 +79,19 @@ export async function MyDashboard({ user, withTabs = false }: { user: AppUser; w
           />
           <Tile
             label="Money you recorded this month"
-            value={formatKES(d.monthReceived)}
+            value={<CountUp value={d.monthReceived} />}
             note={plural(d.paymentsRecorded, "payment")}
             href="/payments"
           />
           <Tile
             label="Open quotations"
-            value={String(d.open.quotes)}
+            value={<CountUp value={d.open.quotes} kind="count" />}
             note={`worth ${formatKES(d.open.quotesValue)}`}
             href="/quotations"
           />
           <Tile
             label="Orders to invoice"
-            value={String(d.open.orders)}
+            value={<CountUp value={d.open.orders} kind="count" />}
             note={
               <>
                 worth {formatKES(d.open.ordersValue)}
@@ -100,7 +102,7 @@ export async function MyDashboard({ user, withTabs = false }: { user: AppUser; w
           />
           <Tile
             label="Overdue on your invoices"
-            value={formatKES(d.overdueTotal)}
+            value={<CountUp value={d.overdueTotal} />}
             note={d.overdueCount ? `${plural(d.overdueCount, "invoice")} to follow up` : "nothing overdue"}
             tone={toDecimal(d.overdueTotal).greaterThan(0) ? "warning" : undefined}
           />
@@ -158,7 +160,9 @@ export async function MyDashboard({ user, withTabs = false }: { user: AppUser; w
             </THead>
             <TBody>
               {d.toChase.length === 0 && (
-                <EmptyRow colSpan={canPay ? 5 : 4}>Nothing overdue. Well done.</EmptyRow>
+                <EmptyRow colSpan={canPay ? 5 : 4} art="done">
+                  Nothing overdue. Well done.
+                </EmptyRow>
               )}
               {d.toChase.map((c) => (
                 <tr key={c.id}>
@@ -199,57 +203,28 @@ export async function MyDashboard({ user, withTabs = false }: { user: AppUser; w
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Section title="Your top customers this month" description="Invoiced, before any credit notes.">
-            <Table minWidth={360}>
-              <THead>
-                <tr>
-                  <TH>Customer</TH>
-                  <TH numeric>Invoices</TH>
-                  <TH numeric>Invoiced</TH>
-                </tr>
-              </THead>
-              <TBody>
-                {d.topCustomers.length === 0 && <EmptyRow colSpan={3}>No sales yet this month.</EmptyRow>}
-                {d.topCustomers.map((r) => (
-                  <tr key={r.id}>
-                    <TD>
-                      <Link href={`/customers/${r.id}`} className="hover:underline">
-                        {r.name}
-                      </Link>
-                    </TD>
-                    <TD numeric>{r.invoices}</TD>
-                    <TD numeric>
-                      <Money value={r.gross} />
-                    </TD>
-                  </tr>
-                ))}
-              </TBody>
-            </Table>
+            <BarList
+              empty="No sales yet this month."
+              items={d.topCustomers.map((r) => ({
+                key: r.id,
+                label: r.name,
+                href: `/customers/${r.id}`,
+                value: r.gross,
+                note: plural(r.invoices, "invoice"),
+              }))}
+            />
           </Section>
           <Section title="What you sold most this month" description="Invoiced, before any credit notes.">
-            <Table minWidth={360}>
-              <THead>
-                <tr>
-                  <TH>Product</TH>
-                  <TH numeric>Invoices</TH>
-                  <TH numeric>Invoiced</TH>
-                </tr>
-              </THead>
-              <TBody>
-                {d.topProducts.length === 0 && <EmptyRow colSpan={3}>No sales yet this month.</EmptyRow>}
-                {d.topProducts.map((r) => (
-                  <tr key={r.sku}>
-                    <TD>
-                      {r.name}
-                      <div className="text-muted-foreground font-mono text-xs">{r.sku}</div>
-                    </TD>
-                    <TD numeric>{r.invoices}</TD>
-                    <TD numeric>
-                      <Money value={r.gross} />
-                    </TD>
-                  </tr>
-                ))}
-              </TBody>
-            </Table>
+            <BarList
+              empty="No sales yet this month."
+              items={d.topProducts.map((r) => ({
+                key: r.sku,
+                label: r.name,
+                sub: r.sku,
+                value: r.gross,
+                note: plural(r.invoices, "invoice"),
+              }))}
+            />
           </Section>
         </div>
       </Page>

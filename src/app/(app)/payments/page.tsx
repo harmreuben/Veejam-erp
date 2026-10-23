@@ -83,7 +83,9 @@ export default async function PaymentsPage({
         </THead>
         <TBody>
           {rows.length === 0 && (
-            <EmptyRow colSpan={7}>{q ? "Nothing matches that search." : "No payments yet."}</EmptyRow>
+            <EmptyRow colSpan={7} art={q ? "search" : "money"}>
+              {q ? "Nothing matches that search." : "No payments yet."}
+            </EmptyRow>
           )}
           {rows.map((p) => (
             <tr key={p.id} className="hover:bg-muted/50">

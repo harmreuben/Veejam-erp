@@ -69,7 +69,7 @@ export default async function SupplierPage({ params }: { params: Promise<{ id: s
         description={s.code}
       />
       {balance && (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="vj-stagger grid gap-3 sm:grid-cols-3">
           <Stat
             label={toDecimal(balance.balance).lessThan(0) ? "Paid in advance" : "We owe"}
             value={formatKES(toDecimal(balance.balance).abs().toFixed(2))}
