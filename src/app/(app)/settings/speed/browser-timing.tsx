@@ -37,7 +37,7 @@ export function BrowserTiming() {
     <div className="bg-card grid gap-1 rounded-lg border p-4 text-sm">
       <p>
         A round trip from this device to the app takes about{" "}
-        <strong className="tabular-nums">{typical} ms</strong>
+        <strong className="font-mono tabular-nums">{typical} ms</strong>
         {typical > 600
           ? ": slow. The internet connection here (or mobile data) is the main delay."
           : typical > 300

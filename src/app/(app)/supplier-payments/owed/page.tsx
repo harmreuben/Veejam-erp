@@ -46,7 +46,7 @@ export default async function OwedPage() {
           {r.rows.map((s) => (
             <tr key={s.id}>
               <TD>
-                <Link href={`/suppliers/${s.id}`} className="text-primary hover:underline">
+                <Link href={`/suppliers/${s.id}`} className="text-link hover:underline">
                   {s.name}
                 </Link>
               </TD>

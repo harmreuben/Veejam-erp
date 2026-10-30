@@ -74,7 +74,7 @@ export default async function SupplierPage({ params }: { params: Promise<{ id: s
             label={toDecimal(balance.balance).lessThan(0) ? "Paid in advance" : "We owe"}
             value={formatKES(toDecimal(balance.balance).abs().toFixed(2))}
             note={
-              <Link href={`/suppliers/${s.id}/statement`} className="text-primary hover:underline">
+              <Link href={`/suppliers/${s.id}/statement`} className="text-link hover:underline">
                 Statement
               </Link>
             }
@@ -95,7 +95,7 @@ export default async function SupplierPage({ params }: { params: Promise<{ id: s
           <ul className="grid gap-1 text-sm">
             {orders.rows.map((o) => (
               <li key={o.id} className="flex flex-wrap items-center gap-2">
-                <Link href={`/purchase-orders/${o.id}`} className="text-primary hover:underline">
+                <Link href={`/purchase-orders/${o.id}`} className="text-link hover:underline">
                   {o.number}
                 </Link>
                 <PoStatusBadge status={o.status} />

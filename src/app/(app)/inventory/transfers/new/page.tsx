@@ -31,7 +31,7 @@ export default async function NewTransferPage() {
         <p className="text-muted-foreground text-sm">
           You need at least two active warehouses to transfer stock.{" "}
           {hasPermission(user, "warehouses.manage") && (
-            <Link href="/inventory/warehouses" className="text-primary hover:underline">
+            <Link href="/inventory/warehouses" className="text-link hover:underline">
               Add a warehouse
             </Link>
           )}

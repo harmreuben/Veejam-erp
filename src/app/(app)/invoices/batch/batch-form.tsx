@@ -252,7 +252,7 @@ export function BatchForm({ data, today, initialKey }: { data: Data; today: stri
                       onChange={(e) => updateLine(card.key, line.key, { quantity: e.target.value })}
                       aria-label={`Invoice ${ci + 1} line ${li + 1} quantity`}
                     />
-                    <span className="hidden text-right text-sm font-medium tabular-nums sm:block">
+                    <span className="hidden text-right font-mono text-sm font-medium tabular-nums sm:block">
                       {t ? formatKES(t.grossAmount) : ""}
                     </span>
                     <button
@@ -297,7 +297,7 @@ export function BatchForm({ data, today, initialKey }: { data: Data; today: stri
                   <Plus className="size-4" aria-hidden /> Add line
                 </button>
                 <span className="text-sm">
-                  Total <strong className="tabular-nums">{formatKES(totals.total)}</strong>
+                  Total <strong className="font-mono tabular-nums">{formatKES(totals.total)}</strong>
                 </span>
               </div>
             </div>
@@ -325,7 +325,8 @@ export function BatchForm({ data, today, initialKey }: { data: Data; today: stri
           pendingLabel="Posting…"
         >
           <span className="text-muted-foreground text-sm" aria-live="polite">
-            Together <strong className="text-foreground tabular-nums">{formatKES(grand.toFixed(2))}</strong>,
+            Together{" "}
+            <strong className="text-foreground font-mono tabular-nums">{formatKES(grand.toFixed(2))}</strong>,
             including VAT. Prices are worked out again on the server.
           </span>
         </SubmitBar>

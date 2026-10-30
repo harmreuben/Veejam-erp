@@ -42,7 +42,7 @@ export function Logo({
     <span className={cn("flex items-center gap-2.5", className)}>
       <LogoMark tile={tile} />
       <span className="flex min-w-0 items-baseline gap-2">
-        <span className="truncate text-lg font-bold tracking-tight">{name}</span>
+        <span className="truncate text-base font-bold tracking-tight">{name}</span>
         <span className="text-sidebar-muted text-xs font-normal">ERP</span>
       </span>
     </span>

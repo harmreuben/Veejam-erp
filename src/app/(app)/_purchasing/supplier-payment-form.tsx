@@ -191,7 +191,9 @@ export function SupplierPaymentForm({
                           <div className="text-muted-foreground text-xs">{inv.date}</div>
                         </td>
                         <td className="px-3 py-2">{inv.due}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{formatKES(inv.outstanding)}</td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums">
+                          {formatKES(inv.outstanding)}
+                        </td>
                         <td className="px-3 py-2 text-right">
                           <input type="hidden" name={`allocations.${i}.billId`} value={inv.id} />
                           {mode === "manual" ? (
@@ -207,7 +209,7 @@ export function SupplierPaymentForm({
                               }}
                             />
                           ) : (
-                            <span className="tabular-nums">
+                            <span className="font-mono tabular-nums">
                               {auto[inv.id] ? formatKES(auto[inv.id]!) : "—"}
                             </span>
                           )}

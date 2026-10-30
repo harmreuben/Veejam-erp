@@ -155,11 +155,11 @@ export function CountSheet({
                         value={e[f]}
                         onChange={(ev) => set(l.productId, f, ev.target.value)}
                         aria-label={`${l.name} ${f}`}
-                        className="ml-auto w-20 text-right tabular-nums"
+                        className="ml-auto w-20 text-right font-mono tabular-nums"
                       />
                     </td>
                   ))}
-                  <td className="px-4 py-2 text-right whitespace-nowrap tabular-nums">
+                  <td className="px-4 py-2 text-right font-mono whitespace-nowrap tabular-nums">
                     {t === null ? (
                       <span className="text-muted-foreground">Not counted</span>
                     ) : (

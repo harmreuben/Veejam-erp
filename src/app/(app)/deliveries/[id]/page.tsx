@@ -45,7 +45,7 @@ export default async function DeliveryNotePage({ params }: { params: Promise<{ i
         description={
           <>
             For invoice{" "}
-            <Link href={`/invoices/${inv.id}`} className="text-primary hover:underline">
+            <Link href={`/invoices/${inv.id}`} className="text-link hover:underline">
               {inv.number}
             </Link>{" "}
             · {inv.customer.name}

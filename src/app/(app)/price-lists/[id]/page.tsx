@@ -45,7 +45,7 @@ export default async function PriceListPage({ params }: { params: Promise<{ id: 
         {rows.length === 0 ? (
           <p className="text-muted-foreground text-sm">
             No active products yet.{" "}
-            <Link href="/products/new" className="text-primary hover:underline">
+            <Link href="/products/new" className="text-link hover:underline">
               Add a product
             </Link>{" "}
             first.

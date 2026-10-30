@@ -32,11 +32,11 @@ function Tip({
       <div className="font-medium">{label}</div>
       <div className="flex items-center gap-2">
         <span aria-hidden className="size-2.5 rounded-sm bg-[var(--chart-1)]" />
-        {salesLabel} <span className="ml-auto pl-4 tabular-nums">{formatKES(p.sales)}</span>
+        {salesLabel} <span className="ml-auto pl-4 font-mono tabular-nums">{formatKES(p.sales)}</span>
       </div>
       <div className="flex items-center gap-2">
         <span aria-hidden className="h-0.5 w-3 rounded bg-[var(--chart-2)]" />
-        {receivedLabel} <span className="ml-auto pl-4 tabular-nums">{formatKES(p.received)}</span>
+        {receivedLabel} <span className="ml-auto pl-4 font-mono tabular-nums">{formatKES(p.received)}</span>
       </div>
     </div>
   );

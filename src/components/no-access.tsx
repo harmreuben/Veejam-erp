@@ -10,7 +10,7 @@ export function NoAccess({ what }: { what: string }) {
         Your role doesn&apos;t include this area. If you need it for your work, ask the owner to change your
         role.
       </p>
-      <Link href="/" className="text-primary text-sm underline-offset-4 hover:underline">
+      <Link href="/" className="text-link text-sm underline-offset-4 hover:underline">
         Back to the start page
       </Link>
     </div>

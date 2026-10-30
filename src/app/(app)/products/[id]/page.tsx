@@ -54,7 +54,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         <Section
           title="Prices"
           actions={
-            <Link href="/price-lists" className="text-primary text-sm hover:underline">
+            <Link href="/price-lists" className="text-link text-sm hover:underline">
               Edit prices
             </Link>
           }
@@ -131,7 +131,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           actions={
             <Link
               href={`/inventory/movements?product=${product.id}`}
-              className="text-primary text-sm hover:underline"
+              className="text-link text-sm hover:underline"
             >
               Full history
             </Link>

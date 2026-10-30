@@ -216,7 +216,7 @@ export default async function PurchaseOrderPage({
             {po.receipts.map((r) => (
               <tr key={r.id}>
                 <TD>
-                  <Link href={`/goods-received/${r.id}`} className="text-primary hover:underline">
+                  <Link href={`/goods-received/${r.id}`} className="text-link hover:underline">
                     {r.number}
                   </Link>
                 </TD>
@@ -237,7 +237,7 @@ export default async function PurchaseOrderPage({
             {
               label: "Supplier",
               value: (
-                <Link href={`/suppliers/${po.supplier.id}`} className="text-primary hover:underline">
+                <Link href={`/suppliers/${po.supplier.id}`} className="text-link hover:underline">
                   {po.supplier.name} ({po.supplier.code})
                 </Link>
               ),

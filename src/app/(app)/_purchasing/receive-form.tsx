@@ -259,7 +259,8 @@ function OrderLines({
       })}
       {showCosts && (
         <p className="text-right text-sm" aria-live="polite">
-          Value at cost: <strong className="tabular-nums">{formatKES(total.toFixed(2))}</strong> excl. VAT
+          Value at cost: <strong className="font-mono tabular-nums">{formatKES(total.toFixed(2))}</strong>{" "}
+          excl. VAT
         </p>
       )}
       {errors("lines")?.map((m) => (

@@ -40,7 +40,7 @@ export default async function ImportsPage() {
               <summary className="cursor-pointer font-medium">{k.label}</summary>
               <a
                 href={`/imports/template/${k.value.toLowerCase()}`}
-                className="text-primary mt-3 inline-block hover:underline"
+                className="text-link mt-3 inline-block hover:underline"
                 download
               >
                 Download template (.csv)
@@ -75,7 +75,7 @@ export default async function ImportsPage() {
             {jobs.map((j) => (
               <tr key={j.id} className="hover:bg-muted/50">
                 <TD>
-                  <Link href={`/imports/${j.id}`} className="text-primary font-medium hover:underline">
+                  <Link href={`/imports/${j.id}`} className="text-link font-medium hover:underline">
                     {j.fileName}
                   </Link>
                 </TD>

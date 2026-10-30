@@ -24,8 +24,10 @@ export function NavLink({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm",
-        active ? "bg-sidebar-accent font-medium" : "hover:bg-sidebar-accent/60",
+        "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
+        active
+          ? "bg-sidebar-active font-medium text-white shadow-sm"
+          : "text-sidebar-foreground/90 hover:bg-sidebar-accent hover:text-sidebar-foreground",
         className,
       )}
     >

@@ -52,9 +52,7 @@ export function ThemeToggle({ initial, className }: { initial: ThemeChoice; clas
           title={value === "system" ? "Follow this device's setting" : `${label} theme`}
           className={cn(
             "flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs transition-colors",
-            theme === value
-              ? "bg-sidebar-accent text-sidebar-foreground font-medium"
-              : "hover:text-sidebar-foreground",
+            theme === value ? "bg-sidebar-active font-medium text-white" : "hover:text-sidebar-foreground",
           )}
         >
           <Icon className="size-3.5" aria-hidden />

@@ -94,7 +94,7 @@ export default async function LedgerPage({
             <tr key={x.id}>
               <TD className="whitespace-nowrap">{formatDate(toDbDate(x.date))}</TD>
               <TD>
-                <Link href={`/accounting/journal/${x.entry.id}`} className="text-primary hover:underline">
+                <Link href={`/accounting/journal/${x.entry.id}`} className="text-link hover:underline">
                   {x.entry.number}
                 </Link>
               </TD>

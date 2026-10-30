@@ -1,13 +1,22 @@
-import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-/** Page wrapper with consistent width and spacing. */
+import { Breadcrumbs } from "./breadcrumbs";
+
+/**
+ * Page wrapper: the same side padding and spacing everywhere (design handover:
+ * `w-full px-4 sm:px-6 lg:px-8 space-y-6 max-w-[1600px] mx-auto`). Lists and
+ * reports use the full width; forms and detail pages stay narrower to read well.
+ */
 export function Page({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className={cn("mx-auto grid gap-6 px-4 py-8 md:px-10 md:py-10", wide ? "max-w-7xl" : "max-w-5xl")}>
+    <div
+      className={cn(
+        "mx-auto grid w-full gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8",
+        wide ? "max-w-[1600px]" : "max-w-5xl",
+      )}
+    >
       {children}
     </div>
   );
@@ -25,20 +34,12 @@ export function PageHeader({
   back?: { href: string; label: string };
 }) {
   return (
-    <header className="grid gap-2">
-      {back && (
-        <Link
-          href={back.href}
-          className="text-muted-foreground hover:text-foreground -ml-1 flex w-fit items-center gap-1 text-sm"
-        >
-          <ChevronLeft className="size-4" aria-hidden />
-          {back.label}
-        </Link>
-      )}
+    <header className="grid gap-2 border-b pb-5">
+      <Breadcrumbs back={back} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="grid gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{title}</h1>
-          {description && <div className="text-muted-foreground max-w-[70ch] text-sm">{description}</div>}
+          <h1 className="text-foreground text-2xl font-semibold tracking-tight md:text-[1.7rem]">{title}</h1>
+          {description && <div className="text-muted-foreground max-w-[75ch] text-sm">{description}</div>}
         </div>
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>

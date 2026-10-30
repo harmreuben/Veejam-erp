@@ -101,7 +101,7 @@ export function CreditNoteForm({
                     <div className="text-muted-foreground text-xs">{l.remaining} left to credit</div>
                   )}
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatKES(l.unitPrice)}</td>
+                <td className="px-3 py-2 text-right font-mono tabular-nums">{formatKES(l.unitPrice)}</td>
                 <td className="px-3 py-2 text-right">
                   <input type="hidden" name={`lines.${i}.lineId`} value={l.id} />
                   <Input

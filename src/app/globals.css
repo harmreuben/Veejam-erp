@@ -12,34 +12,52 @@
 :root {
   --radius: 0.5rem;
 
-  --background: #f4f7f6; /* paper */
-  --foreground: #13241f; /* ink */
+  /*
+   * VeeJam enterprise palette (design handover, Oct 2026): a navy shell,
+   * blue for links and actions, teal as the accent. The exact handover hexes
+   * are used for surfaces and fills; text uses deeper shades of the same hues
+   * so it stays readable (4.5:1 or better on white).
+   */
+  --background: #f5f7fa;
+  --foreground: #202938;
   --card: #ffffff;
-  --card-foreground: #13241f;
+  --card-foreground: #202938;
   --popover: #ffffff;
-  --popover-foreground: #13241f;
-  --primary: #0b6e5b; /* spearmint */
+  --popover-foreground: #202938;
+  --primary: #142b4a; /* navy: main buttons */
   --primary-foreground: #ffffff;
-  --secondary: #e3efeb; /* mint wash */
-  --secondary-foreground: #0d3d33;
-  --muted: #edf2f0;
-  --muted-foreground: #4f625c;
-  --accent: #e3efeb;
-  --accent-foreground: #0d3d33;
-  --destructive: #b42318;
-  --warning: #9a6200;
-  --warning-soft: #fdf3dc;
-  --success: #0b6e5b;
-  --success-soft: #def2ea;
-  --border: #d3ded9;
-  --input: #c4d3cd;
-  --ring: #0b6e5b;
+  --secondary: #eaf0f7;
+  --secondary-foreground: #142b4a;
+  --muted: #eef2f6;
+  --muted-foreground: #5f6b7e; /* handover #748094, deepened for small text */
+  --accent: #eaf0f7;
+  --accent-foreground: #142b4a;
+  --link: #2463a6;
+  --destructive: #c23b3b; /* text; fill: --danger-fill */
+  --warning: #9a5b0b;
+  --warning-soft: #fdf3e1;
+  --success: #11804f;
+  --success-soft: #e3f5ec;
+  --border: #e3e8ef;
+  --input: #cfd7e2;
+  --ring: #16a6a1;
 
-  --sidebar: #0d3a32; /* wrapper green */
-  --sidebar-foreground: #e6f2ee;
-  --sidebar-muted: #9fbfb5;
-  --sidebar-border: #1d5247;
-  --sidebar-accent: #145045;
+  /* Exact handover colours, for fills, dots, bars and icons (not small text). */
+  --brand-navy: #142b4a;
+  --brand-blue: #2463a6;
+  --brand-teal: #16a6a1;
+  --success-fill: #16a36a;
+  --warning-fill: #e9a23b;
+  --danger-fill: #dc4c4c;
+  --whatsapp: #128c7e;
+  --whatsapp-bright: #25d366;
+
+  --sidebar: #142b4a;
+  --sidebar-foreground: #e8eef6;
+  --sidebar-muted: #9daeca;
+  --sidebar-border: #223d63;
+  --sidebar-accent: #1d3a60; /* hover */
+  --sidebar-active: #2463a6; /* the page you're on */
 
   /* Chart series, in this fixed order (validated for colour-blind readers).
      Text never uses these. 3 and 4 sit below 3:1 on white, so charts using
@@ -61,34 +79,45 @@
  * kept on <html data-theme="…">; with no choice, the device's setting decides.
  */
 :root[data-theme="dark"] {
-  --background: #0e1714;
-  --foreground: #e3ece8;
-  --card: #15211d;
-  --card-foreground: #e3ece8;
-  --popover: #15211d;
-  --popover-foreground: #e3ece8;
-  --primary: #4cc3a5;
-  --primary-foreground: #06231c;
-  --secondary: #1b2e28;
-  --secondary-foreground: #cfe6de;
-  --muted: #18251f;
-  --muted-foreground: #98aea6;
-  --accent: #1b2e28;
-  --accent-foreground: #cfe6de;
-  --destructive: #f2786d;
+  --background: #0b1524;
+  --foreground: #e6ebf2;
+  --card: #111e31;
+  --card-foreground: #e6ebf2;
+  --popover: #111e31;
+  --popover-foreground: #e6ebf2;
+  --primary: #2f6fb5;
+  --primary-foreground: #ffffff;
+  --secondary: #18283f;
+  --secondary-foreground: #d6e1ef;
+  --muted: #15233a;
+  --muted-foreground: #93a0b4;
+  --accent: #18283f;
+  --accent-foreground: #d6e1ef;
+  --link: #7db3ec;
+  --destructive: #f06b6b;
   --warning: #f0b54a;
   --warning-soft: #33280f;
-  --success: #4cc3a5;
-  --success-soft: #133029;
-  --border: #263832;
-  --input: #2f453e;
-  --ring: #4cc3a5;
+  --success: #3dcb8e;
+  --success-soft: #11301f;
+  --border: #22324a;
+  --input: #2c3f5c;
+  --ring: #3cc6c0;
 
-  --sidebar: #0a2420;
-  --sidebar-foreground: #dcebe6;
-  --sidebar-muted: #86a69c;
-  --sidebar-border: #173a33;
-  --sidebar-accent: #12352e;
+  --brand-navy: #142b4a;
+  --brand-blue: #3b7dc4;
+  --brand-teal: #3cc6c0;
+  --success-fill: #2fb37a;
+  --warning-fill: #e9a23b;
+  --danger-fill: #e05c5c;
+  --whatsapp: #1fa58f;
+  --whatsapp-bright: #25d366;
+
+  --sidebar: #0a1424;
+  --sidebar-foreground: #dfe7f2;
+  --sidebar-muted: #8c9bb3;
+  --sidebar-border: #1a2a42;
+  --sidebar-accent: #15253d;
+  --sidebar-active: #22528a;
 
   --chart-1: #3987e5;
   --chart-2: #d95926;
@@ -104,34 +133,45 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --background: #0e1714;
-    --foreground: #e3ece8;
-    --card: #15211d;
-    --card-foreground: #e3ece8;
-    --popover: #15211d;
-    --popover-foreground: #e3ece8;
-    --primary: #4cc3a5;
-    --primary-foreground: #06231c;
-    --secondary: #1b2e28;
-    --secondary-foreground: #cfe6de;
-    --muted: #18251f;
-    --muted-foreground: #98aea6;
-    --accent: #1b2e28;
-    --accent-foreground: #cfe6de;
-    --destructive: #f2786d;
+    --background: #0b1524;
+    --foreground: #e6ebf2;
+    --card: #111e31;
+    --card-foreground: #e6ebf2;
+    --popover: #111e31;
+    --popover-foreground: #e6ebf2;
+    --primary: #2f6fb5;
+    --primary-foreground: #ffffff;
+    --secondary: #18283f;
+    --secondary-foreground: #d6e1ef;
+    --muted: #15233a;
+    --muted-foreground: #93a0b4;
+    --accent: #18283f;
+    --accent-foreground: #d6e1ef;
+    --link: #7db3ec;
+    --destructive: #f06b6b;
     --warning: #f0b54a;
     --warning-soft: #33280f;
-    --success: #4cc3a5;
-    --success-soft: #133029;
-    --border: #263832;
-    --input: #2f453e;
-    --ring: #4cc3a5;
+    --success: #3dcb8e;
+    --success-soft: #11301f;
+    --border: #22324a;
+    --input: #2c3f5c;
+    --ring: #3cc6c0;
 
-    --sidebar: #0a2420;
-    --sidebar-foreground: #dcebe6;
-    --sidebar-muted: #86a69c;
-    --sidebar-border: #173a33;
-    --sidebar-accent: #12352e;
+    --brand-navy: #142b4a;
+    --brand-blue: #3b7dc4;
+    --brand-teal: #3cc6c0;
+    --success-fill: #2fb37a;
+    --warning-fill: #e9a23b;
+    --danger-fill: #e05c5c;
+    --whatsapp: #1fa58f;
+    --whatsapp-bright: #25d366;
+
+    --sidebar: #0a1424;
+    --sidebar-foreground: #dfe7f2;
+    --sidebar-muted: #8c9bb3;
+    --sidebar-border: #1a2a42;
+    --sidebar-accent: #15253d;
+    --sidebar-active: #22528a;
 
     --chart-1: #3987e5;
     --chart-2: #d95926;
@@ -157,7 +197,9 @@
 }
 
 @theme inline {
-  --font-sans: "Public Sans Variable", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Inter Variable", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  /* Money and document numbers: monospaced, so columns of KES line up. */
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
@@ -190,14 +232,21 @@
   --color-sidebar-muted: var(--sidebar-muted);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-link: var(--link);
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-teal: var(--brand-teal);
+  --color-success-fill: var(--success-fill);
+  --color-warning-fill: var(--warning-fill);
+  --color-danger-fill: var(--danger-fill);
+  --color-whatsapp: var(--whatsapp);
+  --color-whatsapp-bright: var(--whatsapp-bright);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-  }
-  html {
-    font-feature-settings: "tnum" 1; /* tabular figures: columns of KES line up */
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;

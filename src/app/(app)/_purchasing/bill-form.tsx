@@ -272,11 +272,11 @@ export function BillForm({
           ))}
           <dl className="ml-auto grid w-full max-w-sm grid-cols-2 gap-1 text-sm" aria-live="polite">
             <dt className="text-muted-foreground">Excluding VAT</dt>
-            <dd className="text-right tabular-nums">{formatKES(subtotal.toFixed(2))}</dd>
+            <dd className="text-right font-mono tabular-nums">{formatKES(subtotal.toFixed(2))}</dd>
             <dt className="text-muted-foreground">VAT</dt>
-            <dd className="text-right tabular-nums">{formatKES(tax.toFixed(2))}</dd>
+            <dd className="text-right font-mono tabular-nums">{formatKES(tax.toFixed(2))}</dd>
             <dt className="font-semibold">Bill total</dt>
-            <dd className="text-right font-semibold tabular-nums">
+            <dd className="text-right font-mono font-semibold tabular-nums">
               {formatKES(subtotal.plus(tax).toFixed(2))}
             </dd>
             {!diff.isZero() && (

@@ -14,11 +14,11 @@ export const formatDate = (d: Date | null | undefined) => (d ? nairobiDate.forma
 
 export function Money({ value }: { value: string | null | undefined }) {
   if (value === null || value === undefined) return <span className="text-muted-foreground">—</span>;
-  return <span className="tabular-nums">{formatKES(value)}</span>;
+  return <span className="font-mono tabular-nums">{formatKES(value)}</span>;
 }
 
 export function Qty({ pieces, sizes }: { pieces: number; sizes: PackSizes }) {
-  return <span className="tabular-nums">{formatQuantity(pieces, sizes)}</span>;
+  return <span className="font-mono tabular-nums">{formatQuantity(pieces, sizes)}</span>;
 }
 
 export function StatusBadge({ status }: { status: string }) {

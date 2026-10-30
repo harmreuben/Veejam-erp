@@ -56,7 +56,7 @@ export function BarList({
                 )}
                 {i.sub && <span className="text-muted-foreground ml-2 font-mono text-xs">{i.sub}</span>}
               </span>
-              <span className="shrink-0 font-medium tabular-nums">{formatKES(i.value)}</span>
+              <span className="shrink-0 font-mono font-medium tabular-nums">{formatKES(i.value)}</span>
             </div>
             <div className="flex items-center gap-3">
               <div aria-hidden className="bg-muted h-2 flex-1 overflow-hidden rounded">
@@ -66,7 +66,7 @@ export function BarList({
                 />
               </div>
               {i.note && (
-                <span className="text-muted-foreground w-24 shrink-0 text-right text-xs tabular-nums">
+                <span className="text-muted-foreground w-24 shrink-0 text-right font-mono text-xs tabular-nums">
                   {i.note}
                 </span>
               )}
@@ -131,11 +131,14 @@ export function SplitBar({
             <span aria-hidden className="size-3 shrink-0 rounded-sm" style={{ background: p.color }} />
             <span className="text-muted-foreground min-w-0 flex-1 truncate">{p.label}</span>
             <span
-              className={cn("tabular-nums", p.alert && Number(p.value) > 0 && "text-destructive font-medium")}
+              className={cn(
+                "font-mono tabular-nums",
+                p.alert && Number(p.value) > 0 && "text-destructive font-medium",
+              )}
             >
               {formatKES(p.value)}
             </span>
-            <span className="text-muted-foreground w-10 text-right text-xs tabular-nums">
+            <span className="text-muted-foreground w-10 text-right font-mono text-xs tabular-nums">
               {pct(Number(p.value), whole)}%
             </span>
           </li>
@@ -169,7 +172,7 @@ export function Columns({ points, label }: { points: Column[]; label: string }) 
   return (
     <figure className="bg-card grid gap-2 rounded-lg border p-4">
       <figcaption className="sr-only">{label}. The figures are in the table below.</figcaption>
-      <div aria-hidden className="text-muted-foreground flex justify-between text-xs tabular-nums">
+      <div aria-hidden className="text-muted-foreground flex justify-between font-mono text-xs tabular-nums">
         <span>KES {compact.format(max)}</span>
       </div>
       <div aria-hidden className="border-border flex h-40 items-end gap-0.5 border-b">

@@ -126,10 +126,7 @@ export default async function BillPage({
             <tr key={l.id}>
               <TD>
                 {l.goodsReceipt ? (
-                  <Link
-                    href={`/goods-received/${l.goodsReceipt.id}`}
-                    className="text-primary hover:underline"
-                  >
+                  <Link href={`/goods-received/${l.goodsReceipt.id}`} className="text-link hover:underline">
                     {l.description}
                   </Link>
                 ) : (
@@ -194,7 +191,7 @@ export default async function BillPage({
             {active.map((a) => (
               <tr key={a.id}>
                 <TD>
-                  <Link href={`/supplier-payments/${a.payment.id}`} className="text-primary hover:underline">
+                  <Link href={`/supplier-payments/${a.payment.id}`} className="text-link hover:underline">
                     {a.payment.number}
                   </Link>
                 </TD>
@@ -214,7 +211,7 @@ export default async function BillPage({
             {
               label: "Supplier",
               value: (
-                <Link href={`/suppliers/${b.supplier.id}`} className="text-primary hover:underline">
+                <Link href={`/suppliers/${b.supplier.id}`} className="text-link hover:underline">
                   {b.supplier.name} ({b.supplier.code})
                 </Link>
               ),

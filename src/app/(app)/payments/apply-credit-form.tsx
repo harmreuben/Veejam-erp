@@ -62,7 +62,7 @@ export function ApplyCreditForm({
                   {inv.number}
                   <div className="text-muted-foreground text-xs">Due {inv.due}</div>
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatKES(inv.outstanding)}</td>
+                <td className="px-3 py-2 text-right font-mono tabular-nums">{formatKES(inv.outstanding)}</td>
                 <td className="px-3 py-2 text-right">
                   <input type="hidden" name={`allocations.${i}.invoiceId`} value={inv.id} />
                   <Input

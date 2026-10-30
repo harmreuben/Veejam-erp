@@ -27,7 +27,7 @@ export default async function NewPurchaseOrderPage({
       {data.suppliers.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           Add a supplier first under{" "}
-          <Link className="text-primary underline" href="/suppliers/new">
+          <Link className="text-link underline" href="/suppliers/new">
             Suppliers
           </Link>
           .

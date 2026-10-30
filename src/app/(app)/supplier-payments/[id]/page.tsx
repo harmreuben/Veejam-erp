@@ -50,7 +50,7 @@ export default async function SupplierPaymentPage({
         description={
           <>
             <Money value={p.amount.toFixed(2)} /> to{" "}
-            <Link href={`/suppliers/${p.supplier.id}`} className="text-primary hover:underline">
+            <Link href={`/suppliers/${p.supplier.id}`} className="text-link hover:underline">
               {p.supplier.name}
             </Link>{" "}
             by {METHOD_LABELS[p.method]} on {formatLongDay(p.paidOn)}
@@ -108,7 +108,7 @@ export default async function SupplierPaymentPage({
             {active.map((a) => (
               <tr key={a.id}>
                 <TD>
-                  <Link href={`/supplier-bills/${a.bill.id}`} className="text-primary hover:underline">
+                  <Link href={`/supplier-bills/${a.bill.id}`} className="text-link hover:underline">
                     {a.bill.number}
                   </Link>{" "}
                   <span className="text-muted-foreground font-mono text-xs">

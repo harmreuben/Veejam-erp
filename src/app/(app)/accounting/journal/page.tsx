@@ -77,10 +77,7 @@ export default async function JournalPage({
           {rows.map((e) => (
             <tr key={e.id} className="hover:bg-muted/50">
               <TD>
-                <Link
-                  href={`/accounting/journal/${e.id}`}
-                  className="text-primary font-medium hover:underline"
-                >
+                <Link href={`/accounting/journal/${e.id}`} className="text-link font-medium hover:underline">
                   {e.number}
                 </Link>
               </TD>

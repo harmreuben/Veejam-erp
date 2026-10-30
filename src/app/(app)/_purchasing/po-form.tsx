@@ -202,7 +202,9 @@ export function PurchaseOrderForm({
                   aria-label={`Line ${i + 1} cost per unit`}
                   aria-invalid={errors(`lines.${i}.unitCost`) ? true : undefined}
                 />
-                <span className="text-right text-sm tabular-nums">{t ? formatKES(t.netAmount) : "—"}</span>
+                <span className="text-right font-mono text-sm tabular-nums">
+                  {t ? formatKES(t.netAmount) : "—"}
+                </span>
                 <Button
                   type="button"
                   variant="ghost"
@@ -247,11 +249,11 @@ export function PurchaseOrderForm({
 
       <dl className="ml-auto grid w-full max-w-xs grid-cols-2 gap-1 text-sm" aria-live="polite">
         <dt className="text-muted-foreground">Excluding VAT</dt>
-        <dd className="text-right tabular-nums">{formatKES(totals.subtotal)}</dd>
+        <dd className="text-right font-mono tabular-nums">{formatKES(totals.subtotal)}</dd>
         <dt className="text-muted-foreground">VAT</dt>
-        <dd className="text-right tabular-nums">{formatKES(totals.taxTotal)}</dd>
+        <dd className="text-right font-mono tabular-nums">{formatKES(totals.taxTotal)}</dd>
         <dt className="font-semibold">Total</dt>
-        <dd className="text-right font-semibold tabular-nums">{formatKES(totals.total)}</dd>
+        <dd className="text-right font-mono font-semibold tabular-nums">{formatKES(totals.total)}</dd>
       </dl>
 
       <SubmitBar pending={pending} state={state} label="Save draft" pendingLabel="Saving…">

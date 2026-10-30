@@ -49,7 +49,7 @@ export default async function SimulatorPage() {
           <p className="font-medium">Link your WhatsApp number first.</p>
           <p className="text-muted-foreground">
             Commands are accepted only from an owner&apos;s linked number.{" "}
-            <Link href="/whatsapp/number" className="text-primary underline-offset-4 hover:underline">
+            <Link href="/whatsapp/number" className="text-link underline-offset-4 hover:underline">
               Link your number
             </Link>
           </p>

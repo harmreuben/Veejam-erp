@@ -2,7 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { cookies, headers } from "next/headers";
 import type { ReactNode } from "react";
 import { Toaster } from "sonner";
-import "@fontsource-variable/public-sans";
+import "@fontsource-variable/inter";
+import "@fontsource-variable/jetbrains-mono";
 import "./globals.css";
 
 import { ServiceWorkerRegister } from "@/components/pwa";
@@ -27,8 +28,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#0b6e5b" },
-    { media: "(prefers-color-scheme: dark)", color: "#0e1714" },
+    { media: "(prefers-color-scheme: light)", color: "#142b4a" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a1424" },
   ],
 };
 

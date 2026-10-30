@@ -136,10 +136,7 @@ export default async function GoodsReceiptPage({
             {
               label: "Purchase order",
               value: g.purchaseOrder ? (
-                <Link
-                  href={`/purchase-orders/${g.purchaseOrder.id}`}
-                  className="text-primary hover:underline"
-                >
+                <Link href={`/purchase-orders/${g.purchaseOrder.id}`} className="text-link hover:underline">
                   {g.purchaseOrder.number}
                 </Link>
               ) : (
@@ -157,7 +154,7 @@ export default async function GoodsReceiptPage({
               label: "Bill",
               value: g.bill ? (
                 hasPermission(user, "payables.view") ? (
-                  <Link href={`/supplier-bills/${g.bill.id}`} className="text-primary hover:underline">
+                  <Link href={`/supplier-bills/${g.bill.id}`} className="text-link hover:underline">
                     {g.bill.number} (invoice {g.bill.supplierInvoiceNumber})
                   </Link>
                 ) : (

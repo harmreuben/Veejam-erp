@@ -84,7 +84,7 @@ export default async function PurchaseOrdersPage({
           {rows.map((r) => (
             <tr key={r.id} className="hover:bg-muted/50">
               <TD>
-                <Link href={`/purchase-orders/${r.id}`} className="text-primary font-medium hover:underline">
+                <Link href={`/purchase-orders/${r.id}`} className="text-link font-medium hover:underline">
                   {r.number}
                 </Link>
               </TD>

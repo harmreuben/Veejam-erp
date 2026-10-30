@@ -111,7 +111,7 @@ export default async function MovementsPage({
                 <TD>{MOVEMENT_LABELS[m.type]}</TD>
                 <TD>
                   {href ? (
-                    <Link href={href} className="text-primary hover:underline">
+                    <Link href={href} className="text-link hover:underline">
                       {m.sourceNumber}
                     </Link>
                   ) : (

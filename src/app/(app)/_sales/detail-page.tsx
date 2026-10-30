@@ -370,7 +370,7 @@ export async function SalesDetailPage({
         description={
           <>
             {label.one} for{" "}
-            <Link href={`/customers/${doc.customerId}`} className="text-primary hover:underline">
+            <Link href={`/customers/${doc.customerId}`} className="text-link hover:underline">
               {doc.customer.name}
             </Link>{" "}
             · <Money value={doc.total} />
@@ -412,7 +412,7 @@ export async function SalesDetailPage({
           <strong>
             {doc.number} issued in place of {doc.replaces.number}.
           </strong>{" "}
-          <Link href={`/credit-notes/${doc.replaces.id}`} className="text-primary hover:underline">
+          <Link href={`/credit-notes/${doc.replaces.id}`} className="text-link hover:underline">
             {doc.replaces.number}
           </Link>{" "}
           was undone and is kept under &ldquo;Deleted&rdquo;.
@@ -421,7 +421,7 @@ export async function SalesDetailPage({
       {!sp.corrected && doc.replaces && (
         <Banner>
           Corrects{" "}
-          <Link href={`/credit-notes/${doc.replaces.id}`} className="text-primary hover:underline">
+          <Link href={`/credit-notes/${doc.replaces.id}`} className="text-link hover:underline">
             {doc.replaces.number}
           </Link>
           , which was cancelled.
@@ -430,10 +430,7 @@ export async function SalesDetailPage({
       {doc.replacedBy && (
         <Banner tone="warning">
           Replaced by{" "}
-          <Link
-            href={`/credit-notes/${doc.replacedBy.id}`}
-            className="text-primary font-medium hover:underline"
-          >
+          <Link href={`/credit-notes/${doc.replacedBy.id}`} className="text-link font-medium hover:underline">
             {doc.replacedBy.number}
           </Link>
           .
@@ -618,14 +615,11 @@ export async function SalesDetailPage({
                 {doc.settlements.map((a) => (
                   <li key={a.id} className="flex justify-between gap-3">
                     {a.payment ? (
-                      <Link href={`/payments/${a.payment.id}`} className="text-primary hover:underline">
+                      <Link href={`/payments/${a.payment.id}`} className="text-link hover:underline">
                         {a.payment.number}
                       </Link>
                     ) : (
-                      <Link
-                        href={`/credit-notes/${a.creditNote!.id}`}
-                        className="text-primary hover:underline"
-                      >
+                      <Link href={`/credit-notes/${a.creditNote!.id}`} className="text-link hover:underline">
                         {a.creditNote!.number}
                       </Link>
                     )}
@@ -634,7 +628,7 @@ export async function SalesDetailPage({
                 ))}
                 {doc.creditsGiven.map((a) => (
                   <li key={a.id} className="flex justify-between gap-3">
-                    <Link href={`/invoices/${a.invoice.id}`} className="text-primary hover:underline">
+                    <Link href={`/invoices/${a.invoice.id}`} className="text-link hover:underline">
                       {a.invoice.number}
                     </Link>
                     <Money value={a.amount} />
@@ -651,7 +645,7 @@ export async function SalesDetailPage({
                   <li>
                     From{" "}
                     <Link
-                      className="text-primary hover:underline"
+                      className="text-link hover:underline"
                       href={`${KIND_LABELS[doc.sourceDocument.kind].path}/${doc.sourceDocument.id}`}
                     >
                       {doc.sourceDocument.number}
@@ -660,10 +654,7 @@ export async function SalesDetailPage({
                 )}
                 {doc.derivedDocuments.map((d) => (
                   <li key={d.id} className="flex items-center gap-2">
-                    <Link
-                      className="text-primary hover:underline"
-                      href={`${KIND_LABELS[d.kind].path}/${d.id}`}
-                    >
+                    <Link className="text-link hover:underline" href={`${KIND_LABELS[d.kind].path}/${d.id}`}>
                       {d.number ?? `Draft ${KIND_LABELS[d.kind].one.toLowerCase()}`}
                     </Link>
                     <SalesStatusBadge status={d.status} />
@@ -671,10 +662,7 @@ export async function SalesDetailPage({
                 ))}
                 {doc.deliveryNote && (
                   <li className="flex items-center gap-2">
-                    <Link
-                      className="text-primary hover:underline"
-                      href={`/deliveries/${doc.deliveryNote.id}`}
-                    >
+                    <Link className="text-link hover:underline" href={`/deliveries/${doc.deliveryNote.id}`}>
                       {doc.deliveryNote.number}
                     </Link>
                     <DeliveryStatusBadge status={doc.deliveryNote.status} />

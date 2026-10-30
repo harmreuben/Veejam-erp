@@ -335,15 +335,15 @@ export function DocumentEditor({ kind, data, initial, defaults }: EditorProps) {
                 ) : (
                   <>
                     <input type="hidden" name={`lines.${i}.discountPercent`} value={keptDiscount ?? ""} />
-                    <span className="text-muted-foreground px-1 text-sm tabular-nums">
+                    <span className="text-muted-foreground px-1 font-mono text-sm tabular-nums">
                       {keptDiscount && keptDiscount !== "0" ? `${keptDiscount}%` : "—"}
                     </span>
                   </>
                 )}
-                <span className="hidden px-1 text-right text-sm tabular-nums lg:block">
+                <span className="hidden px-1 text-right font-mono text-sm tabular-nums lg:block">
                   {p ? price ? formatKES(price) : <span className="text-destructive">No price</span> : ""}
                 </span>
-                <span className="px-1 text-right text-sm font-medium tabular-nums">
+                <span className="px-1 text-right font-mono text-sm font-medium tabular-nums">
                   {t ? formatKES(t.grossAmount) : ""}
                 </span>
                 <button
@@ -434,7 +434,7 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
   return (
     <div className={`flex justify-between gap-4 ${strong ? "border-t pt-1 text-base font-semibold" : ""}`}>
       <span className={strong ? undefined : "text-muted-foreground"}>{label}</span>
-      <span className="tabular-nums">{value}</span>
+      <span className="font-mono tabular-nums">{value}</span>
     </div>
   );
 }

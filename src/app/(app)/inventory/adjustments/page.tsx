@@ -53,7 +53,7 @@ export default async function AdjustmentsPage() {
               <TD>
                 <Link
                   href={`/inventory/adjustments/${a.id}`}
-                  className="text-primary font-medium hover:underline"
+                  className="text-link font-medium hover:underline"
                 >
                   {a.number}
                 </Link>

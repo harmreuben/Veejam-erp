@@ -10,14 +10,19 @@ export function Table({
   ...props
 }: React.ComponentProps<"table"> & { minWidth?: number }) {
   return (
-    <div className="bg-card overflow-x-auto rounded-lg border">
+    <div className="bg-card overflow-x-auto rounded-lg border shadow-[0_1px_2px_rgb(20_43_74/0.04)]">
       <table className={cn("w-full text-sm", className)} style={{ minWidth }} {...props} />
     </div>
   );
 }
 
 export function THead(props: React.ComponentProps<"thead">) {
-  return <thead className="text-muted-foreground border-b text-left text-xs" {...props} />;
+  return (
+    <thead
+      className="bg-muted/70 text-muted-foreground border-b text-left text-[11px] font-semibold tracking-[0.04em] uppercase"
+      {...props}
+    />
+  );
 }
 
 export function TBody(props: React.ComponentProps<"tbody">) {
@@ -37,7 +42,7 @@ export function TH({ className, numeric, ...props }: React.ComponentProps<"th"> 
 export function TD({ className, numeric, ...props }: React.ComponentProps<"td"> & { numeric?: boolean }) {
   return (
     <td
-      className={cn("px-4 py-2.5 align-top", numeric && "text-right whitespace-nowrap", className)}
+      className={cn("px-4 py-2.5 align-top", numeric && "text-right font-mono whitespace-nowrap", className)}
       {...props}
     />
   );
@@ -56,14 +61,17 @@ export function EmptyRow({
   return (
     <tr>
       <td colSpan={colSpan} className="text-muted-foreground px-4 py-10 text-center">
-        {art ? (
-          <div className="vj-page flex flex-col items-center gap-3">
-            <Illustration name={art} />
-            <div>{children}</div>
-          </div>
-        ) : (
-          children
-        )}
+        {/* Kept in view while a wide table scrolls sideways on a phone. */}
+        <div className="sticky left-4 w-[min(100%,calc(100vw-4rem))]">
+          {art ? (
+            <div className="vj-page flex flex-col items-center gap-3">
+              <Illustration name={art} />
+              <div>{children}</div>
+            </div>
+          ) : (
+            children
+          )}
+        </div>
       </td>
     </tr>
   );

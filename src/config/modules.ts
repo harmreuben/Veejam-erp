@@ -7,7 +7,8 @@ import type { Permission } from "@/server/auth/permissions";
  * until then the sidebar shows it as upcoming instead of a fake page.
  */
 
-export type ModuleGroup = "Sell" | "Stock" | "Money" | "Operate" | "Admin";
+export type ModuleGroup =
+  "Overview" | "Sales" | "Stock & purchasing" | "Finance" | "WhatsApp" | "Administration";
 
 export type ErpModule = {
   slug: string;
@@ -26,7 +27,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "dashboard",
     name: "Dashboard",
-    group: "Operate",
+    group: "Overview",
     phase: 8,
     href: "/dashboard",
     // The business dashboard, or a salesperson's own one.
@@ -35,7 +36,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "customers",
     name: "Customers",
-    group: "Sell",
+    group: "Sales",
     phase: 3,
     href: "/customers",
     permission: "customers.view",
@@ -43,7 +44,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "quotations",
     name: "Quotations",
-    group: "Sell",
+    group: "Sales",
     phase: 4,
     href: "/quotations",
     permission: "sales.view",
@@ -51,7 +52,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "sales-orders",
     name: "Sales orders",
-    group: "Sell",
+    group: "Sales",
     phase: 4,
     href: "/sales-orders",
     permission: "sales.view",
@@ -59,7 +60,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "invoicing",
     name: "Invoices",
-    group: "Sell",
+    group: "Sales",
     phase: 4,
     href: "/invoices",
     permission: "sales.view",
@@ -67,7 +68,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "delivery",
     name: "Deliveries",
-    group: "Sell",
+    group: "Sales",
     phase: 4,
     href: "/deliveries",
     permission: "sales.view",
@@ -75,7 +76,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "returns",
     name: "Credit notes",
-    group: "Sell",
+    group: "Sales",
     phase: 5,
     href: "/credit-notes",
     permission: "sales.view",
@@ -83,7 +84,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "catalogue",
     name: "Products",
-    group: "Stock",
+    group: "Stock & purchasing",
     phase: 3,
     href: "/products",
     permission: "catalogue.view",
@@ -91,7 +92,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "price-lists",
     name: "Price lists",
-    group: "Stock",
+    group: "Stock & purchasing",
     phase: 3,
     href: "/price-lists",
     permission: "catalogue.view",
@@ -99,7 +100,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "inventory",
     name: "Inventory",
-    group: "Stock",
+    group: "Stock & purchasing",
     phase: 3,
     href: "/inventory",
     permission: "inventory.view",
@@ -107,7 +108,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "suppliers",
     name: "Suppliers",
-    group: "Stock",
+    group: "Stock & purchasing",
     phase: 3,
     href: "/suppliers",
     permission: "suppliers.view",
@@ -115,7 +116,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "purchasing",
     name: "Purchase orders",
-    group: "Stock",
+    group: "Stock & purchasing",
     phase: 5,
     href: "/purchase-orders",
     permission: "purchasing.view",
@@ -123,7 +124,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "goods-received",
     name: "Goods received",
-    group: "Stock",
+    group: "Stock & purchasing",
     phase: 5,
     href: "/goods-received",
     permission: "purchasing.view",
@@ -131,7 +132,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "payments",
     name: "Payments & receipts",
-    group: "Money",
+    group: "Finance",
     phase: 5,
     href: "/payments",
     permission: "sales.view",
@@ -139,7 +140,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "balances",
     name: "Customer balances",
-    group: "Money",
+    group: "Finance",
     phase: 5,
     href: "/payments/balances",
     permission: "customers.view",
@@ -147,7 +148,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "supplier-bills",
     name: "Supplier bills",
-    group: "Money",
+    group: "Finance",
     phase: 5,
     href: "/supplier-bills",
     permission: "payables.view",
@@ -155,7 +156,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "supplier-payments",
     name: "Supplier payments",
-    group: "Money",
+    group: "Finance",
     phase: 5,
     href: "/supplier-payments",
     permission: "payables.view",
@@ -163,7 +164,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "accounting",
     name: "Accounting & ledger",
-    group: "Money",
+    group: "Finance",
     phase: 5,
     href: "/accounting",
     permission: "accounting.view",
@@ -171,7 +172,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "tax",
     name: "Tax rates",
-    group: "Money",
+    group: "Finance",
     phase: 4,
     href: "/settings/tax",
     permission: "settings.view",
@@ -179,7 +180,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "reports",
     name: "Reports",
-    group: "Operate",
+    group: "Overview",
     phase: 8,
     href: "/reports",
     permission: "reports.view",
@@ -187,17 +188,31 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "whatsapp",
     name: "WhatsApp commands",
-    group: "Operate",
+    group: "WhatsApp",
     phase: 6,
     href: "/whatsapp",
     permission: "whatsapp.view",
   },
-  { slug: "audit", name: "Audit log", group: "Admin", phase: 8, href: "/audit", permission: "audit.view" },
-  { slug: "imports", name: "Imports", group: "Admin", phase: 3, href: "/imports", permission: "imports.run" },
+  {
+    slug: "audit",
+    name: "Audit log",
+    group: "Administration",
+    phase: 8,
+    href: "/audit",
+    permission: "audit.view",
+  },
+  {
+    slug: "imports",
+    name: "Imports",
+    group: "Administration",
+    phase: 3,
+    href: "/imports",
+    permission: "imports.run",
+  },
   {
     slug: "settings",
     name: "Company settings",
-    group: "Admin",
+    group: "Administration",
     phase: 2,
     href: "/settings/company",
     permission: "settings.view",
@@ -205,7 +220,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "users",
     name: "Users & roles",
-    group: "Admin",
+    group: "Administration",
     phase: 2,
     href: "/settings/users",
     permission: "users.view",
@@ -213,7 +228,7 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "speed",
     name: "Speed check",
-    group: "Admin",
+    group: "Administration",
     phase: 8,
     href: "/settings/speed",
     permission: "backups.view",
@@ -221,14 +236,33 @@ export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "backups",
     name: "Backup & recovery",
-    group: "Admin",
+    group: "Administration",
     phase: 8,
     href: "/backups",
     permission: "backups.view",
   },
 ];
 
-export const MODULE_GROUPS: readonly ModuleGroup[] = ["Sell", "Stock", "Money", "Operate", "Admin"];
+export const MODULE_GROUPS: readonly ModuleGroup[] = [
+  "Overview",
+  "Sales",
+  "Stock & purchasing",
+  "Finance",
+  "WhatsApp",
+  "Administration",
+];
+
+/** The menu section a page belongs to (for the breadcrumb above its title). */
+export function moduleForPath(pathname: string): ErpModule | undefined {
+  let best: ErpModule | undefined;
+  for (const m of ERP_MODULES) {
+    if (!m.href) continue;
+    if (pathname === m.href || pathname.startsWith(`${m.href}/`)) {
+      if (!best || m.href.length > best.href!.length) best = m;
+    }
+  }
+  return best;
+}
 
 /** Does someone with these duties get this module in their menu? */
 export function canSeeModule(m: ErpModule, permissions: readonly Permission[]): boolean {

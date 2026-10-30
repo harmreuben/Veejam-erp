@@ -20,7 +20,9 @@ export function Tile({
   const body = (
     <>
       <div className="text-muted-foreground text-sm">{label}</div>
-      <div className={cn("text-2xl font-semibold tabular-nums", tone === "warning" && "text-warning")}>
+      <div
+        className={cn("font-mono text-2xl font-semibold tabular-nums", tone === "warning" && "text-warning")}
+      >
         {value}
       </div>
       {note && <div className="text-muted-foreground text-xs">{note}</div>}

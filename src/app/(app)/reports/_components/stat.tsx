@@ -19,7 +19,7 @@ export function Stat({
   return (
     <div className="bg-card grid gap-0.5 rounded-lg border p-4">
       <div className="text-muted-foreground text-sm">{label}</div>
-      <div className="text-xl font-semibold tabular-nums">{value}</div>
+      <div className="font-mono text-xl font-semibold tabular-nums">{value}</div>
       {note && <div className="text-muted-foreground text-xs">{note}</div>}
     </div>
   );

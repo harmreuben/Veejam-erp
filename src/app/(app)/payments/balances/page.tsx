@@ -67,7 +67,7 @@ export default async function BalancesPage() {
               <TD>
                 <Link
                   href={`/customers/${r.customerId}/statement`}
-                  className="text-primary font-medium hover:underline"
+                  className="text-link font-medium hover:underline"
                 >
                   {r.name}
                 </Link>

@@ -59,7 +59,7 @@ export default async function PaymentPage({
         description={
           <>
             <Money value={p.amount} /> from{" "}
-            <Link href={`/customers/${p.customerId}`} className="text-primary hover:underline">
+            <Link href={`/customers/${p.customerId}`} className="text-link hover:underline">
               {p.customer.name}
             </Link>{" "}
             by {METHOD_LABELS[p.method]}
@@ -172,7 +172,7 @@ export default async function PaymentPage({
                           <Link
                             key={j.id}
                             href={`/accounting/journal/${j.id}`}
-                            className="text-primary hover:underline"
+                            className="text-link hover:underline"
                           >
                             {j.number}
                           </Link>

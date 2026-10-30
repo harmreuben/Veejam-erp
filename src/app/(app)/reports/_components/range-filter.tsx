@@ -88,7 +88,7 @@ export function RangeFilter({
               href={`${path}?${qs({ from: p.from, to: p.to })}`}
               aria-current={active ? "true" : undefined}
               className={
-                active ? "text-foreground font-medium" : "text-primary underline-offset-4 hover:underline"
+                active ? "text-foreground font-medium" : "text-link underline-offset-4 hover:underline"
               }
             >
               {p.label}

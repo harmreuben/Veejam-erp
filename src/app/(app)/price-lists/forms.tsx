@@ -128,7 +128,7 @@ export function PriceGrid({ listId, rows, canEdit }: { listId: string; rows: Gri
                     aria-label={`${r.name} price per ${u.toLowerCase()}`}
                     aria-invalid={errors(`price:${r.id}:${u}`) ? true : undefined}
                     readOnly={!canEdit}
-                    className="ml-auto w-28 text-right tabular-nums"
+                    className="ml-auto w-28 text-right font-mono tabular-nums"
                     placeholder="—"
                   />
                 </TD>

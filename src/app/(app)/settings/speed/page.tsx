@@ -15,7 +15,7 @@ function Row({ label, value, note }: { label: string; value: React.ReactNode; no
     <div className="grid gap-0.5 border-t py-3 first:border-t-0 sm:grid-cols-[14rem_1fr] sm:gap-4">
       <dt className="text-muted-foreground text-sm">{label}</dt>
       <dd className="text-sm">
-        <span className="font-medium tabular-nums">{value}</span>
+        <span className="font-mono font-medium tabular-nums">{value}</span>
         {note && <span className="text-muted-foreground block text-xs">{note}</span>}
       </dd>
     </div>

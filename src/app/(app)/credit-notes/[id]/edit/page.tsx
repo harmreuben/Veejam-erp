@@ -33,7 +33,7 @@ export default async function EditCreditNotePage({ params }: { params: Promise<{
         <PageHeader title={`Edit ${cn.number}`} back={back} />
         <p className="text-muted-foreground text-sm">
           {cn.number} was already changed or deleted.{" "}
-          <Link href={`/credit-notes/${cn.id}`} className="text-primary hover:underline">
+          <Link href={`/credit-notes/${cn.id}`} className="text-link hover:underline">
             Open it
           </Link>{" "}
           to see what replaced it.

@@ -97,7 +97,7 @@ export async function SalesListPage({
           },
         ]}
       />
-      <Table minWidth={720}>
+      <Table minWidth={860}>
         <THead>
           <tr>
             <TH>Number</TH>
@@ -117,14 +117,20 @@ export async function SalesListPage({
           )}
           {rows.map((d) => (
             <tr key={d.id} className="hover:bg-muted/50">
-              <TD>
-                <Link href={`${label.path}/${d.id}`} className="text-primary font-medium hover:underline">
+              <TD className="whitespace-nowrap">
+                <Link
+                  href={`${label.path}/${d.id}`}
+                  className="text-link font-mono font-medium hover:underline"
+                >
                   {d.number ?? "Draft"}
                 </Link>
                 {d.historical && <span className="text-muted-foreground ml-1.5 text-xs">old system</span>}
               </TD>
-              <TD>
-                {d.customer.name} <span className="text-muted-foreground text-xs">{d.customer.code}</span>
+              <TD className="min-w-48">
+                {d.customer.name}{" "}
+                <span className="text-muted-foreground font-mono text-xs whitespace-nowrap">
+                  {d.customer.code}
+                </span>
               </TD>
               <TD className="whitespace-nowrap">{formatDate(d.issueDate)}</TD>
               <TD className="whitespace-nowrap">

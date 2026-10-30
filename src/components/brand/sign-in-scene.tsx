@@ -32,7 +32,7 @@ export function SignInScene({ className }: { className?: string }) {
         fill={BRAND.amber}
         stroke="none"
       />
-      <circle cx="352" cy="104" r="4" fill={BRAND.green} />
+      <circle cx="352" cy="104" r="4" fill="var(--sidebar)" />
 
       {/* Ground. */}
       <path d="M12 206H388" {...stroke} strokeOpacity={0.35} />
@@ -52,10 +52,10 @@ export function SignInScene({ className }: { className?: string }) {
       <g>
         <rect x="206" y="152" width="72" height="42" rx="4" {...soft} />
         <path d="M278 164h22l14 16v14h-36z" fill={BRAND.amber} {...stroke} />
-        <path d="M283 169h14l8 10h-22z" fill={BRAND.green} {...stroke} strokeWidth={2} />
+        <path d="M283 169h14l8 10h-22z" fill="var(--sidebar)" {...stroke} strokeWidth={2} />
         <path d="M218 172h28" {...stroke} stroke={BRAND.amber} strokeWidth={4} />
-        <circle cx="226" cy="196" r="10" fill={BRAND.green} {...stroke} />
-        <circle cx="294" cy="196" r="10" fill={BRAND.green} {...stroke} />
+        <circle cx="226" cy="196" r="10" fill="var(--sidebar)" {...stroke} />
+        <circle cx="294" cy="196" r="10" fill="var(--sidebar)" {...stroke} />
         <circle cx="226" cy="196" r="3" fill="currentColor" />
         <circle cx="294" cy="196" r="3" fill="currentColor" />
         <path d="M184 160h12M178 170h14" {...stroke} strokeOpacity={0.45} />

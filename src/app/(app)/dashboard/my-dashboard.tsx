@@ -184,7 +184,7 @@ export async function MyDashboard({ user, withTabs = false }: { user: AppUser; w
                     <TD numeric>
                       <Link
                         href={`/payments/new?customer=${c.customerId}&invoice=${c.id}`}
-                        className="text-primary text-sm hover:underline"
+                        className="text-link text-sm hover:underline"
                       >
                         Record payment
                       </Link>

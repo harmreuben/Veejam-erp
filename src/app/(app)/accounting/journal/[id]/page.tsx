@@ -59,7 +59,7 @@ export default async function JournalEntryPage({ params }: { params: Promise<{ i
                     (href ? (
                       <>
                         {" "}
-                        <Link href={href} className="text-primary hover:underline">
+                        <Link href={href} className="text-link hover:underline">
                           {e.sourceNumber}
                         </Link>
                       </>

@@ -24,7 +24,7 @@ export async function AuthShell({
     <div className="flex min-h-dvh flex-col md:grid md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
       <aside className="bg-sidebar text-sidebar-foreground flex flex-col justify-between gap-8 px-4 py-4 md:px-12 md:py-12">
         <p>
-          <Logo name={name} tile="soft" />
+          <Logo name={name} tile="brand" />
         </p>
         <div className="hidden gap-6 md:grid">
           <SignInScene className="text-sidebar-foreground max-w-md" />

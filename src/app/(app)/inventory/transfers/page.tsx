@@ -49,10 +49,7 @@ export default async function TransfersPage() {
           {rows.map((t) => (
             <tr key={t.id} className="hover:bg-muted/50">
               <TD>
-                <Link
-                  href={`/inventory/transfers/${t.id}`}
-                  className="text-primary font-medium hover:underline"
-                >
+                <Link href={`/inventory/transfers/${t.id}`} className="text-link font-medium hover:underline">
                   {t.number}
                 </Link>
               </TD>

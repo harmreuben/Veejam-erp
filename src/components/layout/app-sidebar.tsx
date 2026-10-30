@@ -1,11 +1,21 @@
 import Link from "next/link";
-import { LogOut, UserRound } from "lucide-react";
+import {
+  Calculator,
+  LayoutDashboard,
+  LogOut,
+  MessageSquare,
+  Package,
+  ShieldCheck,
+  ShoppingCart,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
 
 import { signOut } from "@/app/(auth)/login/actions";
 import { Logo } from "@/components/brand/logo";
 import { InstallAppButton } from "@/components/pwa";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { canSeeModule, ERP_MODULES, MODULE_GROUPS, type ErpModule } from "@/config/modules";
+import { canSeeModule, ERP_MODULES, MODULE_GROUPS, type ErpModule, type ModuleGroup } from "@/config/modules";
 import { ROLE_LABELS, type Permission } from "@/server/auth/permissions";
 import type { AppUser } from "@/server/auth/resolve";
 import type { ThemeChoice } from "@/lib/theme";
@@ -31,23 +41,43 @@ function ModuleItem({ module, permissions }: { module: ErpModule; permissions: r
   );
 }
 
+const GROUP_ICONS: Record<ModuleGroup, LucideIcon> = {
+  Overview: LayoutDashboard,
+  Sales: ShoppingCart,
+  "Stock & purchasing": Package,
+  Finance: Calculator,
+  WhatsApp: MessageSquare,
+  Administration: ShieldCheck,
+};
+
 function ModuleNav({ permissions, className }: { permissions: readonly Permission[]; className?: string }) {
   return (
     <nav aria-label="Modules" className={cn("grid gap-5", className)}>
-      {MODULE_GROUPS.map((group) => (
-        <div key={group} className="grid gap-0.5">
-          <h3 className="text-sidebar-muted px-3 pb-1 text-xs font-semibold">{group}</h3>
-          {ERP_MODULES.filter((m) => m.group === group).map((m) => (
-            <ModuleItem key={m.slug} module={m} permissions={permissions} />
-          ))}
-        </div>
-      ))}
+      {MODULE_GROUPS.map((group) => {
+        const items = ERP_MODULES.filter(
+          (m) => m.group === group && (!m.href || canSeeModule(m, permissions)),
+        );
+        if (!items.length) return null;
+        const Icon = GROUP_ICONS[group];
+        return (
+          <div key={group} className="grid gap-0.5">
+            <h3 className="text-sidebar-muted flex items-center gap-2 px-3 pb-1.5 text-[11px] font-semibold tracking-[0.08em] uppercase">
+              <Icon className="size-3.5" aria-hidden />
+              {group}
+            </h3>
+            {items.map((m) => (
+              <ModuleItem key={m.slug} module={m} permissions={permissions} />
+            ))}
+          </div>
+        );
+      })}
     </nav>
   );
 }
 
 function Wordmark({ companyName }: { companyName: string }) {
-  return <Logo name={companyName} className="min-w-0" />;
+  // The logo keeps its own green tile on the navy menu.
+  return <Logo name={companyName} tile="brand" className="min-w-0" />;
 }
 
 /** The wordmark as a link home (desktop; on phones the wordmark opens the menu). */
@@ -106,7 +136,7 @@ export function AppSidebar({
   return (
     <>
       {/* Desktop */}
-      <aside className="bg-sidebar text-sidebar-foreground border-sidebar-border sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-6 overflow-y-auto border-r px-3 py-5 md:flex">
+      <aside className="bg-sidebar text-sidebar-foreground border-sidebar-border sticky top-0 hidden h-dvh w-[17rem] shrink-0 flex-col gap-6 overflow-y-auto border-r px-3 py-5 md:flex">
         <div className="px-3">
           <HomeLink companyName={companyName} />
         </div>

@@ -101,7 +101,7 @@ export default async function StockValuePage() {
               </TD>
               <TD numeric>
                 {p.averageCost ? (
-                  <span className="tabular-nums">{formatKES(p.averageCost)}</span>
+                  <span className="font-mono tabular-nums">{formatKES(p.averageCost)}</span>
                 ) : p.pieces > 0 ? (
                   <span className="text-warning">Not set</span>
                 ) : (

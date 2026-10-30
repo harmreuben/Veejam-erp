@@ -32,7 +32,7 @@ export default async function NewAdjustmentPage() {
         description={
           <>
             For opening stock after a physical count, a{" "}
-            <Link href="/inventory/counts" className="text-primary hover:underline">
+            <Link href="/inventory/counts" className="text-link hover:underline">
               stock count
             </Link>{" "}
             is usually better: it sets every product to the counted figure in one step.
@@ -42,7 +42,7 @@ export default async function NewAdjustmentPage() {
       {products.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           Add products first.{" "}
-          <Link href="/products/new" className="text-primary hover:underline">
+          <Link href="/products/new" className="text-link hover:underline">
             Add a product
           </Link>
         </p>

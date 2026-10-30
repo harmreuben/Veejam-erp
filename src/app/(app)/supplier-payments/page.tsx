@@ -63,10 +63,7 @@ export default async function SupplierPaymentsPage({
           {rows.map((p) => (
             <tr key={p.id} className="hover:bg-muted/50">
               <TD>
-                <Link
-                  href={`/supplier-payments/${p.id}`}
-                  className="text-primary font-medium hover:underline"
-                >
+                <Link href={`/supplier-payments/${p.id}`} className="text-link font-medium hover:underline">
                   {p.number}
                 </Link>
               </TD>

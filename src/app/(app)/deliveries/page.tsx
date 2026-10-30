@@ -66,7 +66,7 @@ export default async function DeliveriesPage({
           {rows.map((n) => (
             <tr key={n.id} className="hover:bg-muted/50">
               <TD>
-                <Link href={`/deliveries/${n.id}`} className="text-primary font-medium hover:underline">
+                <Link href={`/deliveries/${n.id}`} className="text-link font-medium hover:underline">
                   {n.number}
                 </Link>
               </TD>

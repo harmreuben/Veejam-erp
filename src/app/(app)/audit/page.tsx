@@ -144,7 +144,7 @@ export default async function AuditPage({
       {next && (
         <Link
           href={`/audit?${qs({ before: next })}`}
-          className="text-primary text-sm underline-offset-4 hover:underline"
+          className="text-link text-sm underline-offset-4 hover:underline"
         >
           Older entries →
         </Link>

@@ -51,7 +51,7 @@ export default async function CountsPage() {
           {counts.map((c) => (
             <tr key={c.id} className="hover:bg-muted/50">
               <TD>
-                <Link href={`/inventory/counts/${c.id}`} className="text-primary font-medium hover:underline">
+                <Link href={`/inventory/counts/${c.id}`} className="text-link font-medium hover:underline">
                   {c.number}
                 </Link>
               </TD>
