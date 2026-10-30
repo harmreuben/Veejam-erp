@@ -10,7 +10,7 @@ export function Table({
   ...props
 }: React.ComponentProps<"table"> & { minWidth?: number }) {
   return (
-    <div className="bg-card overflow-x-auto rounded-lg border shadow-[0_1px_2px_rgb(20_43_74/0.04)]">
+    <div className="bg-card relative overflow-x-auto rounded-lg border shadow-[0_1px_2px_rgb(20_43_74/0.04)]">
       <table className={cn("w-full text-sm", className)} style={{ minWidth }} {...props} />
     </div>
   );

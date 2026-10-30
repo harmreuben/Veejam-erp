@@ -1,3 +1,4 @@
+import { FileDown } from "lucide-react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
@@ -69,7 +70,7 @@ export default async function PaymentsPage({
           },
         ]}
       />
-      <Table minWidth={760}>
+      <Table minWidth={900}>
         <THead>
           <tr>
             <TH>Receipt</TH>
@@ -79,18 +80,21 @@ export default async function PaymentsPage({
             <TH numeric>Amount</TH>
             <TH numeric>Not yet applied</TH>
             <TH>Status</TH>
+            <TH>
+              <span className="sr-only">Receipt PDF</span>
+            </TH>
           </tr>
         </THead>
         <TBody>
           {rows.length === 0 && (
-            <EmptyRow colSpan={7} art={q ? "search" : "money"}>
+            <EmptyRow colSpan={8} art={q ? "search" : "money"}>
               {q ? "Nothing matches that search." : "No payments yet."}
             </EmptyRow>
           )}
           {rows.map((p) => (
             <tr key={p.id} className="hover:bg-muted/50">
-              <TD>
-                <Link href={`/payments/${p.id}`} className="text-link font-medium hover:underline">
+              <TD className="whitespace-nowrap">
+                <Link href={`/payments/${p.id}`} className="text-link font-mono font-medium hover:underline">
                   {p.number}
                 </Link>
               </TD>
@@ -114,6 +118,17 @@ export default async function PaymentsPage({
                 ) : (
                   <Badge variant="success">Received</Badge>
                 )}
+              </TD>
+              <TD className="text-right">
+                <a
+                  href={`/payments/${p.id}/pdf`}
+                  target="_blank"
+                  rel="noopener"
+                  className="text-link inline-flex items-center gap-1 text-xs whitespace-nowrap hover:underline"
+                >
+                  <FileDown className="size-3.5" aria-hidden />
+                  Receipt<span className="sr-only"> {p.number} (PDF)</span>
+                </a>
               </TD>
             </tr>
           ))}

@@ -1,3 +1,4 @@
+import { Page, PageHeader } from "@/components/page";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -31,20 +32,25 @@ export default async function UsersPage() {
     .map((r) => ({ value: r, label: ROLE_LABELS[r], description: ROLE_DESCRIPTIONS[r] }));
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-8 px-4 py-8 md:px-10 md:py-12">
-      <header className="grid gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Users &amp; roles</h1>
-        <p className="text-muted-foreground max-w-[70ch] text-sm">
-          Each person signs in with their own email. Their role sets their starting duties; open a person to
-          switch individual duties on or off. Deactivated users keep their history but can&apos;t sign in.
-        </p>
-      </header>
+    <Page>
+      <PageHeader
+        title="Users & roles"
+        description={
+          <>
+            <p className="text-muted-foreground max-w-[70ch] text-sm">
+              Each person signs in with their own email. Their role sets their starting duties; open a person
+              to switch individual duties on or off. Deactivated users keep their history but can&apos;t sign
+              in.
+            </p>
+          </>
+        }
+      />
 
       <section aria-labelledby="people" className="grid gap-3">
         <h2 id="people" className="text-base font-semibold">
           People with access <span className="text-muted-foreground font-normal">({users.length})</span>
         </h2>
-        <div className="bg-card overflow-x-auto rounded-lg border">
+        <div className="bg-card relative overflow-x-auto rounded-lg border">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="text-muted-foreground border-b text-left text-xs">
               <tr>
@@ -142,6 +148,6 @@ export default async function UsersPage() {
           <AddStaffForm roles={assignable} />
         </section>
       )}
-    </div>
+    </Page>
   );
 }

@@ -370,3 +370,19 @@
     animation-duration: 220ms;
   }
 }
+
+/* Printing: A4 with a modest margin; the page itself is white and animations are off. */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+  }
+  .vj-page,
+  .vj-stagger > * {
+    animation: none !important;
+  }
+}

@@ -17,7 +17,7 @@ export default async function WhatsAppLayout({ children }: { children: ReactNode
           items={[
             ...(owner ? [{ href: "/whatsapp", label: "Simulator", exact: true }] : []),
             { href: "/whatsapp/log", label: "Message log" },
-            ...(owner ? [{ href: "/whatsapp/number", label: "Your number" }] : []),
+            ...(owner ? [{ href: "/whatsapp/number", label: "Settings" }] : []),
           ]}
         />
       </div>

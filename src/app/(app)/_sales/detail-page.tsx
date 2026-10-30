@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FileDown, Pencil } from "lucide-react";
+import { FileDown, Pencil, Printer } from "lucide-react";
 
 import { formatDate, formatDateTime, Money } from "@/components/format";
 import { NoAccess } from "@/components/no-access";
@@ -385,6 +385,11 @@ export async function SalesDetailPage({
                 </Link>
               </Button>
             )}
+            <Button variant="outline" asChild>
+              <Link href={`/documents/${doc.id}/preview`}>
+                <Printer aria-hidden /> Print preview
+              </Link>
+            </Button>
             <Button variant="outline" asChild>
               <a href={`/documents/${doc.id}/pdf`} target="_blank" rel="noopener">
                 <FileDown aria-hidden /> PDF

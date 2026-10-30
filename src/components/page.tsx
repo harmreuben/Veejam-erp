@@ -13,7 +13,7 @@ export function Page({ children, wide = false }: { children: React.ReactNode; wi
   return (
     <div
       className={cn(
-        "mx-auto grid w-full gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8",
+        "mx-auto grid w-full grid-cols-[minmax(0,1fr)] gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8",
         wide ? "max-w-[1600px]" : "max-w-5xl",
       )}
     >

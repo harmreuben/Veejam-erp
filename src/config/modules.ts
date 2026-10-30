@@ -82,6 +82,14 @@ export const ERP_MODULES: readonly ErpModule[] = [
     permission: "sales.view",
   },
   {
+    slug: "sales-returns",
+    name: "Sales returns",
+    group: "Sales",
+    phase: 5,
+    href: "/sales-returns",
+    permission: "sales.view",
+  },
+  {
     slug: "catalogue",
     name: "Products",
     group: "Stock & purchasing",
@@ -223,6 +231,14 @@ export const ERP_MODULES: readonly ErpModule[] = [
     group: "Administration",
     phase: 2,
     href: "/settings/users",
+    permission: "users.view",
+  },
+  {
+    slug: "roles",
+    name: "Roles & permissions",
+    group: "Administration",
+    phase: 2,
+    href: "/settings/roles",
     permission: "users.view",
   },
   {

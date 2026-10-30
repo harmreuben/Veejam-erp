@@ -14,8 +14,9 @@ export default async function AccountingLayout({ children }: { children: ReactNo
           label="Accounting"
           items={[
             { href: "/accounting", label: "Trial balance", exact: true },
+            { href: "/accounting/accounts", label: "Chart of accounts" },
             { href: "/accounting/journal", label: "Journal" },
-            { href: "/accounting/settings", label: "Accounts and closing" },
+            { href: "/accounting/settings", label: "Closing the books" },
           ]}
         />
       </div>

@@ -1,3 +1,4 @@
+import { Page, PageHeader } from "@/components/page";
 import { NoAccess } from "@/components/no-access";
 import { hasPermission } from "@/server/auth/permissions";
 import { requireUser, toActor } from "@/server/auth/session";
@@ -23,21 +24,25 @@ export default async function CompanySettingsPage() {
   const editor = settings.version > 1 ? await getSettingsLastEditor(db, toActor(user)) : null;
 
   return (
-    <div className="mx-auto grid max-w-4xl gap-6 px-4 py-8 md:px-10 md:py-12">
-      <header className="grid gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Company settings</h1>
-        <p className="text-muted-foreground text-sm">
-          {canEdit
-            ? "Changes apply to new documents. Documents already posted keep the details they were issued with."
-            : "You can view these details. Only an owner or administrator can change them."}
-          {editor && (
-            <>
-              {" "}
-              Last changed {nairobiDateTime.format(settings.updatedAt)} by {editor}.
-            </>
-          )}
-        </p>
-      </header>
+    <Page>
+      <PageHeader
+        title="Company settings"
+        description={
+          <>
+            <p className="text-muted-foreground text-sm">
+              {canEdit
+                ? "Changes apply to new documents. Documents already posted keep the details they were issued with."
+                : "You can view these details. Only an owner or administrator can change them."}
+              {editor && (
+                <>
+                  {" "}
+                  Last changed {nairobiDateTime.format(settings.updatedAt)} by {editor}.
+                </>
+              )}
+            </p>
+          </>
+        }
+      />
       <CompanySettingsForm
         canEdit={canEdit}
         values={{
@@ -62,6 +67,6 @@ export default async function CompanySettingsPage() {
           version: settings.version,
         }}
       />
-    </div>
+    </Page>
   );
 }

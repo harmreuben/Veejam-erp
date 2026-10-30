@@ -1,3 +1,4 @@
+import { Page, PageHeader } from "@/components/page";
 import { DUTY_GROUPS, PERMISSION_INFO, ROLE_LABELS } from "@/server/auth/permissions";
 import { requireUser } from "@/server/auth/session";
 
@@ -8,13 +9,17 @@ export const metadata = { title: "Your account" };
 export default async function AccountPage() {
   const user = await requireUser();
   return (
-    <div className="mx-auto grid max-w-3xl gap-8 px-4 py-8 md:px-10 md:py-12">
-      <header className="grid gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Your account</h1>
-        <p className="text-muted-foreground text-sm">
-          {user.fullName} · {user.email}
-        </p>
-      </header>
+    <Page>
+      <PageHeader
+        title="Your account"
+        description={
+          <>
+            <p className="text-muted-foreground text-sm">
+              {user.fullName} · {user.email}
+            </p>
+          </>
+        }
+      />
       <section className="grid gap-1 border-t pt-6" aria-labelledby="role">
         <h2 id="role" className="text-sm font-semibold">
           Role: {ROLE_LABELS[user.role]}
@@ -47,6 +52,6 @@ export default async function AccountPage() {
         </h2>
         <ChangePasswordForm email={user.email} />
       </section>
-    </div>
+    </Page>
   );
 }

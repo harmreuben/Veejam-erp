@@ -25,7 +25,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
-      <AppSidebar companyName={companyName} user={user} permissions={user.permissions} theme={theme} />
+      {/* Menus never print (print previews show only the document). */}
+      <div className="contents print:hidden">
+        <AppSidebar companyName={companyName} user={user} permissions={user.permissions} theme={theme} />
+      </div>
       <main className="min-w-0 flex-1">{children}</main>
       <AppStarted />
     </div>

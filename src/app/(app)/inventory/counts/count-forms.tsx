@@ -105,7 +105,7 @@ export function CountSheet({
       <input type="hidden" name="id" value={countId} />
       <input type="hidden" name="version" value={version} />
       <button ref={postRef} type="submit" name="intent" value="post" hidden tabIndex={-1} aria-hidden />
-      <div className="bg-card overflow-x-auto rounded-lg border">
+      <div className="bg-card relative overflow-x-auto rounded-lg border">
         <table className="w-full min-w-[760px] text-sm">
           <thead className="text-muted-foreground border-b text-left text-xs">
             <tr>
