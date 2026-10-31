@@ -59,6 +59,7 @@ export function SettingsTabs() {
         { href: "/backups", label: "Backups" },
         { href: "/imports", label: "Imports" },
         { href: "/settings/speed", label: "Speed check" },
+        { href: "/settings/install", label: "Install the app" },
       ]}
     />
   );

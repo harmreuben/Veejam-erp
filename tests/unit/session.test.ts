@@ -72,6 +72,8 @@ describe("public paths", () => {
     expect(isPublicPath("/sw.js")).toBe(true);
     expect(isPublicPath("/offline.html")).toBe(true);
     expect(isPublicPath("/sw.jsx")).toBe(false);
+    expect(isPublicPath("/.well-known/assetlinks.json")).toBe(true);
+    expect(isPublicPath("/.well-known")).toBe(false);
     // Forgotten passwords; the new-password page itself still needs the link's session.
     expect(isPublicPath("/forgot-password")).toBe(true);
     expect(isPublicPath("/auth/confirm")).toBe(true);

@@ -66,6 +66,8 @@ const PUBLIC_PATHS = [
   "/manifest.webmanifest",
   "/sw.js",
   "/offline.html",
+  // The Android app checks this file to open the site full screen.
+  "/.well-known/assetlinks.json",
 ];
 
 export function isPublicPath(pathname: string): boolean {
