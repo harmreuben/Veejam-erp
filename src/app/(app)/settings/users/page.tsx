@@ -1,5 +1,4 @@
 import { Page, PageHeader } from "@/components/page";
-import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { NoAccess } from "@/components/no-access";
@@ -7,12 +6,12 @@ import { UserRole } from "@/generated/prisma/enums";
 import { hasPermission, ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/server/auth/permissions";
 import { requireUser, toActor } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
-import { listUsers } from "@/server/modules/users/service";
+import { listUsers, MAX_ACTIVE_USERS } from "@/server/modules/users/service";
 
 import { AddStaffForm } from "./add-staff-form";
 import { AccessToggle, ResetLinkButton, RoleSelect } from "./user-row-actions";
 
-export const metadata = { title: "Users & roles" };
+export const metadata = { title: "Users" };
 
 const nairobiDate = new Intl.DateTimeFormat("en-KE", {
   dateStyle: "medium",
@@ -26,24 +25,18 @@ export default async function UsersPage() {
 
   const users = await listUsers(getDb(), toActor(me));
   const canManage = hasPermission(me, "users.manage");
-  // Only owners may assign the owner role.
-  const assignable = Object.values(UserRole)
+  const active = users.filter((u) => u.isActive).length;
+  const room = active < MAX_ACTIVE_USERS;
+  // Two accounts: the owner and an administrator. Only owners may assign the owner role.
+  const assignable = (["OWNER", "ADMIN"] as const satisfies readonly UserRole[])
     .filter((r) => me.role === "OWNER" || r !== "OWNER")
     .map((r) => ({ value: r, label: ROLE_LABELS[r], description: ROLE_DESCRIPTIONS[r] }));
 
   return (
     <Page>
       <PageHeader
-        title="Users & roles"
-        description={
-          <>
-            <p className="text-muted-foreground max-w-[70ch] text-sm">
-              Each person signs in with their own email. Their role sets their starting duties; open a person
-              to switch individual duties on or off. Deactivated users keep their history but can&apos;t sign
-              in.
-            </p>
-          </>
-        }
+        title="Users"
+        description={`VeeJam has two accounts: the owner (Venus Wanjiru) and the administrator (Reuben Maina). Both can run everything in the business; WhatsApp commands stay with the owner. Each signs in with their own email, and everything they do is in the audit log.`}
       />
 
       <section aria-labelledby="people" className="grid gap-3">
@@ -76,9 +69,7 @@ export default async function UsersPage() {
                   <tr key={u.id} className={u.isActive ? undefined : "text-muted-foreground"}>
                     <td className="px-4 py-3">
                       <div className="font-medium">
-                        <Link href={`/settings/users/${u.id}`} className="hover:underline">
-                          {u.fullName}
-                        </Link>{" "}
+                        {u.fullName}{" "}
                         {isMe && <span className="text-muted-foreground font-normal">(you)</span>}
                       </div>
                       <div className="text-muted-foreground text-xs">{u.email}</div>
@@ -86,25 +77,20 @@ export default async function UsersPage() {
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-2">
                         {editable && u.isActive ? (
-                          <RoleSelect userId={u.id} name={u.fullName} role={u.role} roles={assignable} />
+                          <RoleSelect
+                            userId={u.id}
+                            name={u.fullName}
+                            role={u.role}
+                            roles={
+                              // Someone given an older role keeps it listed until it's changed.
+                              assignable.some((r) => r.value === u.role)
+                                ? assignable
+                                : [...assignable, { value: u.role, label: ROLE_LABELS[u.role] }]
+                            }
+                          />
                         ) : (
                           ROLE_LABELS[u.role]
                         )}
-                        {u.dutiesAdded + u.dutiesRemoved > 0 && (
-                          <Badge
-                            variant="warning"
-                            title={`${u.dutiesAdded} added, ${u.dutiesRemoved} removed compared with the role`}
-                          >
-                            Customised
-                          </Badge>
-                        )}
-                        <Link
-                          href={`/settings/users/${u.id}`}
-                          className="text-muted-foreground hover:text-foreground text-xs underline"
-                          aria-label={`Duties for ${u.fullName}`}
-                        >
-                          Duties
-                        </Link>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -134,7 +120,12 @@ export default async function UsersPage() {
         </div>
       </section>
 
-      {canManage && (
+      {canManage && !room && (
+        <p className="text-muted-foreground text-sm">
+          Both places are taken. To give someone else access, deactivate one of the accounts first.
+        </p>
+      )}
+      {canManage && room && (
         <section aria-labelledby="add" className="bg-card grid gap-4 rounded-lg border p-5">
           <div className="grid gap-1">
             <h2 id="add" className="text-base font-semibold">

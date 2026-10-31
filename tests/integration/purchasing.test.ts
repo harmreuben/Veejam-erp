@@ -9,14 +9,6 @@ import { postManualJournal, startAccounting, trialBalance } from "@/server/modul
 import { createCustomer } from "@/server/modules/customers/service";
 import { postAdjustment } from "@/server/modules/inventory/documents";
 import {
-  cancelPurchaseOrder,
-  closePurchaseOrder,
-  createPurchaseOrder,
-  getPurchaseOrder,
-  markOrdered,
-  updatePurchaseOrder,
-} from "@/server/modules/purchasing/orders";
-import {
   agedPayables,
   cancelSupplierBill,
   postSupplierBill,
@@ -25,7 +17,7 @@ import {
   supplierBalance,
   supplierStatement,
 } from "@/server/modules/purchasing/payables";
-import { getGoodsReceipt, postGoodsReceipt } from "@/server/modules/purchasing/receipts";
+import { postGoodsReceipt } from "@/server/modules/purchasing/receipts";
 import { revalueStock } from "@/server/modules/purchasing/valuation";
 import { stockValuation } from "@/server/modules/reports/service";
 import { createCreditNote, creditableLines } from "@/server/modules/sales/credit-notes";
@@ -260,133 +252,6 @@ describe("opening stock without a cost", () => {
     expect(res.stockValue).toBe("450.00");
     await expectLedgersAgree(s);
     expect((await startAccounting(db, s.owner)).stockValue).toBeNull();
-  });
-});
-
-describe("purchase orders and goods received", () => {
-  it("draft → ordered → partly received → received; over-receiving refused; the database keeps lines in step", async () => {
-    const s = await setup();
-    const po = await createPurchaseOrder(db, s.accountant, {
-      supplierId: s.supplier.id,
-      warehouseId: s.main.id,
-      orderDate: today(),
-      lines: [{ productId: s.product.id, unit: "CARTON", quantity: 5, unitCost: "2000" }],
-    });
-    let view = await getPurchaseOrder(db, s.owner, po.id);
-    expect(view.total).toBe("11600.00"); // 10,000 + 16% VAT
-    await updatePurchaseOrder(db, s.accountant, po.id, {
-      supplierId: s.supplier.id,
-      warehouseId: s.main.id,
-      orderDate: today(),
-      version: 1,
-      lines: [{ productId: s.product.id, unit: "CARTON", quantity: 4, unitCost: "2100" }],
-    });
-    await expect(
-      postGoodsReceipt(db, s.owner, {
-        supplierId: s.supplier.id,
-        warehouseId: s.main.id,
-        purchaseOrderId: po.id,
-        receivedOn: today(),
-        idempotencyKey: randomUUID(),
-        lines: [],
-      }),
-    ).rejects.toThrow(/hasn't been sent/);
-    await markOrdered(db, s.accountant, po.id, 2);
-    view = await getPurchaseOrder(db, s.owner, po.id);
-    const line = view.lines[0]!;
-
-    // The storekeeper receives 3 of 4 cartons; costs come from the order.
-    const grn = await postGoodsReceipt(db, s.storekeeper, {
-      supplierId: s.supplier.id,
-      warehouseId: s.main.id,
-      purchaseOrderId: po.id,
-      receivedOn: today(),
-      supplierReference: "DN 7781",
-      idempotencyKey: randomUUID(),
-      lines: [{ productId: s.product.id, orderLineId: line.id, unit: "CARTON", quantity: 3, unitCost: "1" }],
-    });
-    const g = await getGoodsReceipt(db, s.owner, grn.id);
-    expect(g.totalCost).toBe("6300.00");
-    expect((await getGoodsReceipt(db, s.storekeeper, grn.id)).totalCost).toBeNull(); // no costs for storekeepers
-    expect((await getPurchaseOrder(db, s.owner, po.id)).status).toBe("PARTLY_RECEIVED");
-    await expect(cancelPurchaseOrder(db, s.accountant, po.id, { reason: "x", version: 4 })).rejects.toThrow(
-      /Close it instead/,
-    );
-
-    await expect(
-      postGoodsReceipt(db, s.owner, {
-        supplierId: s.supplier.id,
-        warehouseId: s.main.id,
-        purchaseOrderId: po.id,
-        receivedOn: today(),
-        idempotencyKey: randomUUID(),
-        lines: [{ productId: s.product.id, orderLineId: line.id, unit: "CARTON", quantity: 2 }],
-      }),
-    ).rejects.toBeInstanceOf(ValidationError);
-    await postGoodsReceipt(db, s.owner, {
-      supplierId: s.supplier.id,
-      warehouseId: s.main.id,
-      purchaseOrderId: po.id,
-      receivedOn: today(),
-      idempotencyKey: randomUUID(),
-      lines: [{ productId: s.product.id, orderLineId: line.id, unit: "CARTON", quantity: 1 }],
-    });
-    expect((await getPurchaseOrder(db, s.owner, po.id)).status).toBe("RECEIVED");
-    expect(await balance(db, s.product.id, s.main.id)).toBe(800);
-    await expect(
-      rawQuery("UPDATE purchase_order_lines SET received_pieces = pieces + 1 WHERE id = $1", [line.id]),
-    ).rejects.toThrow();
-    await expect(
-      rawQuery("UPDATE goods_receipts SET total_cost = 1 WHERE id = $1", [grn.id]),
-    ).rejects.toThrow(/can't be edited/);
-    await expectLedgersAgree(s);
-  });
-
-  it("storekeepers can only receive against an order; sales can't receive; the same form twice posts once", async () => {
-    const s = await setup();
-    await expect(receive({ ...s, owner: s.storekeeper }, 1, "2000")).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(receive({ ...s, owner: s.sales }, 1, "2000")).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(
-      createPurchaseOrder(db, s.storekeeper, {
-        supplierId: s.supplier.id,
-        warehouseId: s.main.id,
-        orderDate: today(),
-        lines: [],
-      }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
-    const key = randomUUID();
-    const [a, b] = await Promise.all([
-      receive(s, 1, "2000", { idempotencyKey: key }),
-      receive(s, 1, "2000", { idempotencyKey: key }),
-    ]);
-    expect(a.number).toBe(b.number);
-    expect(await balance(db, s.product.id, s.main.id)).toBe(200);
-  });
-
-  it("an order with nothing received can be cancelled; a partly received one closed", async () => {
-    const s = await setup();
-    const make = () =>
-      createPurchaseOrder(db, s.owner, {
-        supplierId: s.supplier.id,
-        warehouseId: s.main.id,
-        orderDate: today(),
-        lines: [{ productId: s.product.id, unit: "CARTON", quantity: 2, unitCost: "2000" }],
-      });
-    const a = await make();
-    await cancelPurchaseOrder(db, s.owner, a.id, { reason: "Ordered by phone instead", version: 1 });
-    const b = await make();
-    await markOrdered(db, s.owner, b.id, 1);
-    const line = (await getPurchaseOrder(db, s.owner, b.id)).lines[0]!;
-    await postGoodsReceipt(db, s.owner, {
-      supplierId: s.supplier.id,
-      warehouseId: s.main.id,
-      purchaseOrderId: b.id,
-      receivedOn: today(),
-      idempotencyKey: randomUUID(),
-      lines: [{ productId: s.product.id, orderLineId: line.id, unit: "CARTON", quantity: 1 }],
-    });
-    await closePurchaseOrder(db, s.owner, b.id, { reason: "Supplier out of stock", version: 3 });
-    expect((await getPurchaseOrder(db, s.owner, b.id)).status).toBe("CLOSED");
   });
 });
 

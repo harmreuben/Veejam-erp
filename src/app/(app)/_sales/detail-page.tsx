@@ -1,4 +1,6 @@
 import Link from "next/link";
+
+import { Banner } from "@/components/banner";
 import { notFound } from "next/navigation";
 import { FileDown, Pencil, Printer } from "lucide-react";
 
@@ -28,25 +30,8 @@ import { ApplyCreditForm } from "../payments/apply-credit-form";
 import { ActionButton, ConfirmButton, ShareLinkButton } from "./document-actions";
 import { DeliveryStatusBadge, SalesStatusBadge } from "./status";
 
-function Banner({
-  tone = "info",
-  children,
-}: {
-  tone?: "info" | "warning" | "success";
-  children: React.ReactNode;
-}) {
-  const cls =
-    tone === "warning"
-      ? "border-warning/40 bg-warning-soft"
-      : tone === "success"
-        ? "border-success/40 bg-success-soft"
-        : "bg-muted";
-  return (
-    <div role="status" className={`rounded-md border p-3 text-sm ${cls}`}>
-      {children}
-    </div>
-  );
-}
+/** Quotations and sales orders were removed (Nov 2026); their old records have no page. */
+const hasPage = (k: string) => k === "INVOICE" || k === "CREDIT_NOTE";
 
 const unitText = (q: number, unit: keyof typeof UNIT_LABELS) =>
   `${q} ${q === 1 ? UNIT_LABELS[unit].one : UNIT_LABELS[unit].many}`;
@@ -87,74 +72,7 @@ export async function SalesDetailPage({
   const openForCredit =
     creditLeft && toDecimal(creditLeft).greaterThan(0) ? await openInvoices(getDb(), doc.customerId) : [];
 
-  // Quotation or confirmed order → invoice. People who may post get it posted in the same step.
-  const invoiceButton = (variant: "default" | "outline") =>
-    can("invoices.post") ? (
-      <ConfirmButton
-        key="to-i"
-        label="Invoice and post…"
-        variant={variant}
-        title={`Invoice ${doc.customer.name} and post it?`}
-        description={
-          <p>
-            Makes the invoice from this {label.one.toLowerCase()} and posts it now: it gets an INV- number and
-            the stock leaves {doc.warehouse.name}. If something stops it (stock or credit limit), it is saved
-            as a draft instead and you&apos;ll see why.
-          </p>
-        }
-        confirmLabel="Invoice and post"
-        hidden={{ id: doc.id, intent: "to-invoice" }}
-      />
-    ) : (
-      <ActionButton
-        key="to-i"
-        label="Make invoice"
-        variant={variant === "default" ? "default" : undefined}
-        hidden={{ id: doc.id, intent: "to-invoice" }}
-      />
-    );
   const actions: React.ReactNode[] = [];
-  if (kind === "QUOTATION" && canManage) {
-    if (doc.status === "DRAFT")
-      actions.push(<ActionButton key="sent" label="Mark sent" hidden={{ ...base, intent: "SENT" }} />);
-    if (["DRAFT", "SENT", "DECLINED"].includes(doc.status))
-      actions.push(<ActionButton key="acc" label="Mark accepted" hidden={{ ...base, intent: "ACCEPTED" }} />);
-    if (["DRAFT", "SENT", "ACCEPTED"].includes(doc.status))
-      actions.push(<ActionButton key="dec" label="Mark declined" hidden={{ ...base, intent: "DECLINED" }} />);
-  }
-  if (kind === "QUOTATION" && ["DRAFT", "SENT", "ACCEPTED"].includes(doc.status)) {
-    if (can("orders.manage"))
-      actions.push(
-        <ActionButton
-          key="to-o"
-          label="Make sales order"
-          variant="default"
-          hidden={{ id: doc.id, intent: "to-order" }}
-        />,
-      );
-    if (can("invoices.manage")) actions.push(invoiceButton("outline"));
-  }
-  if (kind === "SALES_ORDER" && doc.status === "DRAFT" && canManage) {
-    actions.push(
-      <ConfirmButton
-        key="confirm"
-        label="Confirm order…"
-        variant="default"
-        title={`Confirm ${doc.number}?`}
-        description={
-          <p>
-            This reserves the stock on this order in {doc.warehouse.name}, so it can&apos;t be sold to anyone
-            else. The order can&apos;t be edited after this; cancel it instead if it changes.
-          </p>
-        }
-        confirmLabel="Confirm and reserve stock"
-        hidden={{ ...base, intent: "confirm" }}
-      />,
-    );
-  }
-  if (kind === "SALES_ORDER" && doc.status === "CONFIRMED" && can("invoices.manage")) {
-    actions.push(invoiceButton("default"));
-  }
   if (kind === "INVOICE" && doc.status === "DRAFT" && can("invoices.post")) {
     actions.push(
       <ConfirmButton
@@ -198,22 +116,7 @@ export async function SalesDetailPage({
       </Button>,
     );
   }
-  if (isPostedInvoice && !doc.historical && can("delivery.manage")) {
-    actions.push(
-      doc.deliveryNote ? (
-        <Button key="dn" variant="outline" asChild>
-          <Link href={`/deliveries/${doc.deliveryNote.id}`}>Delivery note {doc.deliveryNote.number}</Link>
-        </Button>
-      ) : (
-        <ActionButton key="dn" label="Make delivery note" hidden={{ id: doc.id, intent: "deliver" }} />
-      ),
-    );
-  }
-  const cancellable =
-    canManage &&
-    ((kind === "QUOTATION" && ["DRAFT", "SENT", "ACCEPTED", "DECLINED"].includes(doc.status)) ||
-      (kind === "SALES_ORDER" && ["DRAFT", "CONFIRMED"].includes(doc.status)) ||
-      (kind === "INVOICE" && doc.status === "DRAFT"));
+  const cancellable = canManage && kind === "INVOICE" && doc.status === "DRAFT";
   if (cancellable) {
     actions.push(
       <ConfirmButton
@@ -222,12 +125,7 @@ export async function SalesDetailPage({
         variant="ghost"
         destructive
         title={`Cancel ${title}?`}
-        description={
-          <p>
-            {kind === "SALES_ORDER" && doc.status === "CONFIRMED" ? "Its reserved stock is released. " : ""}
-            It stays on record as cancelled.
-          </p>
-        }
+        description={<p>It stays on record as cancelled.</p>}
         fields={[{ name: "reason", label: "Reason", required: true }]}
         confirmLabel={`Cancel ${label.one.toLowerCase()}`}
         hidden={{ ...base, intent: "cancel" }}
@@ -262,7 +160,7 @@ export async function SalesDetailPage({
                 </li>
                 {!doc.historical && <li>Sales, VAT and cost of sales are reversed in the accounts.</li>}
                 {doc.historical && <li>Its old-system balance is taken off the accounts.</li>}
-                <li>Its delivery note and share links are cancelled.</li>
+                <li>Its share links{doc.deliveryNote ? " and delivery note" : ""} are cancelled.</li>
               </ul>
               <p>
                 It disappears from lists, balances and reports, but is kept under &ldquo;Deleted&rdquo; with
@@ -478,11 +376,6 @@ export async function SalesDetailPage({
           )}
         </Banner>
       )}
-      {kind === "SALES_ORDER" && doc.status === "CONFIRMED" && (
-        <Banner>
-          Stock for this order is reserved in {doc.warehouse.name} until it is invoiced or cancelled.
-        </Banner>
-      )}
 
       {actions.length > 0 && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
 
@@ -649,12 +542,19 @@ export async function SalesDetailPage({
                 {doc.sourceDocument && (
                   <li>
                     From{" "}
-                    <Link
-                      className="text-link hover:underline"
-                      href={`${KIND_LABELS[doc.sourceDocument.kind].path}/${doc.sourceDocument.id}`}
-                    >
-                      {doc.sourceDocument.number}
-                    </Link>
+                    {hasPage(doc.sourceDocument.kind) ? (
+                      <Link
+                        className="text-link hover:underline"
+                        href={`${KIND_LABELS[doc.sourceDocument.kind].path}/${doc.sourceDocument.id}`}
+                      >
+                        {doc.sourceDocument.number}
+                      </Link>
+                    ) : (
+                      // Quotations and orders from before Nov 2026 are kept, without pages of their own.
+                      <span>
+                        {KIND_LABELS[doc.sourceDocument.kind].one.toLowerCase()} {doc.sourceDocument.number}
+                      </span>
+                    )}
                   </li>
                 )}
                 {doc.derivedDocuments.map((d) => (
@@ -667,9 +567,7 @@ export async function SalesDetailPage({
                 ))}
                 {doc.deliveryNote && (
                   <li className="flex items-center gap-2">
-                    <Link className="text-link hover:underline" href={`/deliveries/${doc.deliveryNote.id}`}>
-                      {doc.deliveryNote.number}
-                    </Link>
+                    Delivery note {doc.deliveryNote.number}
                     <DeliveryStatusBadge status={doc.deliveryNote.status} />
                   </li>
                 )}

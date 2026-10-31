@@ -112,6 +112,7 @@ export async function grantUserAccess(
       throw new ConflictError(`${email} is already linked to a different sign-in account.`);
     }
     const existing = await tx.user.findUnique({ where: { authUserId } });
+    if (!existing?.isActive) await assertRoomForActiveUser(tx, existing?.id ?? null);
     const user = await tx.user.upsert({
       where: { authUserId },
       create: { authUserId, email, fullName, role },
@@ -171,6 +172,12 @@ export async function createStaffAccount(
   if (await db.user.findUnique({ where: { email } })) {
     throw new ValidationError({ email: ["Someone with this email already has access."] });
   }
+  // Checked again inside the transaction; this avoids creating a sign-in that would be refused.
+  if ((await db.user.count({ where: { isActive: true } })) >= MAX_ACTIVE_USERS) {
+    throw new ConflictError(
+      `VeeJam has room for ${MAX_ACTIVE_USERS} people. Deactivate someone before adding another.`,
+    );
+  }
 
   const authUserId = await hooks.createAccount(email, temporaryPassword);
   try {
@@ -182,6 +189,23 @@ export async function createStaffAccount(
   } catch (error) {
     await hooks.deleteAccount(authUserId).catch(() => undefined);
     throw error;
+  }
+}
+
+/** VeeJam has exactly two accounts: Venus Wanjiru (owner) and Reuben Maina (administrator). */
+export const MAX_ACTIVE_USERS = 2;
+
+/**
+ * Refuse a change that would leave more than two active accounts. Active users
+ * are locked (FOR UPDATE) so two people adding someone at once can't both pass.
+ */
+async function assertRoomForActiveUser(tx: DbOrTx, joiningUserId: string | null): Promise<void> {
+  const active = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id::text FROM users WHERE is_active = true FOR UPDATE`;
+  if (active.filter((u) => u.id !== joiningUserId).length >= MAX_ACTIVE_USERS) {
+    throw new ConflictError(
+      `VeeJam has room for ${MAX_ACTIVE_USERS} people. Deactivate someone before adding or reactivating another.`,
+    );
   }
 }
 
@@ -251,6 +275,7 @@ export async function setUserActive(
     if (target.isActive === active)
       return { user: pick(target), authUserId: target.authUserId, changed: false };
     if (!active && target.role === "OWNER") await assertAnotherActiveOwner(tx, target.id);
+    if (active) await assertRoomForActiveUser(tx, target.id);
 
     const updated = await tx.user.update({
       where: { id: userId },

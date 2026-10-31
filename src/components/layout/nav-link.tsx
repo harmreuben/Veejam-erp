@@ -9,16 +9,20 @@ import { cn } from "@/lib/utils";
 export function NavLink({
   href,
   exact = false,
+  match = [],
   className,
   children,
 }: {
   href: string;
   exact?: boolean;
+  /** Other path prefixes that count as this link's section. */
+  match?: readonly string[];
   className?: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+  const under = (p: string) => pathname === p || pathname.startsWith(`${p}/`);
+  const active = exact ? pathname === href : under(href) || match.some(under);
   return (
     <Link
       href={href}

@@ -87,7 +87,10 @@ export default async function NumberPage() {
               label: "Webhook signing secret",
               value: env.META_APP_SECRET ? "Set" : "Not set — the webhook refuses every call",
             },
-            { label: "Webhook address", value: <code className="break-all">{`${env.APP_BASE_URL}/api/whatsapp/webhook`}</code> },
+            {
+              label: "Webhook address",
+              value: <code className="break-all">{`${env.APP_BASE_URL}/api/whatsapp/webhook`}</code>,
+            },
           ]}
         />
       </Section>

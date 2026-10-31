@@ -5,8 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { todayInNairobi } from "@/lib/dates";
 import { ForbiddenError, ValidationError } from "@/server/errors";
 import { createCustomer } from "@/server/modules/customers/service";
-import { createAndPostInvoice, invoiceAndPost, postInvoiceBatch } from "@/server/modules/sales/quick-post";
-import { confirmOrder, createDraft } from "@/server/modules/sales/service";
+import { createAndPostInvoice, postInvoiceBatch } from "@/server/modules/sales/quick-post";
 import { applySeed } from "@/server/seed";
 
 import { clearTestData } from "./db";
@@ -99,18 +98,6 @@ describe("an invoice posts as soon as it's written", () => {
     await expect(createAndPostInvoice(db, store, input(s, s.mama.id, 1))).rejects.toBeInstanceOf(
       ForbiddenError,
     );
-  });
-
-  it("a confirmed order is invoiced and posted in one step", async () => {
-    const s = await setup();
-    const order = await createDraft(db, s.sales, "SALES_ORDER", input(s, s.mama.id, 1));
-    await confirmOrder(db, s.sales, order.id, { version: 1 });
-    const r = await invoiceAndPost(db, s.sales, order.id);
-    expect(r).toMatchObject({ posted: true, number: "INV-000001" });
-    expect((await db.salesDocument.findUniqueOrThrow({ where: { id: order.id } })).status).toBe("INVOICED");
-    expect(await db.stockReservation.count()).toBe(0);
-    // Pressing it again opens the same invoice.
-    expect((await invoiceAndPost(db, s.sales, order.id)).id).toBe(r.id);
   });
 });
 

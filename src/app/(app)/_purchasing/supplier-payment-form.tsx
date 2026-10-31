@@ -101,7 +101,7 @@ export function SupplierPaymentForm({
           <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
           <input type="hidden" name="allocate" value={mode} />
           <p className="bg-muted rounded-md p-3 text-sm">
-            VeeJam owes <strong>{formatKES(balance.owedOnBills)}</strong> on {bills.length} bill
+            VeeJam owes <strong>{formatKES(balance.owedOnBills)}</strong> on {bills.length} unpaid purchase
             {bills.length === 1 ? "" : "s"}
             {toDecimal(balance.paidInAdvance).greaterThan(0) && (
               <> and has already paid {formatKES(balance.paidInAdvance)} in advance</>
@@ -155,7 +155,7 @@ export function SupplierPaymentForm({
 
           {bills.length > 0 && (
             <fieldset className="grid gap-3">
-              <legend className="mb-2 text-sm font-semibold">Apply to bills</legend>
+              <legend className="mb-2 text-sm font-semibold">Apply to purchases</legend>
               <div className="flex flex-wrap gap-4 text-sm">
                 <label className="flex items-center gap-2">
                   <input type="radio" checked={mode === "auto"} onChange={() => setMode("auto")} />
@@ -177,7 +177,7 @@ export function SupplierPaymentForm({
                 <table className="w-full min-w-[520px] text-sm">
                   <thead className="bg-muted/50 text-muted-foreground text-xs">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium">Bill</th>
+                      <th className="px-3 py-2 text-left font-medium">Purchase</th>
                       <th className="px-3 py-2 text-left font-medium">Due</th>
                       <th className="px-3 py-2 text-right font-medium">Left to pay</th>
                       <th className="px-3 py-2 text-right font-medium">Apply</th>
@@ -228,11 +228,11 @@ export function SupplierPaymentForm({
           )}
 
           <p className="text-sm" aria-live="polite">
-            Applied to bills: <strong>{formatKES(applied.toFixed(2))}</strong>
+            Applied to purchases: <strong>{formatKES(applied.toFixed(2))}</strong>
             {credit.greaterThan(0) && (
               <>
                 {" "}
-                · Paid in advance (applied to the next bill): <strong>{formatKES(credit.toFixed(2))}</strong>
+                · Paid in advance (applied to the next purchase): <strong>{formatKES(credit.toFixed(2))}</strong>
               </>
             )}
             {credit.lessThan(0) && <span className="text-destructive"> · More than the amount paid</span>}

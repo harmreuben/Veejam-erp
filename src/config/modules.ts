@@ -2,282 +2,123 @@ import type { UserRole } from "@/generated/prisma/enums";
 import type { Permission } from "@/server/auth/permissions";
 
 /**
- * The ERP modules and the phase in which each one is built.
- * Drives the sidebar. A module is only linked once its phase is complete;
- * until then the sidebar shows it as upcoming instead of a fake page.
+ * The 13 sections of the app's menu (VeeJam v2, Nov 2026). Each section owns
+ * a set of paths: its pages are shown as tabs inside it, and the menu marks the
+ * section as current on any of them. A section that isn't built yet has no
+ * href and shows as "coming", never as a link to an empty page.
  */
 
-export type ModuleGroup =
-  "Overview" | "Sales" | "Stock & purchasing" | "Finance" | "WhatsApp" | "Administration";
+export type SectionIcon =
+  | "dashboard"
+  | "products"
+  | "inventory"
+  | "customers"
+  | "suppliers"
+  | "sales"
+  | "invoices"
+  | "payments"
+  | "expenses"
+  | "funds"
+  | "reports"
+  | "whatsapp"
+  | "settings";
 
 export type ErpModule = {
   slug: string;
   name: string;
-  group: ModuleGroup;
-  phase: number;
-  /** Set to the route once the module is actually built. */
+  icon: SectionIcon;
+  /** Set to the route once the section is actually built. */
   href?: string;
+  /** Other path prefixes that belong to this section (its tabs). */
+  paths?: readonly string[];
   /** Permission needed to see the link; with a list, any one of them is enough. */
   permission?: Permission | readonly Permission[];
-  /** Shown instead of the phase number, e.g. "5b". */
-  phaseLabel?: string;
+  /** For a section not built yet: when it arrives. */
+  coming?: string;
 };
 
 export const ERP_MODULES: readonly ErpModule[] = [
   {
     slug: "dashboard",
     name: "Dashboard",
-    group: "Overview",
-    phase: 8,
+    icon: "dashboard",
     href: "/dashboard",
-    // The business dashboard, or a salesperson's own one.
     permission: ["reports.view", "dashboard.own"],
   },
   {
-    slug: "customers",
-    name: "Customers",
-    group: "Sales",
-    phase: 3,
-    href: "/customers",
-    permission: "customers.view",
-  },
-  {
-    slug: "quotations",
-    name: "Quotations",
-    group: "Sales",
-    phase: 4,
-    href: "/quotations",
-    permission: "sales.view",
-  },
-  {
-    slug: "sales-orders",
-    name: "Sales orders",
-    group: "Sales",
-    phase: 4,
-    href: "/sales-orders",
-    permission: "sales.view",
-  },
-  {
-    slug: "invoicing",
-    name: "Invoices",
-    group: "Sales",
-    phase: 4,
-    href: "/invoices",
-    permission: "sales.view",
-  },
-  {
-    slug: "delivery",
-    name: "Deliveries",
-    group: "Sales",
-    phase: 4,
-    href: "/deliveries",
-    permission: "sales.view",
-  },
-  {
-    slug: "returns",
-    name: "Credit notes",
-    group: "Sales",
-    phase: 5,
-    href: "/credit-notes",
-    permission: "sales.view",
-  },
-  {
-    slug: "sales-returns",
-    name: "Sales returns",
-    group: "Sales",
-    phase: 5,
-    href: "/sales-returns",
-    permission: "sales.view",
-  },
-  {
-    slug: "catalogue",
+    slug: "products",
     name: "Products",
-    group: "Stock & purchasing",
-    phase: 3,
+    icon: "products",
     href: "/products",
+    paths: ["/price-lists"],
     permission: "catalogue.view",
   },
-  {
-    slug: "price-lists",
-    name: "Price lists",
-    group: "Stock & purchasing",
-    phase: 3,
-    href: "/price-lists",
-    permission: "catalogue.view",
-  },
-  {
-    slug: "inventory",
-    name: "Inventory",
-    group: "Stock & purchasing",
-    phase: 3,
-    href: "/inventory",
-    permission: "inventory.view",
-  },
+  { slug: "inventory", name: "Inventory", icon: "inventory", href: "/inventory", permission: "inventory.view" },
+  { slug: "customers", name: "Customers", icon: "customers", href: "/customers", permission: "customers.view" },
   {
     slug: "suppliers",
     name: "Suppliers",
-    group: "Stock & purchasing",
-    phase: 3,
+    icon: "suppliers",
     href: "/suppliers",
+    paths: ["/stock-purchases", "/supplier-payments"],
     permission: "suppliers.view",
   },
   {
-    slug: "purchasing",
-    name: "Purchase orders",
-    group: "Stock & purchasing",
-    phase: 5,
-    href: "/purchase-orders",
-    permission: "purchasing.view",
-  },
-  {
-    slug: "goods-received",
-    name: "Goods received",
-    group: "Stock & purchasing",
-    phase: 5,
-    href: "/goods-received",
-    permission: "purchasing.view",
-  },
-  {
-    slug: "payments",
-    name: "Payments & receipts",
-    group: "Finance",
-    phase: 5,
-    href: "/payments",
+    slug: "sales",
+    name: "Sales",
+    icon: "sales",
+    href: "/sales",
+    paths: ["/credit-notes", "/sales-returns"],
     permission: "sales.view",
   },
   {
-    slug: "balances",
-    name: "Customer balances",
-    group: "Finance",
-    phase: 5,
-    href: "/payments/balances",
-    permission: "customers.view",
+    slug: "invoices",
+    name: "Invoices",
+    icon: "invoices",
+    href: "/invoices",
+    paths: ["/documents"],
+    permission: "sales.view",
   },
-  {
-    slug: "supplier-bills",
-    name: "Supplier bills",
-    group: "Finance",
-    phase: 5,
-    href: "/supplier-bills",
-    permission: "payables.view",
-  },
-  {
-    slug: "supplier-payments",
-    name: "Supplier payments",
-    group: "Finance",
-    phase: 5,
-    href: "/supplier-payments",
-    permission: "payables.view",
-  },
-  {
-    slug: "accounting",
-    name: "Accounting & ledger",
-    group: "Finance",
-    phase: 5,
-    href: "/accounting",
-    permission: "accounting.view",
-  },
-  {
-    slug: "tax",
-    name: "Tax rates",
-    group: "Finance",
-    phase: 4,
-    href: "/settings/tax",
-    permission: "settings.view",
-  },
+  { slug: "payments", name: "Payments", icon: "payments", href: "/payments", permission: "sales.view" },
+  { slug: "expenses", name: "Expenses", icon: "expenses", coming: "next" },
+  { slug: "funds", name: "Business Funds", icon: "funds", coming: "next" },
   {
     slug: "reports",
-    name: "Reports",
-    group: "Overview",
-    phase: 8,
+    name: "Financial Reports",
+    icon: "reports",
     href: "/reports",
-    permission: "reports.view",
+    paths: ["/accounting"],
+    permission: ["reports.view", "accounting.view"],
   },
   {
     slug: "whatsapp",
-    name: "WhatsApp commands",
-    group: "WhatsApp",
-    phase: 6,
+    name: "WhatsApp Assistant",
+    icon: "whatsapp",
     href: "/whatsapp",
     permission: "whatsapp.view",
   },
   {
-    slug: "audit",
-    name: "Audit log",
-    group: "Administration",
-    phase: 8,
-    href: "/audit",
-    permission: "audit.view",
-  },
-  {
-    slug: "imports",
-    name: "Imports",
-    group: "Administration",
-    phase: 3,
-    href: "/imports",
-    permission: "imports.run",
-  },
-  {
     slug: "settings",
-    name: "Company settings",
-    group: "Administration",
-    phase: 2,
+    name: "Settings",
+    icon: "settings",
     href: "/settings/company",
+    paths: ["/settings", "/audit", "/backups", "/imports", "/account"],
     permission: "settings.view",
   },
-  {
-    slug: "users",
-    name: "Users & roles",
-    group: "Administration",
-    phase: 2,
-    href: "/settings/users",
-    permission: "users.view",
-  },
-  {
-    slug: "roles",
-    name: "Roles & permissions",
-    group: "Administration",
-    phase: 2,
-    href: "/settings/roles",
-    permission: "users.view",
-  },
-  {
-    slug: "speed",
-    name: "Speed check",
-    group: "Administration",
-    phase: 8,
-    href: "/settings/speed",
-    permission: "backups.view",
-  },
-  {
-    slug: "backups",
-    name: "Backup & recovery",
-    group: "Administration",
-    phase: 8,
-    href: "/backups",
-    permission: "backups.view",
-  },
 ];
 
-export const MODULE_GROUPS: readonly ModuleGroup[] = [
-  "Overview",
-  "Sales",
-  "Stock & purchasing",
-  "Finance",
-  "WhatsApp",
-  "Administration",
-];
-
-/** The menu section a page belongs to (for the breadcrumb above its title). */
+/** The menu section a page belongs to (for the menu highlight and the breadcrumb). */
 export function moduleForPath(pathname: string): ErpModule | undefined {
-  let best: ErpModule | undefined;
+  // The longest matching prefix wins.
+  let best: { m: ErpModule; len: number } | undefined;
   for (const m of ERP_MODULES) {
-    if (!m.href) continue;
-    if (pathname === m.href || pathname.startsWith(`${m.href}/`)) {
-      if (!best || m.href.length > best.href!.length) best = m;
+    for (const p of [m.href, ...(m.paths ?? [])]) {
+      if (p && (pathname === p || pathname.startsWith(`${p}/`)) && (!best || p.length > best.len)) {
+        best = { m, len: p.length };
+      }
     }
   }
-  return best;
+  return best?.m;
 }
 
 /** Does someone with these duties get this module in their menu? */
@@ -292,17 +133,9 @@ export function canSeeModule(m: ErpModule, permissions: readonly Permission[]): 
  * otherwise the first of their main working pages (e.g. invoices for sales,
  * stock levels for storekeepers), otherwise any page they can open.
  */
-const HOME_ORDER = [
-  "dashboard",
-  "invoicing",
-  "inventory",
-  "purchasing",
-  "payments",
-  "customers",
-  "catalogue",
-];
+const HOME_ORDER = ["dashboard", "invoices", "inventory", "suppliers", "payments", "customers", "products"];
 /** A role's own main page comes before the general order (storekeepers start on stock, not invoices). */
-const ROLE_HOME: Partial<Record<UserRole, string>> = { STOREKEEPER: "inventory", SALES: "invoicing" };
+const ROLE_HOME: Partial<Record<UserRole, string>> = { STOREKEEPER: "inventory", SALES: "invoices" };
 
 export function homePathFor(role: UserRole, permissions: readonly Permission[]): string {
   const allowed = (m: ErpModule) => !!m.href && canSeeModule(m, permissions);

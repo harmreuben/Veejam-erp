@@ -11,7 +11,7 @@ import { nextNumber } from "@/server/db/sequence";
 import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
 import { invoiceJournal, postJournal } from "@/server/modules/accounting/journal";
 import { customerBalance } from "@/server/modules/payments/service";
-import { applyStockChanges, releaseReservations, reserveStock } from "@/server/modules/inventory/stock";
+import { applyStockChanges, releaseReservations } from "@/server/modules/inventory/stock";
 import type { AuditContext } from "@/server/modules/pricing/service";
 import { parseInput } from "@/server/shared/validation";
 
@@ -23,7 +23,6 @@ import {
   postInvoiceSchema,
   reasonSchema,
   updateDraftSchema,
-  versionOnlySchema,
   type DraftValues,
 } from "./schemas";
 
@@ -115,7 +114,7 @@ const auditBase = (actor: Actor, ctx: AuditContext) => ({
 
 // ─── Drafts ─────────────────────────────────────────────────────────
 
-/** Create a draft quotation, sales order or invoice. Quotes and orders get their number now; invoices when posted. */
+/** Create a draft invoice (numbered when posted). Quotations and sales orders were removed in Nov 2026. */
 export async function createDraft(
   db: Db,
   actor: Actor,
@@ -125,6 +124,7 @@ export async function createDraft(
   /** With a key, the same form submitted twice makes one document (returns the first). */
   opts: { idempotencyKey?: string } = {},
 ): Promise<{ id: string; number: string | null; existing?: boolean }> {
+  if (kind !== "INVOICE") throw new ValidationError({ form: ["Only invoices can be written now"] });
   authorize(actor, MANAGE_PERMISSION[kind]);
   const values = parseInput(draftSchema, input);
   const key = opts.idempotencyKey;
@@ -244,167 +244,9 @@ export async function updateDraft(
 
 // ─── Quotations ─────────────────────────────────────────────────────
 
-const QUOTE_MOVES: Record<"SENT" | "ACCEPTED" | "DECLINED", SalesDocumentStatus[]> = {
-  SENT: ["DRAFT"],
-  ACCEPTED: ["DRAFT", "SENT", "DECLINED"],
-  DECLINED: ["DRAFT", "SENT", "ACCEPTED"],
-};
-
-export async function setQuotationStatus(
-  db: Db,
-  actor: Actor,
-  id: string,
-  to: "SENT" | "ACCEPTED" | "DECLINED",
-  input: unknown,
-  ctx: AuditContext = {},
-): Promise<void> {
-  authorize(actor, "quotations.manage");
-  const { version } = parseInput(versionOnlySchema, input);
-  await db.$transaction(async (tx) => {
-    const doc = await lockDocument(tx, id);
-    if (doc.kind !== "QUOTATION") throw new NotFoundError();
-    assertVersion(doc, version);
-    if (!QUOTE_MOVES[to].includes(doc.status)) {
-      throw new ConflictError(
-        `${doc.number} is ${doc.status.toLowerCase()}; it can't be marked ${to.toLowerCase()}.`,
-      );
-    }
-    await tx.salesDocument.update({ where: { id }, data: { status: to, version: { increment: 1 } } });
-    await writeAudit(tx, {
-      ...auditBase(actor, ctx),
-      action: "QUOTATION_STATUS_CHANGED",
-      entityType: "SalesDocument",
-      entityId: id,
-      summary: `${doc.number}: ${doc.status} → ${to}`,
-      before: { status: doc.status },
-      after: { status: to },
-    });
-  });
-}
-
 // ─── Conversion ─────────────────────────────────────────────────────
 
-/**
- * Turn a quotation into a sales order or invoice, or a confirmed order into an
- * invoice. The new document is a draft with the same lines; quoted prices are
- * kept while the quotation is valid, and order prices are always kept.
- * Converting twice returns the document made the first time.
- */
-export async function convertDocument(
-  db: Db,
-  actor: Actor,
-  id: string,
-  target: "SALES_ORDER" | "INVOICE",
-  ctx: AuditContext = {},
-): Promise<{ id: string; kind: SalesDocumentKind; alreadyConverted: boolean }> {
-  authorize(actor, MANAGE_PERMISSION[target]);
-  return db.$transaction(async (tx) => {
-    const source = await lockDocument(tx, id);
-    const allowed =
-      (source.kind === "QUOTATION" && ["DRAFT", "SENT", "ACCEPTED"].includes(source.status)) ||
-      (source.kind === "SALES_ORDER" && target === "INVOICE" && source.status === "CONFIRMED");
-
-    const existing = await tx.salesDocument.findFirst({
-      where: { sourceDocumentId: id, status: { not: "CANCELLED" } },
-      orderBy: { createdAt: "desc" },
-    });
-    if (existing && (source.status === "CONVERTED" || source.kind === "SALES_ORDER")) {
-      return { id: existing.id, kind: existing.kind, alreadyConverted: true };
-    }
-    if (!allowed) {
-      throw new ConflictError(
-        source.kind === "SALES_ORDER" && source.status === "DRAFT"
-          ? `Confirm ${source.number} first; confirming reserves the stock.`
-          : `${documentLabel(source)} is ${source.status.toLowerCase()} and can't be converted.`,
-      );
-    }
-
-    const customer = await activeCustomer(tx, source.customerId);
-    await activeWarehouse(tx, source.warehouseId);
-    const priced = await priceDocument(tx, actor, {
-      customer,
-      lines: source.lines.map((l) => ({
-        productId: l.productId,
-        unit: l.unit,
-        quantity: l.quantity,
-        discountPercent: l.discountPercent.toFixed(2),
-      })),
-      sourceDocumentId: source.id,
-    });
-    const number = target === "INVOICE" ? null : await nextNumber(tx, "SALES_ORDER");
-    const doc = await tx.salesDocument.create({
-      data: {
-        kind: target,
-        number,
-        customerId: customer.id,
-        warehouseId: source.warehouseId,
-        issueDate: toDbDate(todayInNairobi()),
-        customerReference: source.customerReference,
-        notes: source.notes,
-        sourceDocumentId: source.id,
-        createdById: actor.id,
-        ...totalsData(priced),
-        lines: { create: lineRows(priced) },
-      },
-    });
-    if (source.kind === "QUOTATION") {
-      await tx.salesDocument.update({
-        where: { id: source.id },
-        data: { status: "CONVERTED", version: { increment: 1 } },
-      });
-    }
-    await writeAudit(tx, {
-      ...auditBase(actor, ctx),
-      action: "SALES_DOCUMENT_CONVERTED",
-      entityType: "SalesDocument",
-      entityId: doc.id,
-      summary: `${documentLabel(source)} → ${documentLabel(doc)}`,
-      after: { sourceId: source.id, total: priced.totals.total },
-    });
-    return { id: doc.id, kind: target, alreadyConverted: false };
-  });
-}
-
 // ─── Sales orders ───────────────────────────────────────────────────
-
-/** Confirm a draft order. Its stock is reserved, so nobody else can sell it. */
-export async function confirmOrder(
-  db: Db,
-  actor: Actor,
-  id: string,
-  input: unknown,
-  ctx: AuditContext = {},
-): Promise<{ alreadyConfirmed: boolean }> {
-  authorize(actor, "orders.manage");
-  const { version } = parseInput(versionOnlySchema, input);
-  return db.$transaction(async (tx) => {
-    const doc = await lockDocument(tx, id);
-    if (doc.kind !== "SALES_ORDER") throw new NotFoundError();
-    if (doc.status === "CONFIRMED" && doc.version === version + 1) return { alreadyConfirmed: true };
-    assertVersion(doc, version);
-    if (doc.status !== "DRAFT") throw new ConflictError(`${doc.number} is ${doc.status.toLowerCase()}.`);
-    await activeCustomer(tx, doc.customerId);
-    await activeWarehouse(tx, doc.warehouseId);
-    await reserveStock(
-      tx,
-      doc.id,
-      doc.lines.map((l) => ({ productId: l.productId, warehouseId: doc.warehouseId, quantity: l.pieces })),
-    );
-    await tx.salesDocument.update({
-      where: { id },
-      data: { status: "CONFIRMED", confirmedAt: new Date(), version: { increment: 1 } },
-    });
-    await writeAudit(tx, {
-      ...auditBase(actor, ctx),
-      action: "SALES_ORDER_CONFIRMED",
-      entityType: "SalesDocument",
-      entityId: id,
-      summary: `${doc.number} confirmed; stock reserved for ${doc.lines.length} line(s)`,
-      after: { reserved: doc.lines.map((l) => ({ productId: l.productId, pieces: l.pieces })) },
-    });
-    return { alreadyConfirmed: false };
-  });
-}
 
 // ─── Cancelling ─────────────────────────────────────────────────────
 

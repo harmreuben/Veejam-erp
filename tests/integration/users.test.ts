@@ -236,8 +236,13 @@ describe("adding staff from the Users page", () => {
       temporaryPassword: "Temp-pass-2026",
     };
     await expect(createStaffAccount(db, admin, input, h)).rejects.toBeInstanceOf(ForbiddenError);
+    // Owner and admin already make two: no room for a third.
+    await expect(createStaffAccount(db, owner, input, h)).rejects.toThrow(/room for 2 people/);
+    await setUserActive(db, owner, admin.id, false);
     await createStaffAccount(db, owner, input, h);
     await expect(createStaffAccount(db, owner, input, h)).rejects.toBeInstanceOf(ValidationError);
+    // Reactivating the admin would make three.
+    await expect(setUserActive(db, owner, admin.id, true)).rejects.toThrow(/room for 2 people/);
   });
 });
 

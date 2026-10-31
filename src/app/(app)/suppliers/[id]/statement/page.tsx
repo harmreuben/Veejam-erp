@@ -59,7 +59,7 @@ export default async function SupplierStatementPage({ params }: { params: Promis
               <TD>{e.kind}</TD>
               <TD>
                 <Link
-                  href={e.kind === "Bill" ? `/supplier-bills/${e.id}` : `/supplier-payments/${e.id}`}
+                  href={e.kind === "Bill" ? `/stock-purchases/bill/${e.id}` : `/supplier-payments/${e.id}`}
                   className="text-link hover:underline"
                 >
                   {e.reference}

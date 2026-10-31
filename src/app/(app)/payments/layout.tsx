@@ -15,7 +15,6 @@ export default async function PaymentsLayout({ children }: { children: ReactNode
           items={[
             { href: "/payments", label: "Payments", exact: true },
             { href: "/payments/balances", label: "Customer balances" },
-            { href: "/credit-notes", label: "Credit notes" },
           ]}
         />
       </div>

@@ -7,18 +7,15 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { moduleForPath } from "@/config/modules";
 
 /**
- * "Sales › Invoices › INV-000123" above a page title: the menu section, the
- * module (a link, unless you're on it) and, on a detail page, its parent.
+ * "Invoices › INV-000123" above a page title: the menu section (a link,
+ * unless you're on it) and, on a detail page, its parent.
  * On phones only the way back is shown, to keep the header short.
  */
 export function Breadcrumbs({ back }: { back?: { href: string; label: string } }) {
   const pathname = usePathname();
   const mod = moduleForPath(pathname);
   const crumbs: { href?: string; label: string }[] = [];
-  if (mod) {
-    crumbs.push({ label: mod.group });
-    if (pathname !== mod.href) crumbs.push({ href: mod.href, label: mod.name });
-  }
+  if (mod) crumbs.push(pathname === mod.href ? { label: mod.name } : { href: mod.href, label: mod.name });
   if (back && back.href !== mod?.href) crumbs.push(back);
   if (!crumbs.length) return null;
   const up = back ?? (mod && pathname !== mod.href ? { href: mod.href!, label: mod.name } : undefined);

@@ -242,55 +242,6 @@ export async function loadPrintableDocument(db: Db, id: string): Promise<Printab
   };
 }
 
-export async function loadPrintableDeliveryNote(db: Db, id: string): Promise<Printable> {
-  if (!isUuid(id)) throw new NotFoundError();
-  const note = await db.deliveryNote.findUnique({
-    where: { id },
-    select: {
-      invoiceId: true,
-      number: true,
-      status: true,
-      vehicle: true,
-      driver: true,
-      dispatchedAt: true,
-      deliveredAt: true,
-      receivedBy: true,
-      notes: true,
-    },
-  });
-  if (!note) throw new NotFoundError();
-  const inv = await loadPrintableDocument(db, note.invoiceId);
-  const meta: [string, string][] = [
-    ["Delivery Note #", note.number],
-    ["Invoice #", inv.number],
-    ["Dispatched", fmtDate(note.dispatchedAt)],
-  ];
-  if (note.vehicle) meta.push(["Vehicle", note.vehicle]);
-  if (note.driver) meta.push(["Driver", note.driver]);
-  if (note.deliveredAt) meta.push(["Delivered", fmtDate(note.deliveredAt)]);
-  const label = {
-    PREPARED: "Prepared",
-    DISPATCHED: "Dispatched",
-    DELIVERED: "Delivered",
-    CANCELLED: "Cancelled",
-  };
-  return {
-    ...inv,
-    variant: "DELIVERY_NOTE",
-    title: "DELIVERY NOTE",
-    number: note.number,
-    draft: false,
-    cancelled: note.status === "CANCELLED",
-    status: {
-      label: label[note.status],
-      tone: note.status === "DELIVERED" ? "green" : note.status === "CANCELLED" ? "grey" : "amber",
-    },
-    meta,
-    notes: note.notes,
-    footerNote: note.receivedBy ? `Received by ${note.receivedBy}.` : null,
-  };
-}
-
 // ─── Drawing ────────────────────────────────────────────────────────
 
 const hex = (h: string) =>

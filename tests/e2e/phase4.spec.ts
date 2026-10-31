@@ -56,8 +56,8 @@ test("owner sets up a product, stock and a credit customer", async ({ page }) =>
   await expect(page.getByLabel("Rate (%)").first()).toHaveValue("16");
 });
 
-test("sales: quotation → sales order (stock reserved) → invoice posted; stock leaves", async ({ page }) => {
-  await signIn(page, E2E_USERS.sales.email, E2E_USERS.sales.password, "/quotations/new");
+test("sales: an invoice is written and posted in one step; stock leaves", async ({ page }) => {
+  await signIn(page, E2E_USERS.sales.email, E2E_USERS.sales.password, "/invoices/new");
   await chooseCustomer(page);
   await chooseLine(page, "CARTON", "2");
   // Sales can't give discounts: there is no discount box.
@@ -65,23 +65,7 @@ test("sales: quotation → sales order (stock reserved) → invoice posted; stoc
   await expect(page.getByText("= 400 pcs (2 ctn).")).toBeVisible();
   await expect(page.getByText("KES 4,000.00").first()).toBeVisible();
   await expect(page.getByText("KES 551.72")).toBeVisible(); // VAT inside 4,000 at 16%
-  await page.getByRole("button", { name: "Save quotation" }).click();
-
-  await expect(page.getByRole("heading", { level: 1, name: /QUO-\d{6}/ })).toBeVisible();
-  await page.getByRole("button", { name: "Mark sent" }).click();
-  await expect(page.getByText("Sent", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Make sales order" }).click();
-
-  await expect(page.getByRole("heading", { level: 1, name: /SO-\d{6}/ })).toBeVisible();
-  await page.getByRole("button", { name: "Confirm order…" }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Confirm and reserve stock" }).click();
-  await expect(page.getByText(/Stock for this order is reserved/)).toBeVisible();
-
-  // Sales may post, so the order is invoiced and posted in one step.
-  await page.getByRole("button", { name: "Invoice and post…" }).click();
-  const dialog = page.getByRole("alertdialog");
-  await expect(dialog).toContainText("posts it now");
-  await dialog.getByRole("button", { name: "Invoice and post" }).click();
+  await page.getByRole("button", { name: "Post invoice", exact: true }).click();
 
   await expect(page.getByRole("heading", { level: 1, name: /INV-\d{6}/ })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "posted." })).toContainText(
@@ -142,24 +126,4 @@ test("owner shares the invoice; the link opens without signing in until revoked"
   expect(after.status()).toBe(404);
   expect(await after.text()).toContain("expired or is no longer valid");
   await stranger.close();
-});
-
-test("storekeeper makes the delivery note, dispatches and records delivery", async ({ page }) => {
-  await signIn(page, E2E_USERS.storekeeper.email, E2E_USERS.storekeeper.password, "/invoices?status=POSTED");
-  await page
-    .getByRole("link", { name: /INV-\d{6}/ })
-    .first()
-    .click();
-  await expect(page.getByRole("button", { name: "Post invoice…" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Make delivery note" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: /DN-\d{6}/ })).toBeVisible();
-  await page.getByRole("button", { name: "Dispatch…" }).click();
-  await page.getByLabel("Vehicle (registration)").fill("KDA 123A");
-  await page.getByRole("alertdialog").getByRole("button", { name: "Mark dispatched" }).click();
-  await expect(page.getByText("Dispatched", { exact: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Mark delivered…" }).click();
-  await page.getByLabel("Received by").fill("Shop owner");
-  await page.getByRole("alertdialog").getByRole("button", { name: "Mark delivered" }).click();
-  await expect(page.getByText("Delivered", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Shop owner")).toBeVisible();
 });

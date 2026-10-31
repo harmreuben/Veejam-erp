@@ -67,13 +67,7 @@ describe("a salesperson's own dashboard", () => {
       amount: "1000",
       idempotencyKey: randomUUID(),
     });
-    // A draft quotation and a draft invoice of Amina's, still open.
-    await createDraft(db, amina, "QUOTATION", {
-      customerId: customer.id,
-      warehouseId: main.id,
-      issueDate: today(),
-      lines: [{ productId: product.id, unit: "CARTON", quantity: 3 }],
-    });
+    // A draft invoice of Amina's, still open.
     await createDraft(db, amina, "INVOICE", {
       customerId: customer.id,
       warehouseId: main.id,
@@ -86,7 +80,7 @@ describe("a salesperson's own dashboard", () => {
     expect(d.monthSales.netGross).toBe("3800.00");
     expect(d.monthReceived).toBe("1000.00");
     expect(d.paymentsRecorded).toBe(1);
-    expect(d.open).toMatchObject({ quotes: 1, quotesValue: "5700.00", draftInvoices: 1 });
+    expect(d.open).toMatchObject({ draftInvoices: 1 });
     expect(d.trend.at(-1)).toEqual({ day: today(), sales: "3800.00", received: "1000.00" });
     expect(d.topCustomers).toEqual([
       expect.objectContaining({ id: customer.id, gross: "5700.00", invoices: 2 }),

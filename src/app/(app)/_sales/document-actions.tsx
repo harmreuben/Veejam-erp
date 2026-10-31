@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-import { deliveryAction, documentAction } from "./actions";
+import { documentAction } from "./actions";
 
 type Hidden = Record<string, string | number>;
 
@@ -36,16 +36,14 @@ export function ActionButton({
   label,
   hidden,
   variant = "outline",
-  delivery = false,
   action,
 }: {
   label: string;
   hidden: Hidden;
   variant?: "default" | "outline" | "ghost";
-  delivery?: boolean;
   action?: FormAction;
 }) {
-  const { submit, pending, state } = useActionForm(action ?? (delivery ? deliveryAction : documentAction));
+  const { submit, pending, state } = useActionForm(action ?? documentAction);
   return (
     <form onSubmit={submit} className="contents">
       <HiddenFields values={hidden} />
@@ -75,7 +73,6 @@ export function ConfirmButton({
   fields = [],
   destructive = false,
   variant = "outline",
-  delivery = false,
   action,
 }: {
   label: string;
@@ -94,12 +91,9 @@ export function ConfirmButton({
   }[];
   destructive?: boolean;
   variant?: "default" | "outline" | "ghost";
-  delivery?: boolean;
   action?: FormAction;
 }) {
-  const { submit, pending, state, errors } = useActionForm(
-    action ?? (delivery ? deliveryAction : documentAction),
-  );
+  const { submit, pending, state, errors } = useActionForm(action ?? documentAction);
   // Open since this time; a successful submission after it closes the dialog.
   const [openedAt, setOpenedAt] = useState<number | null>(null);
   const succeeded = state.ok && !!state.at && openedAt !== null && state.at >= openedAt;

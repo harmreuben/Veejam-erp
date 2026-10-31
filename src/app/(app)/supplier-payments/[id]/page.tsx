@@ -108,7 +108,7 @@ export default async function SupplierPaymentPage({
             {active.map((a) => (
               <tr key={a.id}>
                 <TD>
-                  <Link href={`/supplier-bills/${a.bill.id}`} className="text-link hover:underline">
+                  <Link href={`/stock-purchases/bill/${a.bill.id}`} className="text-link hover:underline">
                     {a.bill.number}
                   </Link>{" "}
                   <span className="text-muted-foreground font-mono text-xs">

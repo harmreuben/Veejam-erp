@@ -8,7 +8,7 @@ import { AppError, ValidationError } from "@/server/errors";
 import type { AuditContext } from "@/server/modules/pricing/service";
 import { parseInput } from "@/server/shared/validation";
 
-import { convertDocument, createDraft, postInvoice } from "./service";
+import { createDraft, postInvoice } from "./service";
 
 /** What happened to one invoice that was meant to post straight away. */
 export type QuickPostResult = {
@@ -84,18 +84,6 @@ export async function createAndPostInvoice(
   authorize(actor, "invoices.post");
   const draft = await createDraft(db, actor, "INVOICE", input, ctx, { idempotencyKey: opts.idempotencyKey });
   return postDraftNow(db, actor, draft.id, ctx, opts.creditOverrideReason);
-}
-
-/** Quotation or confirmed order → invoice, posted straight away when possible. */
-export async function invoiceAndPost(
-  db: Db,
-  actor: Actor,
-  sourceId: string,
-  ctx: AuditContext = {},
-): Promise<QuickPostResult> {
-  authorize(actor, "invoices.post");
-  const r = await convertDocument(db, actor, sourceId, "INVOICE", ctx);
-  return postDraftNow(db, actor, r.id, ctx);
 }
 
 // ─── Batch: several customers' invoices from one screen ─────────────

@@ -31,8 +31,7 @@ test("sales staff see only what their role allows", async ({ page }) => {
   await expect(page.getByText("Stock at cost")).toHaveCount(0);
 
   const nav = page.getByRole("navigation", { name: "Modules" }).filter({ visible: true });
-  await expect(nav.getByRole("link", { name: "Company settings" })).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Users & roles" })).toHaveCount(0);
+  await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();
 
   // Read-only settings: no save button, fields not editable
   await page.goto("/settings/company");

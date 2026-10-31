@@ -8,7 +8,7 @@ import { Tabs } from "@/components/tabs";
 import { Button } from "@/components/ui/button";
 import { EmptyRow, TBody, TD, TH, THead, Table } from "@/components/ui/table";
 import { formatLongDay, formatShortDay } from "@/lib/dates";
-import { formatKES, toDecimal } from "@/lib/money";
+import { toDecimal } from "@/lib/money";
 import { hasPermission } from "@/server/auth/permissions";
 import type { AppUser } from "@/server/auth/resolve";
 import { toActor } from "@/server/auth/session";
@@ -84,21 +84,10 @@ export async function MyDashboard({ user, withTabs = false }: { user: AppUser; w
             href="/payments"
           />
           <Tile
-            label="Open quotations"
-            value={<CountUp value={d.open.quotes} kind="count" />}
-            note={`worth ${formatKES(d.open.quotesValue)}`}
-            href="/quotations"
-          />
-          <Tile
-            label="Orders to invoice"
-            value={<CountUp value={d.open.orders} kind="count" />}
-            note={
-              <>
-                worth {formatKES(d.open.ordersValue)}
-                {d.open.draftInvoices > 0 && ` · ${plural(d.open.draftInvoices, "draft invoice")}`}
-              </>
-            }
-            href="/sales-orders"
+            label="Draft invoices"
+            value={<CountUp value={d.open.draftInvoices} kind="count" />}
+            note="saved but not posted yet"
+            href="/invoices?status=DRAFT"
           />
           <Tile
             label="Overdue on your invoices"

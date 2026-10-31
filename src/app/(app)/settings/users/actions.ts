@@ -15,7 +15,6 @@ import {
   createStaffAccount,
   roleSchema,
   setUserActive,
-  setUserDuties,
 } from "@/server/modules/users/service";
 
 export async function addStaff(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
@@ -54,27 +53,6 @@ export async function updateAccess(_prev: ActionResult, formData: FormData): Pro
     });
     revalidatePath("/settings/users");
     return active ? `${updated.fullName} can sign in again` : `${updated.fullName} can no longer sign in`;
-  });
-}
-
-export async function saveDuties(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  return toActionResult(async () => {
-    const user = await requireUser();
-    const userId = String(formData.get("userId") ?? "");
-    const r = await setUserDuties(
-      getDb(),
-      toActor(user),
-      { userId, permissions: formData.getAll("permissions").map(String) },
-      await requestContext(),
-    );
-    revalidatePath("/settings/users");
-    revalidatePath(`/settings/users/${userId}`);
-    if (!r.added.length && !r.removed.length) return "Nothing changed";
-    const parts = [
-      r.added.length ? `${r.added.length} dut${r.added.length === 1 ? "y" : "ies"} added` : null,
-      r.removed.length ? `${r.removed.length} removed` : null,
-    ].filter(Boolean);
-    return `${r.user.fullName}: ${parts.join(", ")}. It applies from their next click.`;
   });
 }
 

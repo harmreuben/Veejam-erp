@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Money, StatusBadge } from "@/components/format";
 import { NoAccess } from "@/components/no-access";
-import { Page, PageHeader, Section } from "@/components/page";
+import { Page, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { formatKES, toDecimal } from "@/lib/money";
 import { pageUser } from "@/server/auth/guard";
@@ -11,11 +11,9 @@ import { hasPermission } from "@/server/auth/permissions";
 import { toActor } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { NotFoundError } from "@/server/errors";
-import { listPurchaseOrders } from "@/server/modules/purchasing/orders";
 import { supplierBalance } from "@/server/modules/purchasing/payables";
 import { getSupplier } from "@/server/modules/suppliers/service";
 
-import { PoStatusBadge } from "../../_purchasing/ui";
 import { Stat } from "../../reports/_components/stat";
 
 import { updateSupplierAction } from "../actions";
@@ -33,24 +31,15 @@ export default async function SupplierPage({ params }: { params: Promise<{ id: s
   });
   const db = getDb();
   const seePayables = hasPermission(user, "payables.view");
-  const seeOrders = hasPermission(user, "purchasing.view");
-  const [balance, orders] = await Promise.all([
-    seePayables ? supplierBalance(db, s.id) : null,
-    seeOrders ? listPurchaseOrders(db, toActor(user), { supplierId: s.id, status: "OPEN" }) : null,
-  ]);
+  const balance = seePayables ? await supplierBalance(db, s.id) : null;
   return (
     <Page>
       <PageHeader
         actions={
           <>
-            {hasPermission(user, "purchasing.manage") && (
+            {hasPermission(user, "goods.receive") && hasPermission(user, "bills.manage") && (
               <Button asChild variant="outline">
-                <Link href={`/purchase-orders/new?supplier=${s.id}`}>New purchase order</Link>
-              </Button>
-            )}
-            {hasPermission(user, "bills.manage") && (
-              <Button asChild variant="outline">
-                <Link href={`/supplier-bills/new?supplier=${s.id}`}>Enter a bill</Link>
+                <Link href="/stock-purchases/new">Record a purchase</Link>
               </Button>
             )}
             {hasPermission(user, "supplier_payments.manage") && (
@@ -80,7 +69,7 @@ export default async function SupplierPage({ params }: { params: Promise<{ id: s
             }
           />
           <Stat
-            label="Unpaid bills"
+            label="Unpaid purchases"
             value={String(balance.openBills)}
             note={<Money value={balance.owedOnBills} />}
           />
@@ -89,21 +78,6 @@ export default async function SupplierPage({ params }: { params: Promise<{ id: s
             value={s.paymentTermsDays ? `${s.paymentTermsDays} days` : "On delivery"}
           />
         </div>
-      )}
-      {orders && orders.rows.length > 0 && (
-        <Section title="Open purchase orders">
-          <ul className="grid gap-1 text-sm">
-            {orders.rows.map((o) => (
-              <li key={o.id} className="flex flex-wrap items-center gap-2">
-                <Link href={`/purchase-orders/${o.id}`} className="text-link hover:underline">
-                  {o.number}
-                </Link>
-                <PoStatusBadge status={o.status} />
-                {o.total && <Money value={o.total} />}
-              </li>
-            ))}
-          </ul>
-        </Section>
       )}
       <SupplierForm
         action={updateSupplierAction}

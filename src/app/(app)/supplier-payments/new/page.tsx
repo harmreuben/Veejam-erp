@@ -42,7 +42,7 @@ export default async function NewSupplierPaymentPage({
         supplierId={supplierId}
         bills={bills.map((b) => ({
           id: b.id,
-          number: `${b.number} · ${b.supplierInvoiceNumber}`,
+          number: `${b.supplierInvoiceNumber} (${b.number})`,
           date: formatShortDay(b.billDate),
           due: formatShortDay(b.dueDate),
           total: b.total,

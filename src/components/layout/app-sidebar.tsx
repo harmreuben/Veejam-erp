@@ -1,13 +1,20 @@
 import Link from "next/link";
 import {
-  Calculator,
+  Boxes,
+  ChartColumn,
+  FileText,
+  HandCoins,
+  Landmark,
   LayoutDashboard,
   LogOut,
   MessageSquare,
   Package,
-  ShieldCheck,
+  Receipt,
+  Settings,
   ShoppingCart,
+  Truck,
   UserRound,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -15,7 +22,7 @@ import { signOut } from "@/app/(auth)/login/actions";
 import { Logo } from "@/components/brand/logo";
 import { InstallAppButton } from "@/components/pwa";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { canSeeModule, ERP_MODULES, MODULE_GROUPS, type ErpModule, type ModuleGroup } from "@/config/modules";
+import { canSeeModule, ERP_MODULES, type ErpModule, type SectionIcon } from "@/config/modules";
 import { ROLE_LABELS, type Permission } from "@/server/auth/permissions";
 import type { AppUser } from "@/server/auth/resolve";
 import type { ThemeChoice } from "@/lib/theme";
@@ -24,53 +31,52 @@ import { cn } from "@/lib/utils";
 import { MobileNav } from "./mobile-nav";
 import { NavLink } from "./nav-link";
 
+const ICONS: Record<SectionIcon, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  products: Package,
+  inventory: Boxes,
+  customers: Users,
+  suppliers: Truck,
+  sales: ShoppingCart,
+  invoices: FileText,
+  payments: HandCoins,
+  expenses: Receipt,
+  funds: Landmark,
+  reports: ChartColumn,
+  whatsapp: MessageSquare,
+  settings: Settings,
+};
+
 function ModuleItem({ module, permissions }: { module: ErpModule; permissions: readonly Permission[] }) {
+  const Icon = ICONS[module.icon];
   if (module.href) {
     if (!canSeeModule(module, permissions)) return null;
-    return <NavLink href={module.href}>{module.name}</NavLink>;
+    return (
+      <NavLink href={module.href} match={module.paths}>
+        <Icon className="size-4 shrink-0 opacity-80" aria-hidden />
+        {module.name}
+      </NavLink>
+    );
   }
   return (
     <span
       aria-disabled="true"
-      title={`Built in phase ${module.phaseLabel ?? module.phase}`}
-      className="text-sidebar-muted flex cursor-default items-center justify-between rounded-md px-3 py-1.5 text-sm"
+      title="Being built next"
+      className="text-sidebar-muted flex cursor-default items-center gap-2 rounded-md px-3 py-1.5 text-sm"
     >
-      {module.name}
-      <span className="text-xs">Phase {module.phaseLabel ?? module.phase}</span>
+      <Icon className="size-4 shrink-0 opacity-60" aria-hidden />
+      <span className="flex-1">{module.name}</span>
+      <span className="text-[10px] tracking-wide uppercase">Soon</span>
     </span>
   );
 }
 
-const GROUP_ICONS: Record<ModuleGroup, LucideIcon> = {
-  Overview: LayoutDashboard,
-  Sales: ShoppingCart,
-  "Stock & purchasing": Package,
-  Finance: Calculator,
-  WhatsApp: MessageSquare,
-  Administration: ShieldCheck,
-};
-
 function ModuleNav({ permissions, className }: { permissions: readonly Permission[]; className?: string }) {
   return (
-    <nav aria-label="Modules" className={cn("grid gap-5", className)}>
-      {MODULE_GROUPS.map((group) => {
-        const items = ERP_MODULES.filter(
-          (m) => m.group === group && (!m.href || canSeeModule(m, permissions)),
-        );
-        if (!items.length) return null;
-        const Icon = GROUP_ICONS[group];
-        return (
-          <div key={group} className="grid gap-0.5">
-            <h3 className="text-sidebar-muted flex items-center gap-2 px-3 pb-1.5 text-[11px] font-semibold tracking-[0.08em] uppercase">
-              <Icon className="size-3.5" aria-hidden />
-              {group}
-            </h3>
-            {items.map((m) => (
-              <ModuleItem key={m.slug} module={m} permissions={permissions} />
-            ))}
-          </div>
-        );
-      })}
+    <nav aria-label="Modules" className={cn("grid content-start gap-0.5", className)}>
+      {ERP_MODULES.map((m) => (
+        <ModuleItem key={m.slug} module={m} permissions={permissions} />
+      ))}
     </nav>
   );
 }

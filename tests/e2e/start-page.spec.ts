@@ -37,7 +37,7 @@ test("each person lands on their own start page; signed out goes to sign-in", as
   const store = await (await browser.newContext({ extraHTTPHeaders: {} })).newPage();
   await signIn(store, E2E_USERS.storekeeper.email, E2E_USERS.storekeeper.password);
   await store.waitForURL((u) => !u.pathname.startsWith("/login"));
-  await store.goto("/deliveries");
+  await store.goto("/customers");
   await expect(store).toHaveURL(/\/inventory$/);
 
   const stranger = await (await browser.newContext({ extraHTTPHeaders: {} })).newPage();

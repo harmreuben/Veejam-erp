@@ -12,7 +12,7 @@ export default async function ReportsLayout({ children }: { children: ReactNode 
     <>
       <div className="pt-6">
         <Tabs
-          label="Reports"
+          label="Financial reports"
           items={[
             { href: "/reports", label: "All reports", exact: true },
             { href: "/reports/sales", label: "Sales" },
@@ -21,6 +21,9 @@ export default async function ReportsLayout({ children }: { children: ReactNode 
             { href: "/reports/profit", label: "Profit and loss" },
             ...(hasPermission(user, "catalogue.costs")
               ? [{ href: "/reports/stock", label: "Stock value" }]
+              : []),
+            ...(hasPermission(user, "accounting.view")
+              ? [{ href: "/accounting", label: "Accounts & ledger" }]
               : []),
           ]}
         />

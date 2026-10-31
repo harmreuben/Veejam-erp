@@ -12,18 +12,9 @@ import { getDb } from "@/server/db/client";
 import { hasPermission } from "@/server/auth/permissions";
 import { ValidationError } from "@/server/errors";
 import { setFlash } from "@/server/flash";
-import {
-  cancelDelivery,
-  createDeliveryNote,
-  createShareLink,
-  dispatchDelivery,
-  markDelivered,
-  revokeShareLink,
-  updateTaxRate,
-} from "@/server/modules/sales/extras";
+import { createShareLink, revokeShareLink, updateTaxRate } from "@/server/modules/sales/extras";
 import {
   createAndPostInvoice,
-  invoiceAndPost,
   postDraftNow,
   postInvoiceBatch,
   type BatchItemResult,
@@ -32,22 +23,15 @@ import {
 import { deleteCreditNote } from "@/server/modules/sales/correct-credit-note";
 import { deleteInvoice } from "@/server/modules/sales/delete-invoice";
 import { KIND_LABELS } from "@/server/modules/sales/schemas";
-import {
-  cancelDocument,
-  confirmOrder,
-  convertDocument,
-  createDraft,
-  postInvoice,
-  setQuotationStatus,
-  updateDraft,
-} from "@/server/modules/sales/service";
+import { cancelDocument, createDraft, postInvoice, updateDraft } from "@/server/modules/sales/service";
 
-const KINDS: Exclude<SalesDocumentKind, "CREDIT_NOTE">[] = ["QUOTATION", "SALES_ORDER", "INVOICE"];
+// Quotations and sales orders were removed (Nov 2026): invoices are the only documents written here.
+const KINDS: Exclude<SalesDocumentKind, "CREDIT_NOTE">[] = ["INVOICE"];
 
 function refreshSales() {
   for (const k of KINDS) revalidatePath(KIND_LABELS[k].path, "layout");
-  revalidatePath("/deliveries", "layout");
   revalidatePath("/inventory", "layout");
+  revalidatePath("/dashboard", "layout");
 }
 
 const field = (fd: FormData, name: string) => String(fd.get(name) ?? "");
@@ -134,7 +118,7 @@ export async function batchInvoiceAction(_prev: ActionResult, formData: FormData
 
 /**
  * Every button on a document page goes through here, named by `intent`:
- * post, confirm, sent/accepted/declined, to-order, to-invoice, cancel, deliver, share, revoke.
+ * post, delete, cancel, share, revoke (and delete-credit-note).
  */
 export async function documentAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const id = field(formData, "id");
@@ -149,33 +133,6 @@ export async function documentAction(_prev: ActionResult, formData: FormData): P
         refreshSales();
         goTo = `/invoices/${id}?posted=1`;
         return r.alreadyPosted ? `${r.number} was already posted` : `${r.number} posted`;
-      }
-      case "confirm": {
-        const r = await confirmOrder(db, actor, id, input, ctx);
-        refreshSales();
-        return r.alreadyConfirmed ? "Already confirmed" : "Order confirmed; stock reserved";
-      }
-      case "SENT":
-      case "ACCEPTED":
-      case "DECLINED": {
-        await setQuotationStatus(db, actor, id, intent, input, ctx);
-        refreshSales();
-        return `Marked ${intent.toLowerCase()}`;
-      }
-      case "to-order":
-      case "to-invoice": {
-        if (intent === "to-invoice" && hasPermission(actor, "invoices.post")) {
-          const q = await invoiceAndPost(db, actor, id, ctx);
-          refreshSales();
-          goTo = await afterQuickPost(q);
-          return q.posted ? `${q.number} posted` : "Invoice saved as a draft: it couldn't be posted";
-        }
-        // Without posting rights, a draft invoice is made as before.
-        const target = intent === "to-order" ? "SALES_ORDER" : "INVOICE";
-        const r = await convertDocument(db, actor, id, target, ctx);
-        refreshSales();
-        goTo = `${KIND_LABELS[r.kind].path}/${r.id}`;
-        return r.alreadyConverted ? "Opened the document made earlier" : "Converted";
       }
       case "delete": {
         const r = await deleteInvoice(db, actor, id, input, ctx);
@@ -201,17 +158,9 @@ export async function documentAction(_prev: ActionResult, formData: FormData): P
         refreshSales();
         return "Cancelled";
       }
-      case "deliver": {
-        const r = await createDeliveryNote(db, actor, id, ctx);
-        refreshSales();
-        goTo = `/deliveries/${r.id}`;
-        return `${r.number} ready`;
-      }
       case "share": {
         const r = await createShareLink(db, actor, id, ctx);
         revalidatePath(`/invoices/${id}`);
-        revalidatePath(`/quotations/${id}`);
-        revalidatePath(`/sales-orders/${id}`);
         return { message: "Share link created", data: { token: r.token } };
       }
       case "revoke": {
@@ -225,21 +174,6 @@ export async function documentAction(_prev: ActionResult, formData: FormData): P
   });
   if (result.ok && goTo) redirect(goTo);
   return result;
-}
-
-export async function deliveryAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  const id = field(formData, "id");
-  const intent = field(formData, "intent");
-  return toActionResult(async () => {
-    const { db, actor, ctx } = await session();
-    const input = formToObject(formData);
-    if (intent === "dispatch") await dispatchDelivery(db, actor, id, input, ctx);
-    else if (intent === "delivered") await markDelivered(db, actor, id, input, ctx);
-    else if (intent === "cancel") await cancelDelivery(db, actor, id, input, ctx);
-    else throw new ValidationError({ form: ["Unknown action"] });
-    revalidatePath("/deliveries", "layout");
-    return intent === "dispatch" ? "Dispatched" : intent === "delivered" ? "Delivered" : "Delivery cancelled";
-  });
 }
 
 export async function taxRateAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {

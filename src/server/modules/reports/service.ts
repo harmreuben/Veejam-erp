@@ -551,7 +551,7 @@ export async function ageingTotals(db: DbOrTx, asOf: string) {
 /**
  * One person's own selling: invoices they wrote (posted, VAT-inclusive) less
  * credit notes raised against those invoices, money they recorded, their open
- * quotes and orders, and their customers' overdue invoices to chase.
+ * draft invoices, and their customers' overdue invoices to chase.
  * Old-system invoices are left out. No costs or profit.
  */
 export async function myDashboard(db: Db, actor: Actor, today = todayInNairobi()) {
@@ -614,15 +614,8 @@ export async function myDashboard(db: Db, actor: Actor, today = todayInNairobi()
         WHERE status = 'POSTED' AND received_by_id = ${me}::uuid
           AND received_on BETWEEN ${toDbDate(from30)} AND ${toDbDate(today)}
         GROUP BY received_on`,
-    db.$queryRaw<
-      { quotes: number; quotes_value: string; orders: number; orders_value: string; drafts: number }[]
-    >`
-        SELECT
-          COUNT(*) FILTER (WHERE kind = 'QUOTATION' AND status IN ('DRAFT', 'SENT', 'ACCEPTED'))::int AS quotes,
-          COALESCE(SUM(total) FILTER (WHERE kind = 'QUOTATION' AND status IN ('DRAFT', 'SENT', 'ACCEPTED')), 0)::text AS quotes_value,
-          COUNT(*) FILTER (WHERE kind = 'SALES_ORDER' AND status IN ('DRAFT', 'CONFIRMED'))::int AS orders,
-          COALESCE(SUM(total) FILTER (WHERE kind = 'SALES_ORDER' AND status IN ('DRAFT', 'CONFIRMED')), 0)::text AS orders_value,
-          COUNT(*) FILTER (WHERE kind = 'INVOICE' AND status = 'DRAFT')::int AS drafts
+    db.$queryRaw<{ drafts: number }[]>`
+        SELECT COUNT(*) FILTER (WHERE kind = 'INVOICE' AND status = 'DRAFT')::int AS drafts
         FROM sales_documents WHERE created_by_id = ${me}::uuid`,
     db.$queryRaw<
       {
@@ -674,13 +667,7 @@ export async function myDashboard(db: Db, actor: Actor, today = todayInNairobi()
       const d = addDays(from30, i);
       return { day: d, sales: money(s.get(d)), received: money(p.get(d)) };
     }),
-    open: {
-      quotes: o.quotes,
-      quotesValue: money(o.quotes_value),
-      orders: o.orders,
-      ordersValue: money(o.orders_value),
-      draftInvoices: o.drafts,
-    },
+    open: { draftInvoices: o.drafts },
     toChase: chase.map((c) => ({
       id: c.id,
       number: c.number,

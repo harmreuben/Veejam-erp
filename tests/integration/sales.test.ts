@@ -5,29 +5,16 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { todayInNairobi, addDays } from "@/lib/dates";
 import { ConflictError, ForbiddenError, ValidationError } from "@/server/errors";
 import { createCustomer } from "@/server/modules/customers/service";
-import { postAdjustment, postTransfer } from "@/server/modules/inventory/documents";
-import { saveWarehouse } from "@/server/modules/inventory/queries";
 import { getDefaultPriceListId, savePrices } from "@/server/modules/pricing/service";
 import {
-  createDeliveryNote,
   createShareLink,
-  dispatchDelivery,
-  markDelivered,
   resolveShareToken,
   revokeShareLink,
   updateTaxRate,
 } from "@/server/modules/sales/extras";
-import { loadPrintableDeliveryNote, loadPrintableDocument, renderPdf } from "@/server/modules/sales/pdf";
+import { loadPrintableDocument, renderPdf } from "@/server/modules/sales/pdf";
 import { getDocument } from "@/server/modules/sales/queries";
-import {
-  cancelDocument,
-  confirmOrder,
-  convertDocument,
-  createDraft,
-  postInvoice,
-  setQuotationStatus,
-  updateDraft,
-} from "@/server/modules/sales/service";
+import { cancelDocument, createDraft, postInvoice, updateDraft } from "@/server/modules/sales/service";
 import { applySeed } from "@/server/seed";
 
 import { clearTestData, rawQuery } from "./db";
@@ -109,16 +96,15 @@ describe("seed", () => {
 describe("drafts and pricing", () => {
   it("prices lines from the price list on the server, with VAT taken out of inclusive prices", async () => {
     const s = await setup();
-    const q = await createDraft(db, s.sales, "QUOTATION", {
+    const q = await createDraft(db, s.sales, "INVOICE", {
       ...draftInput(s, [
         { unit: "CARTON", quantity: 2 },
         { unit: "PIECE", quantity: 3 },
       ]),
-      validUntil: addDays(today(), 14),
       // Anything the browser says about prices or totals is ignored.
       total: "1.00",
     });
-    expect(q.number).toBe("QUO-000001");
+    expect(q.number).toBeNull();
     const doc = await getDocument(db, s.sales, q.id);
     expect(
       doc.lines.map((l) => [l.unit, l.pieces, l.unitPrice, l.netAmount, l.taxAmount, l.grossAmount]),
@@ -345,95 +331,12 @@ describe("credit limits", () => {
   });
 });
 
-describe("quotations and sales orders", () => {
-  it("quote → order → invoice keeps the quoted price while the quote is valid", async () => {
+describe("documents", () => {
+  it("only invoices can be written (quotations and sales orders were removed)", async () => {
     const s = await setup();
-    const q = await createDraft(db, s.sales, "QUOTATION", {
-      ...draftInput(s),
-      validUntil: addDays(today(), 7),
-    });
-    await setQuotationStatus(db, s.sales, q.id, "SENT", { version: 1 });
-    await setQuotationStatus(db, s.sales, q.id, "ACCEPTED", { version: 2 });
-    await setPrice(s, "CARTON", "2100");
-
-    const order = await convertDocument(db, s.sales, q.id, "SALES_ORDER");
-    expect((await convertDocument(db, s.sales, q.id, "SALES_ORDER")).alreadyConverted).toBe(true);
-    expect((await getDocument(db, s.sales, q.id)).status).toBe("CONVERTED");
-    const o = await getDocument(db, s.sales, order.id);
-    expect([o.number, o.total, o.sourceDocument?.number]).toEqual(["SO-000001", "1900.00", "QUO-000001"]);
-
-    await confirmOrder(db, s.sales, order.id, { version: 1 });
-    expect(await db.stockReservation.findMany({ where: { documentId: order.id } })).toMatchObject([
-      { quantity: 200 },
-    ]);
-    const inv = await convertDocument(db, s.sales, order.id, "INVOICE");
-    const posted = await postInvoice(db, s.sales, inv.id, { version: 1 });
-    expect(posted.number).toBe("INV-000001");
-    expect((await getDocument(db, s.sales, inv.id)).total).toBe("1900.00");
-    expect((await getDocument(db, s.sales, order.id)).status).toBe("INVOICED");
-    expect(await db.stockReservation.count()).toBe(0);
-    expect(await balance(db, s.product.id, s.main.id)).toBe(200);
-  });
-
-  it("an expired quote converts at today's prices", async () => {
-    const s = await setup();
-    const q = await createDraft(db, s.sales, "QUOTATION", {
-      ...draftInput(s),
-      issueDate: addDays(today(), -10),
-      validUntil: addDays(today(), -1),
-    });
-    await setPrice(s, "CARTON", "2100");
-    const inv = await convertDocument(db, s.owner, q.id, "INVOICE");
-    expect((await getDocument(db, s.owner, inv.id)).total).toBe("2100.00");
-  });
-
-  it("confirmed orders hold stock: other invoices and transfers can't take it, cancelling releases it", async () => {
-    const s = await setup({ stockPieces: 400 });
-    const other = await saveWarehouse(db, s.owner, null, { code: "VAN1", name: "Van 1" });
-    const { id: orderId } = await createDraft(db, s.sales, "SALES_ORDER", draftInput(s, [{ quantity: 1 }]));
-    await confirmOrder(db, s.sales, orderId, { version: 1 });
-    // Same click twice: one reservation.
-    expect(await confirmOrder(db, s.sales, orderId, { version: 1 })).toEqual({ alreadyConfirmed: true });
-    expect(await db.stockReservation.count()).toBe(1);
-
-    const second = await createDraft(db, s.sales, "SALES_ORDER", draftInput(s, [{ quantity: 2 }]));
-    await expect(confirmOrder(db, s.sales, second.id, { version: 1 })).rejects.toThrow(
-      /Not enough stock to reserve.*400 pcs \(2 ctn\) of which 200 pcs \(1 ctn\) is reserved/,
-    );
-    const inv = await draftInvoice(s, 2);
-    await expect(postInvoice(db, s.owner, inv, { version: 1 })).rejects.toThrow(
-      /reserved for confirmed orders/,
-    );
-    await expect(
-      postTransfer(db, s.owner, {
-        fromWarehouseId: s.main.id,
-        toWarehouseId: (other as { id: string }).id,
-        idempotencyKey: randomUUID(),
-        lines: [{ productId: s.product.id, unit: "CARTON", quantity: 2 }],
-      }),
-    ).rejects.toThrow(/reserved/);
-    // A write-off records what physically happened, so it isn't blocked by reservations.
-    await postAdjustment(db, s.owner, {
-      warehouseId: s.main.id,
-      reason: "DAMAGED",
-      idempotencyKey: randomUUID(),
-      lines: [{ productId: s.product.id, direction: "OUT", unit: "PACK", quantity: 1 }],
-    });
-
-    await cancelDocument(db, s.sales, orderId, { version: 2, reason: "Customer changed their mind" });
-    expect(await db.stockReservation.count()).toBe(0);
-    expect((await getDocument(db, s.sales, orderId)).cancelReason).toBe("Customer changed their mind");
-  });
-
-  it("can't cancel an order that has a draft invoice, or invoice an unconfirmed order", async () => {
-    const s = await setup();
-    const { id } = await createDraft(db, s.sales, "SALES_ORDER", draftInput(s));
-    await expect(convertDocument(db, s.sales, id, "INVOICE")).rejects.toThrow(/Confirm SO-000001 first/);
-    await confirmOrder(db, s.sales, id, { version: 1 });
-    await convertDocument(db, s.sales, id, "INVOICE");
-    await expect(cancelDocument(db, s.sales, id, { version: 2, reason: "x" })).rejects.toThrow(
-      /Cancel that draft first/,
-    );
+    for (const kind of ["QUOTATION", "SALES_ORDER"] as const) {
+      await expect(createDraft(db, s.owner, kind, draftInput(s))).rejects.toBeInstanceOf(ValidationError);
+    }
   });
 
   it("storekeepers can't create sales documents", async () => {
@@ -445,27 +348,7 @@ describe("quotations and sales orders", () => {
   });
 });
 
-describe("delivery notes, share links and PDFs", () => {
-  it("delivery note: one per posted invoice, prepared → dispatched → delivered", async () => {
-    const s = await setup();
-    const id = await draftInvoice(s);
-    await expect(createDeliveryNote(db, s.owner, id)).rejects.toThrow(/Post the invoice/);
-    await postInvoice(db, s.owner, id, { version: 1 });
-    const store = await makeUser(db, "STOREKEEPER");
-    const note = await createDeliveryNote(db, store, id);
-    expect(note.number).toBe("DN-000001");
-    expect((await createDeliveryNote(db, store, id)).id).toBe(note.id);
-    await dispatchDelivery(db, store, note.id, { version: 1, vehicle: "KDA 123A", driver: "Otieno" });
-    await expect(markDelivered(db, store, note.id, { version: 2, receivedBy: "" })).rejects.toBeInstanceOf(
-      ValidationError,
-    );
-    await markDelivered(db, store, note.id, { version: 2, receivedBy: "Mama Pima" });
-    const row = await db.deliveryNote.findUniqueOrThrow({ where: { id: note.id } });
-    expect([row.status, row.vehicle, row.receivedBy]).toEqual(["DELIVERED", "KDA 123A", "Mama Pima"]);
-    const pdf = await renderPdf(await loadPrintableDeliveryNote(db, note.id));
-    expect(Buffer.from(pdf.slice(0, 5)).toString()).toBe("%PDF-");
-  });
-
+describe("share links and PDFs", () => {
   it("share links: random token, only the hash stored, expire and can be revoked", async () => {
     const s = await setup();
     const id = await draftInvoice(s);
@@ -494,7 +377,7 @@ describe("delivery notes, share links and PDFs", () => {
     expect(await resolveShareToken(db, second.token)).toBeNull();
   });
 
-  it("renders invoice and quotation PDFs, with the frozen customer details on posted invoices", async () => {
+  it("renders invoice PDFs, with the frozen customer details on posted invoices", async () => {
     const s = await setup();
     const id = await draftInvoice(s);
     const draft = await loadPrintableDocument(db, id);

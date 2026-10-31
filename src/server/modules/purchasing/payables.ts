@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import "server-only";
 
 import type Decimal from "decimal.js";
@@ -72,6 +73,198 @@ async function openBillsTx(tx: DbOrTx, supplierId: string) {
 
 export type BillResult = { id: string; number: string; alreadyPosted: boolean; creditApplied: string };
 
+/** The posting itself, inside the caller's transaction (also used by stock purchases). */
+export async function postBillTx(
+  tx: Prisma.TransactionClient,
+  actor: Actor,
+  v: z.output<typeof billSchema>,
+  ctx: AuditContext = {},
+) {
+  const supplier = await lockSupplier(tx, v.supplierId);
+  await assertBooksOpen(tx, v.billDate);
+  const errors: Record<string, string[]> = {};
+  if (v.billDate > todayInNairobi()) errors.billDate = ["Can't be in the future"];
+  const dueDate = v.dueDate ?? addDays(v.billDate, supplier.paymentTermsDays);
+  if (dueDate < v.billDate) errors.dueDate = ["Can't be before the bill date"];
+  const duplicate = await tx.supplierBill.findFirst({
+    where: {
+      supplierId: supplier.id,
+      supplierInvoiceNumber: v.supplierInvoiceNumber,
+      status: "POSTED",
+    },
+    select: { number: true },
+  });
+  if (duplicate) {
+    errors.supplierInvoiceNumber = [
+      `${supplier.name}'s invoice ${v.supplierInvoiceNumber} is already entered as ${duplicate.number}`,
+    ];
+  }
+  if (!v.receipts.length && !v.expenses.length) errors.form = ["Add the goods received or an expense line"];
+
+  // Goods received: each GRN once, this supplier's, not billed yet. Locked so two bills can't take it.
+  const grnIds = v.receipts.map((r) => r.goodsReceiptId);
+  if (new Set(grnIds).size !== grnIds.length) errors.form = ["A goods received note is listed twice"];
+  for (const id of [...grnIds].sort()) {
+    await tx.$queryRaw`SELECT id FROM goods_receipts WHERE id = ${id}::uuid FOR UPDATE`;
+  }
+  const grns = await tx.goodsReceipt.findMany({ where: { id: { in: grnIds } } });
+  v.receipts.forEach((r, i) => {
+    const g = grns.find((x) => x.id === r.goodsReceiptId);
+    if (!g || g.supplierId !== supplier.id) errors[`receipts.${i}.net`] = ["Not from this supplier"];
+    else if (g.billId) errors[`receipts.${i}.net`] = [`${g.number} is already on another bill`];
+  });
+
+  const accountIds = [...new Set(v.expenses.map((e) => e.accountId))];
+  const accounts = await tx.account.findMany({ where: { id: { in: accountIds } } });
+  v.expenses.forEach((e, i) => {
+    const a = accounts.find((x) => x.id === e.accountId);
+    if (
+      !a ||
+      a.status !== "ACTIVE" ||
+      (a.type !== "EXPENSE" && a.type !== "ASSET") ||
+      (a.systemKey &&
+        ((SUBLEDGER_ACCOUNTS as readonly string[]).includes(a.systemKey) || a.systemKey === "VAT_INPUT"))
+    ) {
+      errors[`expenses.${i}.accountId`] = ["Choose an expense or asset account"];
+    }
+  });
+  if (Object.keys(errors).length) throw new ValidationError(errors);
+
+  const lines = [
+    ...v.receipts.map((r) => {
+      const g = grns.find((x) => x.id === r.goodsReceiptId)!;
+      const net = toDecimal(r.net!);
+      const tax = toDecimal(r.tax!);
+      return {
+        kind: "GOODS" as const,
+        goodsReceiptId: g.id,
+        accountId: null,
+        description: `Goods received ${g.number}${g.supplierReference ? ` (${g.supplierReference})` : ""}`,
+        net,
+        tax,
+        grnCost: g.totalCost,
+      };
+    }),
+    ...v.expenses.map((e) => ({
+      kind: "EXPENSE" as const,
+      goodsReceiptId: null,
+      accountId: e.accountId,
+      description: e.description,
+      net: toDecimal(e.net!),
+      tax: toDecimal(e.tax ?? "0"),
+      grnCost: null,
+    })),
+  ];
+  const subtotal = lines.reduce((s, l) => s.plus(l.net), zero());
+  const taxTotal = lines.reduce((s, l) => s.plus(l.tax), zero());
+  const total = subtotal.plus(taxTotal);
+  if (!total.greaterThan(0)) throw new ValidationError({ form: ["The bill's total must be more than zero"] });
+
+  const number = await nextNumber(tx, "SUPPLIER_BILL");
+  const bill = await tx.supplierBill.create({
+    data: {
+      number,
+      supplierId: supplier.id,
+      supplierInvoiceNumber: v.supplierInvoiceNumber,
+      billDate: toDbDate(v.billDate),
+      dueDate: toDbDate(dueDate),
+      subtotal: subtotal.toFixed(2),
+      taxTotal: taxTotal.toFixed(2),
+      total: total.toFixed(2),
+      notes: v.notes,
+      idempotencyKey: v.idempotencyKey,
+      postedById: actor.id,
+      lines: {
+        create: lines.map((l, i) => ({
+          position: i + 1,
+          kind: l.kind,
+          goodsReceiptId: l.goodsReceiptId,
+          accountId: l.accountId,
+          description: l.description,
+          netAmount: l.net.toFixed(2),
+          taxAmount: l.tax.toFixed(2),
+          grossAmount: l.net.plus(l.tax).toFixed(2),
+        })),
+      },
+    },
+  });
+  if (grnIds.length)
+    await tx.goodsReceipt.updateMany({ where: { id: { in: grnIds } }, data: { billId: bill.id } });
+
+  const goods = lines.filter((l) => l.kind === "GOODS");
+  const grnCost = goods.reduce((s, l) => s.plus(l.grnCost!), zero());
+  const goodsNet = goods.reduce((s, l) => s.plus(l.net), zero());
+  const diff = goodsNet.minus(grnCost);
+  const journalLines: JournalLineInput[] = [
+    { account: "GRNI", debit: grnCost.toFixed(2) },
+    ...(diff.greaterThan(0)
+      ? [
+          {
+            account: "PRICE_DIFF" as const,
+            debit: diff.toFixed(2),
+            description: "Billed above the cost on receipt",
+          },
+        ]
+      : diff.lessThan(0)
+        ? [
+            {
+              account: "PRICE_DIFF" as const,
+              credit: diff.negated().toFixed(2),
+              description: "Billed below the cost on receipt",
+            },
+          ]
+        : []),
+    ...lines
+      .filter((l) => l.kind === "EXPENSE")
+      .map((l) => ({
+        account: { id: l.accountId! },
+        debit: l.net.toFixed(2),
+        description: l.description,
+      })),
+    { account: "VAT_INPUT", debit: taxTotal.toFixed(2) },
+    { account: "AP", credit: total.toFixed(2) },
+  ];
+  await postJournal(tx, {
+    date: v.billDate,
+    description: `Bill ${number} — ${supplier.name} invoice ${v.supplierInvoiceNumber}`,
+    sourceType: "SupplierBill",
+    sourceId: bill.id,
+    sourceNumber: number,
+    actorId: actor.id,
+    lines: journalLines,
+  });
+
+  // Apply money already paid in advance.
+  let left = total;
+  let applied = zero();
+  for (const p of await unappliedPayments(tx, supplier.id)) {
+    if (!left.greaterThan(0)) break;
+    const take = p.left.lessThan(left) ? p.left : left;
+    await tx.supplierPaymentAllocation.create({
+      data: { paymentId: p.id, billId: bill.id, amount: take.toFixed(2) },
+    });
+    left = left.minus(take);
+    applied = applied.plus(take);
+  }
+  if (applied.greaterThan(0)) {
+    await tx.supplierBill.update({ where: { id: bill.id }, data: { amountPaid: applied.toFixed(2) } });
+  }
+
+  await writeAudit(tx, {
+    ...auditBase(actor, ctx),
+    action: "SUPPLIER_BILL_POSTED",
+    entityType: "SupplierBill",
+    entityId: bill.id,
+    summary:
+      `${number}: ${supplier.name} invoice ${v.supplierInvoiceNumber}, ${formatKES(total.toFixed(2))}` +
+      (diff.isZero()
+        ? ""
+        : `, ${formatKES(diff.abs().toFixed(2))} ${diff.isNegative() ? "below" : "above"} cost on receipt`) +
+      (applied.greaterThan(0) ? `, ${formatKES(applied.toFixed(2))} paid from earlier payments` : ""),
+  });
+  return { id: bill.id, number, alreadyPosted: false, creditApplied: applied.toFixed(2) };
+}
+
 /**
  * Enter a supplier's invoice (BILL-). It can cover goods already received
  * (each GRN once) and/or expenses such as transport. Posts:
@@ -93,197 +286,7 @@ export async function postSupplierBill(
     return { id: existing.id, number: existing.number, alreadyPosted: true, creditApplied: "0.00" };
 
   try {
-    return await db.$transaction(
-      async (tx) => {
-        const supplier = await lockSupplier(tx, v.supplierId);
-        await assertBooksOpen(tx, v.billDate);
-        const errors: Record<string, string[]> = {};
-        if (v.billDate > todayInNairobi()) errors.billDate = ["Can't be in the future"];
-        const dueDate = v.dueDate ?? addDays(v.billDate, supplier.paymentTermsDays);
-        if (dueDate < v.billDate) errors.dueDate = ["Can't be before the bill date"];
-        const duplicate = await tx.supplierBill.findFirst({
-          where: {
-            supplierId: supplier.id,
-            supplierInvoiceNumber: v.supplierInvoiceNumber,
-            status: "POSTED",
-          },
-          select: { number: true },
-        });
-        if (duplicate) {
-          errors.supplierInvoiceNumber = [
-            `${supplier.name}'s invoice ${v.supplierInvoiceNumber} is already entered as ${duplicate.number}`,
-          ];
-        }
-        if (!v.receipts.length && !v.expenses.length)
-          errors.form = ["Add the goods received or an expense line"];
-
-        // Goods received: each GRN once, this supplier's, not billed yet. Locked so two bills can't take it.
-        const grnIds = v.receipts.map((r) => r.goodsReceiptId);
-        if (new Set(grnIds).size !== grnIds.length) errors.form = ["A goods received note is listed twice"];
-        for (const id of [...grnIds].sort()) {
-          await tx.$queryRaw`SELECT id FROM goods_receipts WHERE id = ${id}::uuid FOR UPDATE`;
-        }
-        const grns = await tx.goodsReceipt.findMany({ where: { id: { in: grnIds } } });
-        v.receipts.forEach((r, i) => {
-          const g = grns.find((x) => x.id === r.goodsReceiptId);
-          if (!g || g.supplierId !== supplier.id) errors[`receipts.${i}.net`] = ["Not from this supplier"];
-          else if (g.billId) errors[`receipts.${i}.net`] = [`${g.number} is already on another bill`];
-        });
-
-        const accountIds = [...new Set(v.expenses.map((e) => e.accountId))];
-        const accounts = await tx.account.findMany({ where: { id: { in: accountIds } } });
-        v.expenses.forEach((e, i) => {
-          const a = accounts.find((x) => x.id === e.accountId);
-          if (
-            !a ||
-            a.status !== "ACTIVE" ||
-            (a.type !== "EXPENSE" && a.type !== "ASSET") ||
-            (a.systemKey &&
-              ((SUBLEDGER_ACCOUNTS as readonly string[]).includes(a.systemKey) ||
-                a.systemKey === "VAT_INPUT"))
-          ) {
-            errors[`expenses.${i}.accountId`] = ["Choose an expense or asset account"];
-          }
-        });
-        if (Object.keys(errors).length) throw new ValidationError(errors);
-
-        const lines = [
-          ...v.receipts.map((r) => {
-            const g = grns.find((x) => x.id === r.goodsReceiptId)!;
-            const net = toDecimal(r.net!);
-            const tax = toDecimal(r.tax!);
-            return {
-              kind: "GOODS" as const,
-              goodsReceiptId: g.id,
-              accountId: null,
-              description: `Goods received ${g.number}${g.supplierReference ? ` (${g.supplierReference})` : ""}`,
-              net,
-              tax,
-              grnCost: g.totalCost,
-            };
-          }),
-          ...v.expenses.map((e) => ({
-            kind: "EXPENSE" as const,
-            goodsReceiptId: null,
-            accountId: e.accountId,
-            description: e.description,
-            net: toDecimal(e.net!),
-            tax: toDecimal(e.tax ?? "0"),
-            grnCost: null,
-          })),
-        ];
-        const subtotal = lines.reduce((s, l) => s.plus(l.net), zero());
-        const taxTotal = lines.reduce((s, l) => s.plus(l.tax), zero());
-        const total = subtotal.plus(taxTotal);
-        if (!total.greaterThan(0))
-          throw new ValidationError({ form: ["The bill's total must be more than zero"] });
-
-        const number = await nextNumber(tx, "SUPPLIER_BILL");
-        const bill = await tx.supplierBill.create({
-          data: {
-            number,
-            supplierId: supplier.id,
-            supplierInvoiceNumber: v.supplierInvoiceNumber,
-            billDate: toDbDate(v.billDate),
-            dueDate: toDbDate(dueDate),
-            subtotal: subtotal.toFixed(2),
-            taxTotal: taxTotal.toFixed(2),
-            total: total.toFixed(2),
-            notes: v.notes,
-            idempotencyKey: v.idempotencyKey,
-            postedById: actor.id,
-            lines: {
-              create: lines.map((l, i) => ({
-                position: i + 1,
-                kind: l.kind,
-                goodsReceiptId: l.goodsReceiptId,
-                accountId: l.accountId,
-                description: l.description,
-                netAmount: l.net.toFixed(2),
-                taxAmount: l.tax.toFixed(2),
-                grossAmount: l.net.plus(l.tax).toFixed(2),
-              })),
-            },
-          },
-        });
-        if (grnIds.length)
-          await tx.goodsReceipt.updateMany({ where: { id: { in: grnIds } }, data: { billId: bill.id } });
-
-        const goods = lines.filter((l) => l.kind === "GOODS");
-        const grnCost = goods.reduce((s, l) => s.plus(l.grnCost!), zero());
-        const goodsNet = goods.reduce((s, l) => s.plus(l.net), zero());
-        const diff = goodsNet.minus(grnCost);
-        const journalLines: JournalLineInput[] = [
-          { account: "GRNI", debit: grnCost.toFixed(2) },
-          ...(diff.greaterThan(0)
-            ? [
-                {
-                  account: "PRICE_DIFF" as const,
-                  debit: diff.toFixed(2),
-                  description: "Billed above the cost on receipt",
-                },
-              ]
-            : diff.lessThan(0)
-              ? [
-                  {
-                    account: "PRICE_DIFF" as const,
-                    credit: diff.negated().toFixed(2),
-                    description: "Billed below the cost on receipt",
-                  },
-                ]
-              : []),
-          ...lines
-            .filter((l) => l.kind === "EXPENSE")
-            .map((l) => ({
-              account: { id: l.accountId! },
-              debit: l.net.toFixed(2),
-              description: l.description,
-            })),
-          { account: "VAT_INPUT", debit: taxTotal.toFixed(2) },
-          { account: "AP", credit: total.toFixed(2) },
-        ];
-        await postJournal(tx, {
-          date: v.billDate,
-          description: `Bill ${number} — ${supplier.name} invoice ${v.supplierInvoiceNumber}`,
-          sourceType: "SupplierBill",
-          sourceId: bill.id,
-          sourceNumber: number,
-          actorId: actor.id,
-          lines: journalLines,
-        });
-
-        // Apply money already paid in advance.
-        let left = total;
-        let applied = zero();
-        for (const p of await unappliedPayments(tx, supplier.id)) {
-          if (!left.greaterThan(0)) break;
-          const take = p.left.lessThan(left) ? p.left : left;
-          await tx.supplierPaymentAllocation.create({
-            data: { paymentId: p.id, billId: bill.id, amount: take.toFixed(2) },
-          });
-          left = left.minus(take);
-          applied = applied.plus(take);
-        }
-        if (applied.greaterThan(0)) {
-          await tx.supplierBill.update({ where: { id: bill.id }, data: { amountPaid: applied.toFixed(2) } });
-        }
-
-        await writeAudit(tx, {
-          ...auditBase(actor, ctx),
-          action: "SUPPLIER_BILL_POSTED",
-          entityType: "SupplierBill",
-          entityId: bill.id,
-          summary:
-            `${number}: ${supplier.name} invoice ${v.supplierInvoiceNumber}, ${formatKES(total.toFixed(2))}` +
-            (diff.isZero()
-              ? ""
-              : `, ${formatKES(diff.abs().toFixed(2))} ${diff.isNegative() ? "below" : "above"} cost on receipt`) +
-            (applied.greaterThan(0) ? `, ${formatKES(applied.toFixed(2))} paid from earlier payments` : ""),
-        });
-        return { id: bill.id, number, alreadyPosted: false, creditApplied: applied.toFixed(2) };
-      },
-      { maxWait: 15_000, timeout: 60_000 },
-    );
+    return await db.$transaction((tx) => postBillTx(tx, actor, v, ctx), { maxWait: 15_000, timeout: 60_000 });
   } catch (error) {
     if (isUniqueViolation(error)) {
       const winner = await db.supplierBill.findUnique({ where: { idempotencyKey: v.idempotencyKey } });
@@ -375,6 +378,112 @@ export type SupplierPaymentResult = {
   credit: string;
 };
 
+/** The posting itself, inside the caller's transaction (also used by stock purchases). */
+export async function paySupplierTx(
+  tx: Prisma.TransactionClient,
+  actor: Actor,
+  v: z.output<typeof supplierPaymentSchema>,
+  ctx: AuditContext = {},
+) {
+  const supplier = await lockSupplier(tx, v.supplierId);
+  if (v.paidOn > todayInNairobi()) throw new ValidationError({ paidOn: ["Can't be in the future"] });
+  await assertBooksOpen(tx, v.paidOn);
+  if (v.reference) {
+    const dup = await tx.supplierPayment.findFirst({
+      where: { method: v.method, reference: v.reference, status: "POSTED" },
+      select: { number: true },
+    });
+    if (dup)
+      throw new ValidationError({ reference: [`${v.reference} was already recorded on ${dup.number}`] });
+  }
+  const bills = await openBillsTx(tx, supplier.id);
+  const amount = toDecimal(v.amount);
+  let plan: { billId: string; amount: Decimal }[] = [];
+  if (v.allocate === "manual") {
+    const errors: Record<string, string[]> = {};
+    v.allocations.forEach((a, i) => {
+      const b = bills.find((x) => x.id === a.billId);
+      if (!b)
+        errors[`allocations.${i}.amount`] = ["This bill is already paid or cancelled. Reload the page."];
+      else if (toDecimal(a.amount).greaterThan(b.outstanding))
+        errors[`allocations.${i}.amount`] = [
+          `Only ${formatKES(b.outstanding.toFixed(2))} is owed on ${b.number}`,
+        ];
+    });
+    if (Object.keys(errors).length) throw new ValidationError(errors);
+    plan = v.allocations.map((a) => ({ billId: a.billId, amount: toDecimal(a.amount) }));
+    const sum = plan.reduce((s, a) => s.plus(a.amount), zero());
+    if (sum.greaterThan(amount)) {
+      throw new ValidationError({
+        allocations: [`That applies ${formatKES(sum.toFixed(2))}, more than the ${formatKES(v.amount)} paid`],
+      });
+    }
+  } else {
+    let left = amount;
+    for (const b of bills) {
+      if (!left.greaterThan(0)) break;
+      const take = b.outstanding.lessThan(left) ? b.outstanding : left;
+      plan.push({ billId: b.id, amount: take });
+      left = left.minus(take);
+    }
+  }
+
+  const number = await nextNumber(tx, "SUPPLIER_PAYMENT");
+  const payment = await tx.supplierPayment.create({
+    data: {
+      number,
+      supplierId: supplier.id,
+      paidOn: toDbDate(v.paidOn),
+      method: v.method,
+      reference: v.reference,
+      amount: v.amount,
+      notes: v.notes,
+      idempotencyKey: v.idempotencyKey,
+      paidById: actor.id,
+    },
+  });
+  for (const a of plan) {
+    await tx.$queryRaw`SELECT id FROM supplier_bills WHERE id = ${a.billId}::uuid FOR UPDATE`;
+    await tx.supplierPaymentAllocation.create({
+      data: { paymentId: payment.id, billId: a.billId, amount: a.amount.toFixed(2) },
+    });
+    await tx.supplierBill.update({
+      where: { id: a.billId },
+      data: { amountPaid: { increment: a.amount.toFixed(2) } },
+    });
+  }
+  await postJournal(tx, {
+    date: v.paidOn,
+    description: `Payment ${number} to ${supplier.name} (${METHOD_LABELS[v.method]}${v.reference ? ` ${v.reference}` : ""})`,
+    sourceType: "SupplierPayment",
+    sourceId: payment.id,
+    sourceNumber: number,
+    actorId: actor.id,
+    lines: [
+      { account: "AP", debit: v.amount },
+      { account: METHOD_ACCOUNT[v.method], credit: v.amount },
+    ],
+  });
+  const applied = plan.reduce((s, a) => s.plus(a.amount), zero());
+  const credit = amount.minus(applied);
+  await writeAudit(tx, {
+    ...auditBase(actor, ctx),
+    action: "SUPPLIER_PAYMENT_RECORDED",
+    entityType: "SupplierPayment",
+    entityId: payment.id,
+    summary:
+      `${number}: ${formatKES(v.amount)} to ${supplier.name} by ${METHOD_LABELS[v.method]}` +
+      (credit.greaterThan(0) ? `, ${formatKES(credit.toFixed(2))} kept as credit` : ""),
+  });
+  return {
+    id: payment.id,
+    number,
+    alreadyRecorded: false,
+    applied: applied.toFixed(2),
+    credit: credit.toFixed(2),
+  };
+}
+
 /**
  * Pay a supplier (SPAY-): Dr Accounts payable, Cr Cash / M-Pesa / Bank.
  * Applied to the oldest bills first, or to the amounts chosen; anything left
@@ -399,107 +508,7 @@ export async function recordSupplierPayment(
     };
 
   try {
-    return await db.$transaction(async (tx) => {
-      const supplier = await lockSupplier(tx, v.supplierId);
-      if (v.paidOn > todayInNairobi()) throw new ValidationError({ paidOn: ["Can't be in the future"] });
-      await assertBooksOpen(tx, v.paidOn);
-      if (v.reference) {
-        const dup = await tx.supplierPayment.findFirst({
-          where: { method: v.method, reference: v.reference, status: "POSTED" },
-          select: { number: true },
-        });
-        if (dup)
-          throw new ValidationError({ reference: [`${v.reference} was already recorded on ${dup.number}`] });
-      }
-      const bills = await openBillsTx(tx, supplier.id);
-      const amount = toDecimal(v.amount);
-      let plan: { billId: string; amount: Decimal }[] = [];
-      if (v.allocate === "manual") {
-        const errors: Record<string, string[]> = {};
-        v.allocations.forEach((a, i) => {
-          const b = bills.find((x) => x.id === a.billId);
-          if (!b)
-            errors[`allocations.${i}.amount`] = ["This bill is already paid or cancelled. Reload the page."];
-          else if (toDecimal(a.amount).greaterThan(b.outstanding))
-            errors[`allocations.${i}.amount`] = [
-              `Only ${formatKES(b.outstanding.toFixed(2))} is owed on ${b.number}`,
-            ];
-        });
-        if (Object.keys(errors).length) throw new ValidationError(errors);
-        plan = v.allocations.map((a) => ({ billId: a.billId, amount: toDecimal(a.amount) }));
-        const sum = plan.reduce((s, a) => s.plus(a.amount), zero());
-        if (sum.greaterThan(amount)) {
-          throw new ValidationError({
-            allocations: [
-              `That applies ${formatKES(sum.toFixed(2))}, more than the ${formatKES(v.amount)} paid`,
-            ],
-          });
-        }
-      } else {
-        let left = amount;
-        for (const b of bills) {
-          if (!left.greaterThan(0)) break;
-          const take = b.outstanding.lessThan(left) ? b.outstanding : left;
-          plan.push({ billId: b.id, amount: take });
-          left = left.minus(take);
-        }
-      }
-
-      const number = await nextNumber(tx, "SUPPLIER_PAYMENT");
-      const payment = await tx.supplierPayment.create({
-        data: {
-          number,
-          supplierId: supplier.id,
-          paidOn: toDbDate(v.paidOn),
-          method: v.method,
-          reference: v.reference,
-          amount: v.amount,
-          notes: v.notes,
-          idempotencyKey: v.idempotencyKey,
-          paidById: actor.id,
-        },
-      });
-      for (const a of plan) {
-        await tx.$queryRaw`SELECT id FROM supplier_bills WHERE id = ${a.billId}::uuid FOR UPDATE`;
-        await tx.supplierPaymentAllocation.create({
-          data: { paymentId: payment.id, billId: a.billId, amount: a.amount.toFixed(2) },
-        });
-        await tx.supplierBill.update({
-          where: { id: a.billId },
-          data: { amountPaid: { increment: a.amount.toFixed(2) } },
-        });
-      }
-      await postJournal(tx, {
-        date: v.paidOn,
-        description: `Payment ${number} to ${supplier.name} (${METHOD_LABELS[v.method]}${v.reference ? ` ${v.reference}` : ""})`,
-        sourceType: "SupplierPayment",
-        sourceId: payment.id,
-        sourceNumber: number,
-        actorId: actor.id,
-        lines: [
-          { account: "AP", debit: v.amount },
-          { account: METHOD_ACCOUNT[v.method], credit: v.amount },
-        ],
-      });
-      const applied = plan.reduce((s, a) => s.plus(a.amount), zero());
-      const credit = amount.minus(applied);
-      await writeAudit(tx, {
-        ...auditBase(actor, ctx),
-        action: "SUPPLIER_PAYMENT_RECORDED",
-        entityType: "SupplierPayment",
-        entityId: payment.id,
-        summary:
-          `${number}: ${formatKES(v.amount)} to ${supplier.name} by ${METHOD_LABELS[v.method]}` +
-          (credit.greaterThan(0) ? `, ${formatKES(credit.toFixed(2))} kept as credit` : ""),
-      });
-      return {
-        id: payment.id,
-        number,
-        alreadyRecorded: false,
-        applied: applied.toFixed(2),
-        credit: credit.toFixed(2),
-      };
-    });
+    return await db.$transaction((tx) => paySupplierTx(tx, actor, v, ctx));
   } catch (error) {
     if (isUniqueViolation(error)) {
       const winner = await db.supplierPayment.findUnique({ where: { idempotencyKey: v.idempotencyKey } });
@@ -607,141 +616,6 @@ export async function openBills(db: Db, actor: Actor, supplierId: string) {
     total: b.total.toFixed(2),
     outstanding: b.outstanding.toFixed(2),
   }));
-}
-
-export async function listBills(
-  db: Db,
-  actor: Actor,
-  filter: { q?: string; status?: string; supplierId?: string } = {},
-) {
-  authorize(actor, "payables.view");
-  const where: Prisma.SupplierBillWhereInput = {};
-  if (filter.status === "UNPAID") where.status = "POSTED";
-  else if (filter.status === "CANCELLED") where.status = "CANCELLED";
-  if (filter.supplierId && isUuid(filter.supplierId)) where.supplierId = filter.supplierId;
-  if (filter.q) {
-    where.OR = [
-      { number: { contains: filter.q, mode: "insensitive" } },
-      { supplierInvoiceNumber: { contains: filter.q, mode: "insensitive" } },
-      { supplier: { name: { contains: filter.q, mode: "insensitive" } } },
-    ];
-  }
-  const today = todayInNairobi();
-  const rows = await db.supplierBill.findMany({
-    where,
-    include: { supplier: { select: { name: true } } },
-    orderBy: [{ billDate: "desc" }, { number: "desc" }],
-    take: 300,
-  });
-  return rows
-    .map((b) => {
-      const outstanding = b.status === "POSTED" ? b.total.minus(b.amountPaid) : zero();
-      const due = fromDbDate(b.dueDate);
-      return {
-        id: b.id,
-        number: b.number,
-        supplier: b.supplier.name,
-        supplierInvoiceNumber: b.supplierInvoiceNumber,
-        billDate: fromDbDate(b.billDate),
-        dueDate: due,
-        total: b.total.toFixed(2),
-        outstanding: outstanding.toFixed(2),
-        state:
-          b.status === "CANCELLED"
-            ? ("CANCELLED" as const)
-            : outstanding.isZero()
-              ? ("PAID" as const)
-              : due < today
-                ? ("OVERDUE" as const)
-                : b.amountPaid.greaterThan(0)
-                  ? ("PART_PAID" as const)
-                  : ("UNPAID" as const),
-      };
-    })
-    .filter((b) => filter.status !== "UNPAID" || b.state !== "PAID");
-}
-
-export async function getBill(db: Db, actor: Actor, id: string) {
-  authorize(actor, "payables.view");
-  if (!isUuid(id)) throw new NotFoundError();
-  const b = await db.supplierBill.findUnique({
-    where: { id },
-    include: {
-      supplier: { select: { id: true, name: true, code: true } },
-      postedBy: { select: { fullName: true } },
-      cancelledBy: { select: { fullName: true } },
-      lines: {
-        orderBy: { position: "asc" },
-        include: {
-          account: { select: { code: true, name: true } },
-          goodsReceipt: { select: { id: true, number: true, totalCost: true } },
-        },
-      },
-      allocations: {
-        orderBy: { createdAt: "asc" },
-        include: { payment: { select: { id: true, number: true, method: true, paidOn: true } } },
-      },
-    },
-  });
-  if (!b) throw new NotFoundError();
-  return {
-    ...b,
-    billDate: fromDbDate(b.billDate),
-    dueDate: fromDbDate(b.dueDate),
-    outstanding: b.status === "POSTED" ? b.total.minus(b.amountPaid).toFixed(2) : "0.00",
-  };
-}
-
-/** Unbilled goods received and expense accounts, for the bill form. */
-export async function billFormData(db: Db, actor: Actor, supplierId: string | null) {
-  authorize(actor, "bills.manage");
-  const [suppliers, accounts] = await Promise.all([
-    db.supplier.findMany({
-      where: { status: "ACTIVE" },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, paymentTermsDays: true },
-    }),
-    db.account.findMany({
-      where: {
-        status: "ACTIVE",
-        type: { in: ["EXPENSE", "ASSET"] },
-        OR: [
-          { systemKey: null },
-          { systemKey: { notIn: [...SUBLEDGER_ACCOUNTS, "VAT_INPUT", "CASH", "MPESA", "BANK"] } },
-        ],
-      },
-      orderBy: { code: "asc" },
-      select: { id: true, code: true, name: true },
-    }),
-  ]);
-  const receipts =
-    supplierId && isUuid(supplierId)
-      ? await db.goodsReceipt.findMany({
-          where: { supplierId, billId: null },
-          orderBy: { receivedOn: "asc" },
-          select: {
-            id: true,
-            number: true,
-            receivedOn: true,
-            supplierReference: true,
-            totalCost: true,
-            expectedTax: true,
-          },
-        })
-      : [];
-  return {
-    today: todayInNairobi(),
-    suppliers,
-    accounts,
-    receipts: receipts.map((r) => ({
-      id: r.id,
-      number: r.number,
-      receivedOn: fromDbDate(r.receivedOn),
-      supplierReference: r.supplierReference,
-      cost: r.totalCost.toFixed(2),
-      expectedTax: r.expectedTax.toFixed(2),
-    })),
-  };
 }
 
 export async function listSupplierPayments(
