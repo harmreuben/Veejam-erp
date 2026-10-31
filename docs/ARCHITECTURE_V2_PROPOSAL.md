@@ -198,6 +198,15 @@ the real database: the seed refuses unless the database name contains "demo".
 9. Security and functional test pass; a restore drill from backup; then and only
    then a production-readiness statement.
 
+## Scope change (31 Oct 2026)
+
+The owner decided **not to build Expenses or Business Funds**, and to stop after
+step 1. The menu has 11 sections; Payments stays as it is (customer payments and
+receipts, applied to invoices, posted to Cash, M-Pesa or Bank). Sections 4.2,
+4.3, 5 (cash panel), and build steps 2–9 below are **not planned**. Expenses can
+still be recorded as manual journal entries under Financial Reports → Accounts
+& ledger.
+
 ## Progress
 
 - **Step 1: done (31 Oct 2026).** 13-section menu (Expenses and Business Funds

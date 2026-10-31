@@ -2,7 +2,8 @@ import type { UserRole } from "@/generated/prisma/enums";
 import type { Permission } from "@/server/auth/permissions";
 
 /**
- * The 13 sections of the app's menu (VeeJam v2, Nov 2026). Each section owns
+ * The 11 sections of the app's menu (VeeJam v2, Nov 2026; Expenses and
+ * Business Funds were dropped from the plan). Each section owns
  * a set of paths: its pages are shown as tabs inside it, and the menu marks the
  * section as current on any of them. A section that isn't built yet has no
  * href and shows as "coming", never as a link to an empty page.
@@ -17,8 +18,6 @@ export type SectionIcon =
   | "sales"
   | "invoices"
   | "payments"
-  | "expenses"
-  | "funds"
   | "reports"
   | "whatsapp"
   | "settings";
@@ -80,8 +79,6 @@ export const ERP_MODULES: readonly ErpModule[] = [
     permission: "sales.view",
   },
   { slug: "payments", name: "Payments", icon: "payments", href: "/payments", permission: "sales.view" },
-  { slug: "expenses", name: "Expenses", icon: "expenses", coming: "next" },
-  { slug: "funds", name: "Business Funds", icon: "funds", coming: "next" },
   {
     slug: "reports",
     name: "Financial Reports",

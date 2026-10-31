@@ -106,8 +106,8 @@ test("every menu link opens a page", async ({ page }) => {
     .getByRole("navigation", { name: "Modules" })
     .getByRole("link")
     .evaluateAll((links) => links.map((a) => a.getAttribute("href")!));
-  // 13 sections; Expenses and Business Funds are listed as coming, without links.
+  // 11 sections, all linked (Expenses and Business Funds were dropped from the plan).
   expect(hrefs).toHaveLength(11);
-  await expect(page.getByRole("navigation", { name: "Modules" }).getByText("Soon")).toHaveCount(2);
+  await expect(page.getByRole("navigation", { name: "Modules" }).getByText("Soon")).toHaveCount(0);
   for (const href of hrefs) await opens(page, href);
 });
