@@ -8,6 +8,7 @@ import { toActionResult, type ActionResult } from "@/server/action-result";
 import { requestContext, requireUser, toActor } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { applyCredit, deletePayment, recordPayment, reversePayment } from "@/server/modules/payments/service";
+import { invoicePaymentInput } from "@/server/modules/payments/invoice-payment";
 import { correctCreditNote } from "@/server/modules/sales/correct-credit-note";
 import { createCreditNote } from "@/server/modules/sales/credit-notes";
 
@@ -32,6 +33,28 @@ export async function recordPaymentAction(_prev: ActionResult, formData: FormDat
     return r.alreadyRecorded ? `${r.number} was already recorded` : `${r.number} recorded`;
   });
   if (result.ok && id) redirect(`/payments/${id}?recorded=1`);
+  return result;
+}
+
+/**
+ * From an invoice's page: record a payment and apply it to that invoice. Anything
+ * over what the invoice still owes is kept as credit on the customer's account.
+ */
+export async function recordInvoicePaymentAction(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const invoiceId = String(formData.get("invoiceId") ?? "");
+  let paymentId = "";
+  const result = await toActionResult(async () => {
+    const { db, actor, ctx } = await session();
+    const input = formToObject(formData);
+    const r = await recordPayment(db, actor, await invoicePaymentInput(db, invoiceId, input), ctx);
+    paymentId = r.id;
+    refresh();
+    return r.alreadyRecorded ? `${r.number} was already recorded` : `${r.number} recorded`;
+  });
+  if (result.ok && paymentId) redirect(`/invoices/${invoiceId}?paid=${paymentId}`);
   return result;
 }
 

@@ -24,20 +24,30 @@ async function openPostedInvoice(page: Page) {
 test("sales records an M-Pesa payment from the invoice; the code can't be reused", async ({ page }) => {
   await signIn(page, E2E_USERS.sales.email, E2E_USERS.sales.password, "/invoices?status=POSTED");
   await openPostedInvoice(page);
-  await page.getByRole("link", { name: "Record payment" }).click();
-  await expect(page.getByLabel("Amount received (KES)")).toHaveValue("4000.00");
-  await page.getByLabel("How they paid").selectOption("MPESA");
-  await page.getByLabel("M-Pesa code").fill("sjk3h7qw2p");
-  await page.getByLabel("Amount received (KES)").fill("3000");
-  await expect(page.getByText(/Applied to invoices/)).toContainText("KES 3,000.00");
-  await page.getByRole("button", { name: "Record payment" }).click();
+  // The short form right on the invoice: amount filled in, M-Pesa chosen.
+  const form = page.getByRole("form", { name: "Record a payment" });
+  await expect(form.getByLabel("Amount received (KES)")).toHaveValue("4000.00");
+  await expect(form.getByRole("button", { name: "M-Pesa" })).toHaveAttribute("aria-pressed", "true");
+  await form.getByLabel("M-Pesa code").fill("sjk3h7qw2p");
+  await form.getByLabel("Amount received (KES)").fill("3000");
+  await form.getByRole("button", { name: "Record payment" }).click();
 
-  await expect(page.getByRole("heading", { level: 1, name: /RCT-\d{6}/ })).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("recorded");
+  // Back on the same invoice, with what's left to pay and the receipt.
+  await expect(page.getByRole("heading", { level: 1, name: /INV-\d{6}/ })).toBeVisible();
+  const done = page.getByRole("status").filter({ hasText: /Payment RCT-\d{6} of KES 3,000.00 recorded/ });
+  await expect(done).toContainText("Still to pay: KES 1,000.00");
   const receipt = await page.request.get(
-    (await page.getByRole("link", { name: "Receipt", exact: true }).getAttribute("href"))!,
+    (await done.getByRole("link", { name: "Receipt (PDF)" }).getAttribute("href"))!,
   );
   expect(receipt.headers()["content-type"]).toBe("application/pdf");
+  await expect(form.getByLabel("Amount received (KES)")).toHaveValue("1000.00");
+
+  await page.goto("/payments");
+  await page
+    .getByRole("link", { name: /RCT-\d{6}/ })
+    .first()
+    .click();
+  await expect(page.getByRole("heading", { level: 1, name: /RCT-\d{6}/ })).toBeVisible();
   // Sales can't reverse.
   await expect(page.getByRole("button", { name: "Reverse…" })).toHaveCount(0);
 

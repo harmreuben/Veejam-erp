@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import Link from "next/link";
 
 import { Banner } from "@/components/banner";
@@ -12,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { TBody, TD, TH, THead, Table } from "@/components/ui/table";
 import type { SalesDocumentKind } from "@/generated/prisma/enums";
 import { formatKES, toDecimal } from "@/lib/money";
+import { todayInNairobi } from "@/lib/dates";
 import { formatRate } from "@/lib/sales-math";
 import { formatQuantity, UNIT_LABELS } from "@/lib/units";
 import { pageUser } from "@/server/auth/guard";
@@ -19,6 +22,7 @@ import { hasPermission } from "@/server/auth/permissions";
 import { toActor } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { NotFoundError } from "@/server/errors";
+import { isUuid } from "@/server/shared/validation";
 import { readFlash } from "@/server/flash";
 import { openInvoices } from "@/server/modules/payments/service";
 import { getDocument } from "@/server/modules/sales/queries";
@@ -28,6 +32,7 @@ import { MANAGE_PERMISSION } from "@/server/modules/sales/service";
 import { ApplyCreditForm } from "../payments/apply-credit-form";
 
 import { ActionButton, ConfirmButton, ShareLinkButton } from "./document-actions";
+import { InvoicePaymentForm } from "./invoice-payment-form";
 import { DeliveryStatusBadge, SalesStatusBadge } from "./status";
 
 /** Quotations and sales orders were removed (Nov 2026); their old records have no page. */
@@ -102,13 +107,16 @@ export async function SalesDetailPage({
       />,
     );
   }
-  if (isPostedInvoice && can("payments.record") && toDecimal(doc.balanceDue).greaterThan(0)) {
-    actions.push(
-      <Button key="pay" asChild>
-        <Link href={`/payments/new?customer=${doc.customerId}&invoice=${doc.id}`}>Record payment</Link>
-      </Button>,
-    );
-  }
+  const canPay =
+    isPostedInvoice && !doc.deletedAt && can("payments.record") && toDecimal(doc.balanceDue).greaterThan(0);
+  const paidParam = typeof sp.paid === "string" && isUuid(sp.paid) ? sp.paid : null;
+  const justPaid =
+    paidParam && kind === "INVOICE"
+      ? await getDb().payment.findUnique({
+          where: { id: paidParam },
+          select: { id: true, number: true, amount: true },
+        })
+      : null;
   if (isPostedInvoice && can("credit_notes.manage")) {
     actions.push(
       <Button key="cn" variant="outline" asChild>
@@ -339,6 +347,28 @@ export async function SalesDetailPage({
           .
         </Banner>
       )}
+      {justPaid && (
+        <Banner tone="success">
+          <strong>
+            Payment {justPaid.number} of <Money value={justPaid.amount.toFixed(2)} /> recorded.
+          </strong>{" "}
+          {toDecimal(doc.balanceDue).greaterThan(0) ? (
+            <>
+              Still to pay: <Money value={doc.balanceDue} />.
+            </>
+          ) : (
+            "This invoice is now fully paid."
+          )}{" "}
+          <a
+            href={`/payments/${justPaid.id}/pdf`}
+            target="_blank"
+            rel="noopener"
+            className="text-link hover:underline"
+          >
+            Receipt (PDF)
+          </a>
+        </Banner>
+      )}
       {sp.posted && isPostedInvoice && (
         <Banner tone="success">
           <strong>{doc.number} posted.</strong> The stock has left {doc.warehouse.name}. This invoice can no
@@ -378,6 +408,19 @@ export async function SalesDetailPage({
       )}
 
       {actions.length > 0 && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+
+      {canPay && (
+        <section id="record-payment" className="bg-card grid gap-3 rounded-lg border p-4 sm:p-5">
+          <h2 className="text-base font-semibold">Record a payment</h2>
+          <InvoicePaymentForm
+            key={`${doc.balanceDue}-${justPaid?.id ?? ""}`}
+            invoiceId={doc.id}
+            balanceDue={doc.balanceDue}
+            idempotencyKey={randomUUID()}
+            today={todayInNairobi()}
+          />
+        </section>
+      )}
 
       <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_19rem]">
         <Section title="Lines">

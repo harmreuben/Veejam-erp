@@ -159,7 +159,8 @@ describe("reports", () => {
     await expect(stockValuation(db, s.sales)).rejects.toBeInstanceOf(ForbiddenError);
     expect(() => readRange({ from: "2026-10-10", to: "2026-10-01" })).toThrow();
     expect(() => readRange({ from: "2019-01-01", to: "2026-10-01" })).toThrow();
-    expect(readRange({ from: "garbage", to: "2026-10-05" }).to).toBe("2026-10-05");
+    // A bad start date falls back to the start of this month.
+    expect(readRange({ from: "garbage", to: today() }).to).toBe(today());
   });
 });
 
